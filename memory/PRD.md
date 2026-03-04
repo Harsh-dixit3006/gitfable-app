@@ -8,7 +8,7 @@ GitFable is a gamified web app that matches developers with open-source "good fi
 - **Backend**: FastAPI (Python) with Motor (async MongoDB driver)
 - **Database**: MongoDB
 - **Auth**: Mock GitHub auth (JWT-based, username login)
-- **Design**: Dark theme, Vercel/Linear aesthetic, Playfair Display + Inter fonts, gold (#F59E0B) accent
+- **Design**: "Arcane Terminal" bold immersive aesthetic, obsidian/glow cards, cinematic gradients, Playfair Display + JetBrains Mono
 
 ## User Personas
 1. **Beginner Developer**: Making their first open-source contribution, needs guided issues
@@ -51,13 +51,16 @@ GitFable is a gamified web app that matches developers with open-source "good fi
 - [x] Dark theme with gold accent, Playfair Display serif headings
 - [x] Responsive design, glassmorphism cards
 - [x] Data-testid attributes on all interactive elements
+- [x] Full frontend verification pass completed via testing agent (`/app/test_reports/iteration_2.json`)
+- [x] Login, draw, bookmark, submit PR, verify merge, dashboard, leaderboard, history, profile navigation validated end-to-end
+- [x] Accessibility polish: added explicit dialog descriptions/`aria-describedby` for login and PR dialogs
 
 ## Prioritized Backlog
 
 ### P0 (Critical - Next Phase)
-- Real GitHub OAuth integration (requires Client ID/Secret)
+- Real GitHub OAuth integration (replace mock username login)
 - Real GitHub API for issue fetching and PR verification
-- Daily cron job for issue sync
+- Daily cron job for issue sync + quality filters
 
 ### P1 (Important)
 - OG meta tags for social sharing on public profiles
