@@ -8,7 +8,7 @@ GitFable is a gamified web app that matches developers with open-source "good fi
 - **Backend**: FastAPI (Python) with Motor (async MongoDB driver)
 - **Database**: MongoDB
 - **Auth**: Mock GitHub auth (JWT-based, username login)
-- **Design**: "Arcane Terminal" bold immersive aesthetic, obsidian/glow cards, cinematic gradients, Satoshi-first typography + JetBrains Mono for code accents
+- **Design**: Premium dark product aesthetic (callsine/obvious/vectara-inspired): neutral monochrome surfaces, subtle sky accent, dense bento layouts, cinematic staggered motion, Satoshi-first typography
 
 ## User Personas
 1. **Beginner Developer**: Making their first open-source contribution, needs guided issues
@@ -57,6 +57,10 @@ GitFable is a gamified web app that matches developers with open-source "good fi
 - [x] Typography refresh: replaced legacy heading/body stack with Satoshi-first font system (user-approved direction)
 - [x] Motion polish (Landing + Discover): smoother cinematic easing, staggered hero reveals, softer card transitions, ambient glow/breathe effects
 - [x] Frontend regression validation completed for typography + motion polish (landing/discover flows passed)
+- [x] Full-app visual redesign pass across Landing, Discover, Dashboard, Leaderboard, History, Profile, and Navbar/login
+- [x] New design language implemented: neutral monochrome palette + subtle sky accent + denser bento-style information surfaces
+- [x] Added new Landing and Discover signal panels for higher information density and product-style scanning
+- [x] Regression testing complete after redesign (`/app/test_reports/iteration_3.json`, frontend pass 100%)
 
 ## Prioritized Backlog
 
