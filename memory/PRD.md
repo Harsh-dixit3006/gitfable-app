@@ -40,6 +40,9 @@ GitFable is a gamified web app that matches developers with open-source "good fi
 - [x] Public profile endpoint
 - [x] Activity feed and global stats
 - [x] Auto-seeding mock data on startup
+- [x] Reward split mechanics: Draw now awards +10 XP (2x) with 3/day cap
+- [x] New direct selection flow: `POST /api/draws/choose` awards +5 XP with no daily cap
+- [x] Issues listing endpoint upgraded for selector table (`GET /api/issues` sorted by stars, higher limit)
 
 ### Frontend
 - [x] Landing page with hero, How It Works, live stats, activity feed
@@ -61,6 +64,10 @@ GitFable is a gamified web app that matches developers with open-source "good fi
 - [x] New design language implemented: neutral monochrome palette + subtle sky accent + denser bento-style information surfaces
 - [x] Added new Landing and Discover signal panels for higher information density and product-style scanning
 - [x] Regression testing complete after redesign (`/app/test_reports/iteration_3.json`, frontend pass 100%)
+- [x] Discover now supports both modes: **Draw (2x reward)** and **Choose from table**
+- [x] Added filterable Issues Table on Discover (search + language/difficulty filter integration)
+- [x] Added “Choose” action per issue row to start normal contribution flow (bookmark / PR / verify)
+- [x] End-to-end test pass for draw/choose mechanics and UI (`/app/test_reports/iteration_4.json`, frontend+backend pass 100%)
 
 ## Prioritized Backlog
 
