@@ -30,10 +30,10 @@ export default function History() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) { setShowLogin(true); return; }
+    if (!token) { setLoading(false); return; }
     fetchHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, statusFilter, setShowLogin]);
+  }, [token, statusFilter]);
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -46,7 +46,17 @@ export default function History() {
     setLoading(false);
   };
 
-  if (!user) return null;
+  if (!user) return (
+    <div className="pt-20 px-4 md:px-8 lg:px-12 max-w-4xl mx-auto text-center" data-testid="history-login-prompt">
+      <div className="py-20">
+        <h2 className="text-2xl font-bold font-serif mb-4">Sign in to view your history</h2>
+        <p className="text-muted-foreground mb-6">Track all your drawn issues and contributions.</p>
+        <Button onClick={() => setShowLogin(true)} className="bg-amber-500 text-black hover:bg-amber-400 font-semibold" data-testid="history-sign-in">
+          Sign In
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="pt-20 pb-16 px-4 md:px-8 lg:px-12 max-w-5xl mx-auto" data-testid="history-page">

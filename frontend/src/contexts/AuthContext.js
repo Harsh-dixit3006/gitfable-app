@@ -27,9 +27,10 @@ export function AuthProvider({ children }) {
 
   const login = async (username) => {
     const res = await axios.post(`${API}/auth/login`, { username });
+    localStorage.setItem('gitfable_token', res.data.token);
     setToken(res.data.token);
     setUser(res.data.user);
-    localStorage.setItem('gitfable_token', res.data.token);
+    setShowLogin(false);
     return res.data;
   };
 
