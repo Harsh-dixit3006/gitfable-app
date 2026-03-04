@@ -14,7 +14,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background relative">
+          <div className="noise-overlay" />
+          <div className="grid-bg-animated fixed inset-0 pointer-events-none opacity-40" />
           <Navbar />
           <Routes>
             <Route path="/" element={<Landing />} />
