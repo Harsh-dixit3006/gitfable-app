@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shuffle, Bookmark, ExternalLink, RotateCcw, Star, FolderGit2, Clock, X, Send, CheckCircle2, BookOpen, Zap } from 'lucide-react';
+import { Shuffle, Bookmark, ExternalLink, RotateCcw, Star, FolderGit2, Clock, X, Send, CheckCircle2, BookOpen, Zap, Search, Crosshair } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -30,14 +30,38 @@ export default function Discover() {
   const [showPRDialog, setShowPRDialog] = useState(false);
   const [prUrl, setPrUrl] = useState('');
   const [prDrawId, setPrDrawId] = useState(null);
+  const [issues, setIssues] = useState([]);
+  const [issuesLoading, setIssuesLoading] = useState(true);
+  const [issueQuery, setIssueQuery] = useState('');
+  const [choosingIssueId, setChoosingIssueId] = useState(null);
   const shuffleRef = useRef([]);
 
   useEffect(() => {
     if (user?.active_bookmark) {
       loadBookmark(user.active_bookmark.draw_id);
     }
+    const today = new Date().toISOString().slice(0, 10);
+    if (user?.last_redraw_date === today) {
+      setRedrawsRemaining(Math.max(0, 3 - (user?.redraws_today || 0)));
+    } else {
+      setRedrawsRemaining(3);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    const loadIssues = async () => {
+      setIssuesLoading(true);
+      try {
+        const res = await axios.get(`${API}/issues`);
+        setIssues(res.data || []);
+      } catch {
+        setIssues([]);
+      }
+      setIssuesLoading(false);
+    };
+    loadIssues();
+  }, []);
 
   const loadBookmark = async (drawId) => {
     try {
@@ -60,12 +84,33 @@ export default function Discover() {
     try {
       const res = await axios.post(`${API}/draws/draw`, { languages, difficulties }, { headers: { Authorization: `Bearer ${token}` } });
       setRedrawsRemaining(res.data.redraws_remaining ?? 2);
+      toast.success('Draw complete! +10 XP (2x reward)');
       setTimeout(() => { setDrawnIssue(res.data); setDrawState('revealed'); }, 1500);
     } catch (err) {
       setDrawState('idle');
       toast.error(err.response?.data?.detail || 'Draw failed');
     }
   }, [user, token, languages, difficulties, setShowLogin]);
+
+  const handleChooseIssue = async (issueId) => {
+    if (!user) { setShowLogin(true); return; }
+    setChoosingIssueId(issueId);
+    try {
+      const res = await axios.post(
+        `${API}/draws/choose`,
+        { issue_id: issueId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setDrawnIssue(res.data);
+      setDrawState('revealed');
+      setRedrawsRemaining(res.data.redraws_remaining ?? redrawsRemaining);
+      toast.success('Issue selected! +5 XP (Draw gives +10 XP)');
+      await refreshUser();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Choose issue failed');
+    }
+    setChoosingIssueId(null);
+  };
 
   const handleBookmark = async () => {
     if (!drawnIssue) return;
@@ -115,6 +160,16 @@ export default function Discover() {
     return `${Math.floor(diff / 86400000)}d ${Math.floor((diff % 86400000) / 3600000)}h`;
   };
 
+  const filteredIssues = useMemo(() => {
+    const term = issueQuery.trim().toLowerCase();
+    return issues.filter((issue) => {
+      const byLang = languages.length === 0 || languages.includes(issue.language);
+      const byDiff = difficulties.length === 0 || difficulties.includes(issue.difficulty);
+      const byText = !term || `${issue.repo} ${issue.title} ${(issue.labels || []).join(' ')}`.toLowerCase().includes(term);
+      return byLang && byDiff && byText;
+    });
+  }, [issues, languages, difficulties, issueQuery]);
+
   return (
     <div className="pt-20 pb-16 relative" data-testid="discover-page">
       {/* Ambient glows */}
@@ -137,15 +192,15 @@ export default function Discover() {
         >
           <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-draw-budget">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Draw Budget</p>
-            <p className="text-lg font-semibold text-sky-100 mt-1">{redrawsRemaining} left today</p>
+            <p className="text-lg font-semibold text-sky-100 mt-1">{redrawsRemaining} random draws left</p>
           </div>
           <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-bookmark-slot">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Bookmark Slot</p>
             <p className="text-lg font-semibold text-zinc-100 mt-1">{activeBookmark ? 'Occupied' : 'Open'}</p>
           </div>
           <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-focus-window">
-            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Focus Window</p>
-            <p className="text-lg font-semibold text-zinc-100 mt-1">Beginner → Advanced</p>
+            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Reward Split</p>
+            <p className="text-lg font-semibold text-zinc-100 mt-1">Draw +10 XP | Choose +5 XP</p>
           </div>
         </motion.div>
 
@@ -294,9 +349,12 @@ export default function Discover() {
                 <button onClick={handleDraw} className="rune-btn px-10 py-3.5 rounded-lg animate-pulse-glow" data-testid="draw-button">
                   <Shuffle className="w-4 h-4 inline mr-2" />Draw Issue
                 </button>
-                <div className="flex items-center gap-2 text-xs text-zinc-600 font-mono">
+                <div className="flex flex-col items-center gap-1 text-xs text-zinc-600 font-mono" data-testid="draw-reward-note">
+                  <span className="text-sky-100/80">Draw gives 2x reward: +10 XP</span>
+                  <span className="flex items-center gap-2">
                   <Zap className="w-3 h-3 text-sky-300/45" />
                   {redrawsRemaining} draws remaining today
+                  </span>
                 </div>
               </motion.div>
             )}
@@ -320,6 +378,105 @@ export default function Discover() {
             )}
           </AnimatePresence>
         </motion.div>
+
+        <motion.section
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.72, ease: EASE, delay: 0.2 }}
+          className="obsidian rounded-xl p-5 md:p-6"
+          data-testid="issues-table-section"
+        >
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-xl md:text-2xl font-semibold tracking-tight" data-testid="issues-table-title">
+                Choose from all topics
+              </h2>
+              <p className="text-zinc-400 text-sm" data-testid="issues-table-subtitle">
+                Pick directly from the issue pool (+5 XP) or use Draw for 2x reward (+10 XP).
+              </p>
+            </div>
+            <div className="relative w-full md:w-[340px]">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <Input
+                value={issueQuery}
+                onChange={(e) => setIssueQuery(e.target.value)}
+                placeholder="Filter by repo, title, or label"
+                className="pl-10 bg-zinc-900/60 border-white/10"
+                data-testid="issues-table-search-input"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto" data-testid="issues-table-wrapper">
+            <table className="w-full min-w-[820px]" data-testid="issues-table">
+              <thead>
+                <tr className="border-b border-white/10 text-left">
+                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-repo">Repo</th>
+                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-topic">Topic</th>
+                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-language">Language</th>
+                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-difficulty">Difficulty</th>
+                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-stars">Stars</th>
+                  <th className="py-2.5 text-[11px] font-mono uppercase tracking-widest text-zinc-500 text-right" data-testid="issues-table-head-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {issuesLoading ? (
+                  <tr data-testid="issues-table-loading-row">
+                    <td className="py-5 text-sm text-zinc-500 font-mono" colSpan={6}>Loading issues...</td>
+                  </tr>
+                ) : filteredIssues.length === 0 ? (
+                  <tr data-testid="issues-table-empty-row">
+                    <td className="py-5 text-sm text-zinc-500 font-mono" colSpan={6}>No issues match your filters.</td>
+                  </tr>
+                ) : (
+                  filteredIssues.map((issue) => (
+                    <tr key={issue.id} className="border-b border-white/[0.05] hover:bg-white/[0.02]" data-testid={`issues-table-row-${issue.id}`}>
+                      <td className="py-3 pr-4 text-xs text-zinc-400 font-mono" data-testid={`issues-table-repo-${issue.id}`}>{issue.repo}</td>
+                      <td className="py-3 pr-4">
+                        <p className="text-sm text-zinc-200 leading-snug" data-testid={`issues-table-title-${issue.id}`}>{issue.title}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5" data-testid={`issues-table-labels-${issue.id}`}>
+                          {(issue.labels || []).slice(0, 2).map((label) => (
+                            <span key={label} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 border border-white/10 text-zinc-500 font-mono">{label}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-xs text-sky-100 font-mono" data-testid={`issues-table-language-${issue.id}`}>{issue.language}</td>
+                      <td className="py-3 pr-4">
+                        <Badge variant="outline" className={`text-xs ${DIFF_COLORS[issue.difficulty] || ''}`} data-testid={`issues-table-difficulty-${issue.id}`}>
+                          {issue.difficulty}
+                        </Badge>
+                      </td>
+                      <td className="py-3 pr-4 text-xs text-zinc-400 font-mono" data-testid={`issues-table-stars-${issue.id}`}>{issue.stars?.toLocaleString?.() || issue.stars}</td>
+                      <td className="py-3 text-right">
+                        <div className="inline-flex gap-2" data-testid={`issues-table-actions-${issue.id}`}>
+                          <a
+                            href={issue.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-md border border-white/10 text-zinc-300 hover:text-white hover:border-white/20 text-xs font-mono inline-flex items-center"
+                            style={{ transition: 'color 0.2s, border-color 0.2s' }}
+                            data-testid={`issues-table-github-${issue.id}`}
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />View
+                          </a>
+                          <button
+                            onClick={() => handleChooseIssue(issue.id)}
+                            className="rune-btn px-3 py-1.5 rounded-md text-[11px]"
+                            data-testid={`issues-table-choose-${issue.id}`}
+                            disabled={choosingIssueId === issue.id}
+                          >
+                            <Crosshair className="w-3 h-3 inline mr-1" />
+                            {choosingIssueId === issue.id ? 'Choosing...' : 'Choose'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </motion.section>
       </div>
 
       {/* PR Dialog */}
