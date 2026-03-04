@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -32,16 +33,28 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) { setShowLogin(true); return; }
+    if (!token) { setLoading(false); return; }
     axios.get(`${API}/dashboard`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => setData(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token, setShowLogin]);
+  }, [token]);
 
-  if (!user || loading) return (
+  if (loading) return (
     <div className="pt-20 px-4 md:px-8 lg:px-12 max-w-6xl mx-auto">
       <div className="grid gap-6 mt-8">{[1,2,3].map(i => <div key={i} className="h-32 rounded-xl shimmer" />)}</div>
+    </div>
+  );
+
+  if (!user) return (
+    <div className="pt-20 px-4 md:px-8 lg:px-12 max-w-4xl mx-auto text-center" data-testid="dashboard-login-prompt">
+      <div className="py-20">
+        <h2 className="text-2xl font-bold font-serif mb-4">Sign in to view your dashboard</h2>
+        <p className="text-muted-foreground mb-6">Track your contributions, badges, and streaks.</p>
+        <Button onClick={() => setShowLogin(true)} className="bg-amber-500 text-black hover:bg-amber-400 font-semibold" data-testid="dashboard-sign-in">
+          Sign In
+        </Button>
+      </div>
     </div>
   );
 

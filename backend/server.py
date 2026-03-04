@@ -136,10 +136,10 @@ async def check_badges(user_id):
     if 'Worldbuilder' not in earned and len({d.get('repo', '') for d in merged}) >= 10:
         new_badges.append({'name': 'Worldbuilder', 'earned_at': now})
     if 'Proofreader' not in earned:
-        if sum(1 for d in merged if any('bug' in l.lower() for l in d.get('labels', []))) >= 10:
+        if sum(1 for d in merged if any('bug' in label.lower() for label in d.get('labels', []))) >= 10:
             new_badges.append({'name': 'Proofreader', 'earned_at': now})
     if 'The Archivist' not in earned:
-        if sum(1 for d in merged if any('doc' in l.lower() for l in d.get('labels', []))) >= 10:
+        if sum(1 for d in merged if any('doc' in label.lower() for label in d.get('labels', []))) >= 10:
             new_badges.append({'name': 'The Archivist', 'earned_at': now})
 
     if new_badges:

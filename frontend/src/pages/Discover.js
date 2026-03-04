@@ -57,7 +57,7 @@ export default function Discover() {
     try {
       const res = await axios.post(`${API}/draws/draw`, { languages, difficulties }, { headers: { Authorization: `Bearer ${token}` } });
       setRedrawsRemaining(res.data.redraws_remaining ?? 2);
-      setTimeout(() => { setDrawnIssue(res.data); setDrawState('revealed'); }, 1200);
+      setTimeout(() => { setDrawnIssue(res.data); setDrawState('revealed'); }, 1500);
     } catch (err) {
       setDrawState('idle');
       toast.error(err.response?.data?.detail || 'Draw failed');
