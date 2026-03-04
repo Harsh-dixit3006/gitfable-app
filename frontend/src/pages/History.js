@@ -49,16 +49,16 @@ export default function History() {
       <div className="max-w-5xl mx-auto px-6 sm:px-8 lg:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-2 tracking-tight">
-            <span className="text-amber-500 font-mono text-xl">//</span> History
+            <span className="text-sky-200 font-mono text-xl">//</span> History
           </h1>
           <p className="text-zinc-400 text-base md:text-lg mb-8">Your complete contribution ledger.</p>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-8" data-testid="history-stats">
             {[
-              { label: 'Total Draws', value: stats.total_draws, icon: BarChart3, color: 'text-amber-500', border: 'border-amber-500/20' },
-              { label: 'Bookmark Rate', value: `${stats.bookmark_rate}%`, icon: Bookmark, color: 'text-violet-400', border: 'border-violet-500/20' },
-              { label: 'Merge Rate', value: `${stats.merge_rate}%`, icon: GitMerge, color: 'text-emerald-400', border: 'border-emerald-500/20' },
+              { label: 'Total Draws', value: stats.total_draws, icon: BarChart3, color: 'text-sky-200', border: 'border-sky-300/20' },
+              { label: 'Bookmark Rate', value: `${stats.bookmark_rate}%`, icon: Bookmark, color: 'text-zinc-200', border: 'border-white/10' },
+              { label: 'Merge Rate', value: `${stats.merge_rate}%`, icon: GitMerge, color: 'text-zinc-100', border: 'border-white/10' },
             ].map(s => (
               <div key={s.label} className={`obsidian rounded-xl p-5 ${s.border}`}>
                 <s.icon className={`w-4 h-4 ${s.color} mb-2`} strokeWidth={1.5} />
@@ -77,7 +77,7 @@ export default function History() {
                 data-testid={`filter-status-${s}`}
                 className={`px-3 py-1.5 rounded-md text-xs font-mono border capitalize ${
                   statusFilter === s
-                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-500 shadow-[0_0_10px_-3px_rgba(245,158,11,0.3)]'
+                    ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]'
                     : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
                 }`}
                 style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}
@@ -114,9 +114,9 @@ export default function History() {
                       </div>
                       <p className="text-sm font-medium text-zinc-300 mb-2 line-clamp-1">{draw.title}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono">{draw.language}</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-sky-300/10 text-sky-100 border border-sky-300/20 font-mono">{draw.language}</span>
                         <span className="flex items-center gap-1 text-xs text-zinc-600 font-mono">
-                          <Star className="w-3 h-3 text-amber-500/50" strokeWidth={1.5} />{draw.stars?.toLocaleString()}
+                          <Star className="w-3 h-3 text-sky-300/60" strokeWidth={1.5} />{draw.stars?.toLocaleString()}
                         </span>
                         {draw.pr_url && (
                           <a href={draw.pr_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline flex items-center gap-1 font-mono" data-testid={`pr-link-${draw.id}`}>

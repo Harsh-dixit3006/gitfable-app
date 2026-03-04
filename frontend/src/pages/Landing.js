@@ -25,16 +25,16 @@ function AnimatedNumber({ target, duration = 2000 }) {
 }
 
 const steps = [
-  { icon: Compass, title: 'Set Your Filters', desc: 'Choose languages and difficulty levels that match your expertise and curiosity.', accent: 'amber' },
-  { icon: BookOpen, title: 'Draw an Issue', desc: 'The archive shuffles and presents a curated issue from top open-source projects.', accent: 'violet' },
-  { icon: GitPullRequest, title: 'Submit Your PR', desc: 'Work on it externally, submit your pull request on GitHub.', accent: 'emerald' },
-  { icon: Award, title: 'Earn Your Legend', desc: 'Gain XP, unlock narrative badges, and climb the leaderboard.', accent: 'amber' },
+  { icon: Compass, title: 'Set Your Filters', desc: 'Choose languages and difficulty levels that match your expertise and curiosity.', accent: 'slate' },
+  { icon: BookOpen, title: 'Draw an Issue', desc: 'The archive shuffles and presents a curated issue from top open-source projects.', accent: 'sky' },
+  { icon: GitPullRequest, title: 'Submit Your PR', desc: 'Work on it externally, submit your pull request on GitHub.', accent: 'stone' },
+  { icon: Award, title: 'Earn Your Legend', desc: 'Gain XP, unlock narrative badges, and climb the leaderboard.', accent: 'sky' },
 ];
 
 const ACCENT_MAP = {
-  amber: { border: 'border-amber-500/30', glow: 'rgba(245,158,11,0.15)', text: 'text-amber-500', bg: 'bg-amber-500/10' },
-  violet: { border: 'border-violet-500/30', glow: 'rgba(139,92,246,0.15)', text: 'text-violet-400', bg: 'bg-violet-500/10' },
-  emerald: { border: 'border-emerald-500/30', glow: 'rgba(16,185,129,0.15)', text: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  slate: { border: 'border-white/15', glow: 'rgba(148,163,184,0.15)', text: 'text-slate-300', bg: 'bg-slate-400/10' },
+  sky: { border: 'border-sky-300/30', glow: 'rgba(125,211,252,0.16)', text: 'text-sky-200', bg: 'bg-sky-300/10' },
+  stone: { border: 'border-zinc-400/20', glow: 'rgba(212,212,216,0.12)', text: 'text-zinc-200', bg: 'bg-zinc-400/10' },
 };
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -70,16 +70,16 @@ export default function Landing() {
         {/* Layered ambient glows */}
         <div className="absolute inset-0 ambient-amber" />
         <div className="absolute inset-0 ambient-violet" />
-        <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)', filter: 'blur(80px)' }} />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.2), transparent 70%)', filter: 'blur(60px)' }} />
+        <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(148,163,184,0.16), transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, rgba(125,211,252,0.16), transparent 70%)', filter: 'blur(60px)' }} />
 
         <div className="relative max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-20 w-full">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             {/* Left: Copy */}
             <motion.div variants={HERO_STAGGER} initial="initial" animate="animate">
-              <motion.div variants={HERO_ITEM} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 mb-8">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
-                <span className="font-mono text-xs text-amber-500 uppercase tracking-widest">Open Source Archive</span>
+              <motion.div variants={HERO_ITEM} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-sky-300/30 bg-white/[0.04] mb-8">
+                <Sparkles className="w-3.5 h-3.5 text-sky-200" strokeWidth={1.5} />
+                <span className="font-mono text-xs text-sky-200 uppercase tracking-widest">Open Source Archive</span>
               </motion.div>
 
               <motion.h1 variants={HERO_ITEM} className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.04] tracking-tight mb-6">
@@ -111,8 +111,8 @@ export default function Landing() {
                   { label: 'Authors', value: `${stats.active_authors}`, icon: Users },
                 ].map(s => (
                   <div key={s.label} className="flex items-center gap-2">
-                    <s.icon className="w-3.5 h-3.5 text-amber-500/60" strokeWidth={1.5} />
-                    <span className="font-mono text-sm text-amber-500 font-bold">{s.value}</span>
+                    <s.icon className="w-3.5 h-3.5 text-sky-200/70" strokeWidth={1.5} />
+                    <span className="font-mono text-sm text-sky-100 font-bold">{s.value}</span>
                     <span className="text-xs text-zinc-500">{s.label}</span>
                   </div>
                 ))}
@@ -122,7 +122,7 @@ export default function Landing() {
             {/* Right: Floating card stack */}
             <div className="hidden lg:block relative h-[500px]">
               {/* Ambient glow behind cards */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full animate-soft-glow" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%)', filter: 'blur(40px)' }} />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full animate-soft-glow" style={{ background: 'radial-gradient(circle, rgba(125,211,252,0.12), transparent 70%)', filter: 'blur(40px)' }} />
 
               {[0, 1, 2, 3].map((i) => (
                 <motion.div
@@ -146,10 +146,41 @@ export default function Landing() {
                     {['Fix hydration mismatch in App Router', 'Fix accessibility labels in Dialog', 'Improve borrow checker error hint', 'Add test for DateTimeField edge case'][i]}
                   </p>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono">{['TypeScript', 'JavaScript', 'Rust', 'Python'][i]}</span>
-                    <span className="text-xs text-zinc-500 flex items-center gap-1"><Star className="w-3 h-3 text-amber-500/60" strokeWidth={1.5} />{['120k', '215k', '89k', '74k'][i]}</span>
+                    <span className="text-xs px-2 py-0.5 rounded bg-white/[0.05] text-sky-100 border border-sky-300/20 font-mono">{['TypeScript', 'JavaScript', 'Rust', 'Python'][i]}</span>
+                    <span className="text-xs text-zinc-500 flex items-center gap-1"><Star className="w-3 h-3 text-sky-300/60" strokeWidth={1.5} />{['120k', '215k', '89k', '74k'][i]}</span>
                   </div>
                 </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative px-6 sm:px-8 lg:px-12 pb-16" data-testid="signal-bento-section">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="md:col-span-5 obsidian rounded-xl p-6" data-testid="signal-bento-primary">
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-500 mb-3">Contribution Control Center</p>
+            <h3 className="text-2xl md:text-3xl font-bold leading-tight mb-4">A denser workflow from draw to merge.</h3>
+            <p className="text-sm text-zinc-400 mb-6">Inspired by premium SaaS product surfaces: high signal cards, compact metrics, and fast visual scanning.</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[{ label: 'Today Draws', value: '3' }, { label: 'Avg Merge', value: '27h' }, { label: 'XP Burst', value: '+130' }].map((item) => (
+                <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2" data-testid={`signal-metric-${item.label.toLowerCase().replace(/\s+/g, '-')}`}>
+                  <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">{item.label}</p>
+                  <p className="text-lg font-semibold text-sky-100">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="md:col-span-3 obsidian rounded-xl p-5" data-testid="signal-bento-secondary-a">
+            <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-3">Focus Language</p>
+            <p className="text-2xl font-semibold text-zinc-100 mb-1">TypeScript</p>
+            <p className="text-sm text-zinc-500">Highest active issue pool this week</p>
+          </div>
+          <div className="md:col-span-4 obsidian rounded-xl p-5" data-testid="signal-bento-secondary-b">
+            <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-3">Signal Feed</p>
+            <div className="space-y-2">
+              {['Hydration mismatch fixes trending', 'Docs issues up 18%', 'Rust beginner cards refreshed'].map((line) => (
+                <div key={line} className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300 bg-white/[0.02]">{line}</div>
               ))}
             </div>
           </div>
@@ -162,7 +193,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.8, ease: EASE }}>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-3 tracking-tight">
-              <span className="text-amber-500 font-mono text-2xl">//</span> How It Works
+              <span className="text-sky-200 font-mono text-2xl">//</span> How It Works
             </h2>
             <p className="text-zinc-400 text-base md:text-lg mb-16 max-w-lg">Four steps from idle to impact. Every contribution writes a new chapter.</p>
           </motion.div>
@@ -199,14 +230,14 @@ export default function Landing() {
 
       {/* ═══ STATS ═══ */}
       <section className="relative py-24 px-6 sm:px-8 lg:px-12" data-testid="stats-section">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.04) 0%, transparent 70%)' }} />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-300/25 to-transparent" />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(125,211,252,0.05) 0%, transparent 70%)' }} />
         <div className="relative max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { label: 'Issues Resolved', value: stats.issues_resolved, icon: GitPullRequest, accent: 'amber' },
-              { label: 'Active Authors', value: stats.active_authors, icon: Users, accent: 'violet' },
-              { label: 'Repositories Reached', value: stats.repositories_reached, icon: FolderGit2, accent: 'emerald' },
+              { label: 'Issues Resolved', value: stats.issues_resolved, icon: GitPullRequest, accent: 'slate' },
+              { label: 'Active Authors', value: stats.active_authors, icon: Users, accent: 'sky' },
+              { label: 'Repositories Reached', value: stats.repositories_reached, icon: FolderGit2, accent: 'stone' },
             ].map(({ label, value, icon: Icon, accent }, i) => {
               const a = ACCENT_MAP[accent];
               return (
@@ -240,7 +271,7 @@ export default function Landing() {
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           <div className="max-w-7xl mx-auto">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-3 tracking-tight">
-              <span className="text-amber-500 font-mono text-2xl">//</span> Recent Chapters
+              <span className="text-sky-200 font-mono text-2xl">//</span> Recent Chapters
             </h2>
             <p className="text-zinc-400 text-base md:text-lg mb-12">Stories being written right now across the archive.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -252,7 +283,7 @@ export default function Landing() {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.05, duration: 0.65, ease: EASE }}
                   whileHover={{ scale: 1.01, y: -2 }}
-                  className="obsidian rounded-xl p-5 inner-glow border-white/[0.06] hover:border-amber-500/20 cursor-default"
+                  className="obsidian rounded-xl p-5 inner-glow border-white/[0.06] hover:border-sky-300/25 cursor-default"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <img src={a.avatar_url} alt="" className="w-8 h-8 rounded-full border border-white/10 bg-zinc-900" />
@@ -260,7 +291,7 @@ export default function Landing() {
                     <span className="text-xs text-zinc-600 font-mono ml-auto">{getTimeAgo(a.timestamp)}</span>
                   </div>
                   <p className="text-sm text-zinc-400">
-                    merged a chapter in <span className="text-amber-500 font-medium">{a.repo}</span>
+                    merged a chapter in <span className="text-sky-200 font-medium">{a.repo}</span>
                   </p>
                 </motion.div>
               ))}
@@ -272,7 +303,7 @@ export default function Landing() {
       {/* ═══ BOTTOM CTA ═══ */}
       <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="bottom-cta">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.06) 0%, transparent 60%)' }} />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(125,211,252,0.08) 0%, transparent 60%)' }} />
         <div className="relative max-w-2xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-5 tracking-tight">
             Ready to Write<br /><span className="gold-text">Your Chapter?</span>
@@ -291,7 +322,7 @@ export default function Landing() {
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
         <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-zinc-600">
           <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-amber-500/60" strokeWidth={1.5} />
+            <BookOpen className="w-4 h-4 text-sky-300/70" strokeWidth={1.5} />
             <span className="font-serif font-medium text-zinc-400">GitFable</span>
           </div>
           <p className="font-mono text-xs">Every PR is a page in your legend.</p>
