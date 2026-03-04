@@ -45,7 +45,7 @@ export default function Navbar() {
       <nav className="fixed top-0 left-0 right-0 z-40 border-b border-white/[0.04] bg-zinc-950/80 backdrop-blur-2xl" data-testid="navbar">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group" data-testid="nav-logo">
-            <BookOpen className="w-5 h-5 text-amber-500 group-hover:scale-110" strokeWidth={1.5} style={{ transition: 'transform 0.2s' }} />
+            <BookOpen className="w-5 h-5 text-sky-300 group-hover:scale-110" strokeWidth={1.5} style={{ transition: 'transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)' }} />
             <span className="font-serif text-lg font-bold tracking-tight text-zinc-100">GitFable</span>
           </Link>
 
@@ -57,7 +57,7 @@ export default function Navbar() {
                 data-testid={`nav-${label.toLowerCase()}`}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-mono uppercase tracking-wider ${
                   location.pathname === path
-                    ? 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
+                    ? 'text-sky-200 bg-white/[0.06] border border-sky-300/30 shadow-[0_0_18px_-10px_rgba(125,211,252,0.7)]'
                     : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
                 }`}
                 style={{ transition: 'color 0.15s, background-color 0.15s, border-color 0.15s' }}
@@ -80,7 +80,7 @@ export default function Navbar() {
                       <AvatarFallback className="bg-zinc-900 text-xs">{user.username?.[0]?.toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <span className="hidden md:inline text-xs font-mono text-zinc-300">{user.username}</span>
-                    <span className="hidden md:inline text-[10px] font-mono text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    <span className="hidden md:inline text-[10px] font-mono text-sky-200 bg-white/[0.06] px-1.5 py-0.5 rounded border border-sky-300/25">
                       Lv.{user.level}
                     </span>
                   </button>
@@ -116,7 +116,7 @@ export default function Navbar() {
                 to={path}
                 data-testid={`mobile-nav-${label.toLowerCase()}`}
                 className={`flex flex-col items-center gap-1 px-3 py-1 rounded-md text-[10px] font-mono uppercase ${
-                  location.pathname === path ? 'text-amber-500' : 'text-zinc-600'
+                  location.pathname === path ? 'text-sky-200' : 'text-zinc-600'
                 }`}
               >
                 <Icon className="w-4 h-4" strokeWidth={1.5} />
@@ -129,7 +129,7 @@ export default function Navbar() {
 
       <Dialog open={showLogin} onOpenChange={setShowLogin}>
         <DialogContent className="bg-zinc-950 border-white/10 sm:max-w-md" data-testid="login-dialog" aria-describedby="login-dialog-description">
-          <div className="absolute inset-0 rounded-lg" style={{ background: 'radial-gradient(300px circle at 50% 0%, rgba(245,158,11,0.06), transparent)' }} />
+          <div className="absolute inset-0 rounded-lg" style={{ background: 'radial-gradient(300px circle at 50% 0%, rgba(125,211,252,0.08), transparent)' }} />
           <DialogHeader className="relative">
             <DialogTitle className="font-serif text-2xl text-center">Begin Your Story</DialogTitle>
             <DialogDescription id="login-dialog-description" className="text-center text-zinc-500 text-sm">
@@ -144,7 +144,7 @@ export default function Navbar() {
                 placeholder="GitHub username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="pl-10 bg-zinc-900 border-white/10 h-12 text-sm font-mono focus:border-amber-500/30 focus:ring-amber-500/20"
+                className="pl-10 bg-zinc-900 border-white/10 h-12 text-sm font-mono focus:border-sky-300/40 focus:ring-sky-300/20"
                 data-testid="login-username-input"
                 autoFocus
               />

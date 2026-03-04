@@ -13,8 +13,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const LANGUAGES = ['JavaScript', 'TypeScript', 'Python', 'Rust', 'Go', 'Java', 'Ruby', 'C', 'Dart', 'Elixir'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
 const DIFF_COLORS = {
-  Beginner: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  Intermediate: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  Beginner: 'bg-sky-300/10 text-sky-200 border-sky-300/20',
+  Intermediate: 'bg-slate-300/10 text-slate-200 border-slate-300/20',
   Advanced: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
 const EASE = [0.22, 1, 0.36, 1];
@@ -118,24 +118,45 @@ export default function Discover() {
   return (
     <div className="pt-20 pb-16 relative" data-testid="discover-page">
       {/* Ambient glows */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.08) 0%, transparent 70%)' }} />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(125,211,252,0.1) 0%, transparent 70%)' }} />
 
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE }}>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 tracking-tight">
-            <span className="text-amber-500 font-mono text-xl">//</span> Discover
+            <span className="text-sky-200 font-mono text-xl">//</span> Discover
           </h1>
           <p className="text-zinc-300 text-base md:text-lg mb-8">Draw your next contribution from the archive.</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: EASE, delay: 0.06 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6"
+          data-testid="discover-signal-grid"
+        >
+          <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-draw-budget">
+            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Draw Budget</p>
+            <p className="text-lg font-semibold text-sky-100 mt-1">{redrawsRemaining} left today</p>
+          </div>
+          <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-bookmark-slot">
+            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Bookmark Slot</p>
+            <p className="text-lg font-semibold text-zinc-100 mt-1">{activeBookmark ? 'Occupied' : 'Open'}</p>
+          </div>
+          <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-focus-window">
+            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Focus Window</p>
+            <p className="text-lg font-semibold text-zinc-100 mt-1">Beginner → Advanced</p>
+          </div>
         </motion.div>
 
         {/* Active Bookmark */}
         {activeBookmark && (
           <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, ease: EASE }} className="mb-8" data-testid="active-bookmark">
-            <div className="obsidian inner-glow rounded-xl p-5 border-amber-500/20">
+            <div className="obsidian inner-glow rounded-xl p-5 border-sky-300/20">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Bookmark className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  <span className="font-mono text-xs text-amber-500 uppercase tracking-wider">Active Bookmark</span>
+                  <Bookmark className="w-4 h-4 text-sky-200 fill-sky-200" />
+                  <span className="font-mono text-xs text-sky-200 uppercase tracking-wider">Active Bookmark</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
                   <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -147,7 +168,7 @@ export default function Discover() {
               </div>
               <p className="font-medium text-sm text-zinc-200 mb-3">{activeBookmark.title}</p>
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono">{activeBookmark.language}</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-sky-300/10 text-sky-100 border border-sky-300/25 font-mono">{activeBookmark.language}</span>
                 <Badge variant="outline" className={`text-xs ${DIFF_COLORS[activeBookmark.difficulty] || ''}`}>{activeBookmark.difficulty}</Badge>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -182,7 +203,7 @@ export default function Discover() {
               {LANGUAGES.map(lang => (
                 <button key={lang} onClick={() => toggleLang(lang)} data-testid={`filter-lang-${lang.toLowerCase()}`}
                   className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                    languages.includes(lang) ? 'bg-amber-500/15 border-amber-500/40 text-amber-500 shadow-[0_0_10px_-3px_rgba(245,158,11,0.3)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                    languages.includes(lang) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
                   }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
                   {lang}
                 </button>
@@ -195,7 +216,7 @@ export default function Discover() {
               {DIFFICULTIES.map(diff => (
                 <button key={diff} onClick={() => toggleDiff(diff)} data-testid={`filter-diff-${diff.toLowerCase()}`}
                   className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                    difficulties.includes(diff) ? 'bg-amber-500/15 border-amber-500/40 text-amber-500 shadow-[0_0_10px_-3px_rgba(245,158,11,0.3)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                    difficulties.includes(diff) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
                   }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
                   {diff}
                 </button>
@@ -208,7 +229,7 @@ export default function Discover() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE, delay: 0.15 }} className="flex flex-col items-center mb-12" data-testid="card-draw-area">
           {/* Ambient glow ring */}
           <div className="relative">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full pointer-events-none" style={{ background: drawState === 'shuffling' ? 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)' : 'radial-gradient(circle, rgba(245,158,11,0.05), transparent 70%)', filter: 'blur(30px)', transition: 'background 0.5s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full pointer-events-none" style={{ background: drawState === 'shuffling' ? 'radial-gradient(circle, rgba(125,211,252,0.2), transparent 70%)' : 'radial-gradient(circle, rgba(125,211,252,0.08), transparent 70%)', filter: 'blur(30px)', transition: 'background 0.5s' }} />
 
             <div className="relative w-72 h-96 mb-8 animate-card-breathe">
               {[0, 1, 2, 3, 4].map((i) => (
@@ -233,7 +254,7 @@ export default function Discover() {
                     : { type: 'spring', stiffness: 120, damping: 22, mass: 0.95 }}
                 >
                   {/* Inner glow line on top */}
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-300/35 to-transparent" />
 
                   {drawState === 'revealed' && i === 0 && drawnIssue ? (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="p-6 w-full h-full flex flex-col">
@@ -244,11 +265,11 @@ export default function Discover() {
                       <h3 className="font-serif text-lg font-semibold leading-snug mb-auto text-zinc-100">{drawnIssue.title}</h3>
                       <div className="space-y-3 mt-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono">{drawnIssue.language}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-sky-300/10 text-sky-100 border border-sky-300/20 font-mono">{drawnIssue.language}</span>
                           <Badge variant="outline" className={`text-xs ${DIFF_COLORS[drawnIssue.difficulty] || ''}`}>{drawnIssue.difficulty}</Badge>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-zinc-500 font-mono">
-                          <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-amber-500/70" strokeWidth={1.5} />{drawnIssue.stars?.toLocaleString()}</span>
+                          <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-sky-300/70" strokeWidth={1.5} />{drawnIssue.stars?.toLocaleString()}</span>
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {drawnIssue.labels?.map(l => <span key={l} className="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-500 border border-white/5 font-mono">{l}</span>)}
@@ -257,8 +278,8 @@ export default function Discover() {
                     </motion.div>
                   ) : (
                     <div className="text-center">
-                      <BookOpen className="w-10 h-10 text-amber-500/20 mx-auto mb-3" strokeWidth={1} />
-                      <p className="font-serif text-sm text-amber-500/30">GitFable</p>
+                      <BookOpen className="w-10 h-10 text-sky-300/25 mx-auto mb-3" strokeWidth={1} />
+                      <p className="font-serif text-sm text-sky-100/35">GitFable</p>
                     </div>
                   )}
                 </motion.div>
@@ -274,14 +295,14 @@ export default function Discover() {
                   <Shuffle className="w-4 h-4 inline mr-2" />Draw Issue
                 </button>
                 <div className="flex items-center gap-2 text-xs text-zinc-600 font-mono">
-                  <Zap className="w-3 h-3 text-amber-500/40" />
+                  <Zap className="w-3 h-3 text-sky-300/45" />
                   {redrawsRemaining} draws remaining today
                 </div>
               </motion.div>
             )}
             {drawState === 'shuffling' && (
               <motion.div key="shuffling" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: EASE }} className="text-center">
-                <p className="font-mono text-xs text-amber-500 uppercase tracking-widest animate-pulse">Shuffling the archive...</p>
+                <p className="font-mono text-xs text-sky-200 uppercase tracking-widest animate-pulse">Shuffling the archive...</p>
               </motion.div>
             )}
             {drawState === 'revealed' && drawnIssue && (
