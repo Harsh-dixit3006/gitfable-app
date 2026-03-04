@@ -36,6 +36,9 @@ class DrawRequest(BaseModel):
     languages: List[str] = []
     difficulties: List[str] = []
 
+class ChooseIssueRequest(BaseModel):
+    issue_id: str
+
 class SubmitPRRequest(BaseModel):
     pr_url: str
 
@@ -82,6 +85,34 @@ async def award_xp(user_id, amount):
     new_level = calc_level(new_xp)
     await db.users.update_one({'id': user_id}, {'$set': {'xp': new_xp, 'level': new_level}})
     return new_xp, new_level
+
+def build_draw_record(user_id: str, issue: dict, source: str):
+    return {
+        'id': str(uuid.uuid4()),
+        'user_id': user_id,
+        'issue_id': issue.get('id', ''),
+        'repo': issue.get('repo', ''),
+        'title': issue.get('title', ''),
+        'url': issue.get('url', ''),
+        'language': issue.get('language', ''),
+        'difficulty': issue.get('difficulty', ''),
+        'stars': issue.get('stars', 0),
+        'labels': issue.get('labels', []),
+        'status': 'drawn',
+        'source': source,
+        'pr_url': None,
+        'drawn_at': datetime.now(timezone.utc).isoformat(),
+        'bookmarked_at': None,
+        'pr_submitted_at': None,
+        'merged_at': None,
+        'expired_at': None,
+    }
+
+def get_draws_remaining(user: dict):
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    if user.get('last_redraw_date') != today:
+        return 3
+    return max(0, 3 - user.get('redraws_today', 0))
 
 BADGES_META = [
     {'name': 'Prologue', 'description': 'First merged PR', 'icon': 'book-open'},
@@ -214,7 +245,7 @@ async def get_issues(language: Optional[str] = None, difficulty: Optional[str] =
         query['language'] = language
     if difficulty:
         query['difficulty'] = difficulty
-    return await db.cached_issues.find(query, {'_id': 0}).limit(30).to_list(30)
+    return await db.cached_issues.find(query, {'_id': 0}).sort('stars', -1).limit(200).to_list(200)
 
 
 # --- Draws ---
@@ -233,31 +264,29 @@ async def draw_issue(req: DrawRequest, user=Depends(auth_user)):
         raise HTTPException(status_code=404, detail="No issues found matching your filters")
     issue = issues[0]
     issue.pop('_id', None)
-    draw = {
-        'id': str(uuid.uuid4()),
-        'user_id': user['id'],
-        'issue_id': issue.get('id', ''),
-        'repo': issue.get('repo', ''),
-        'title': issue.get('title', ''),
-        'url': issue.get('url', ''),
-        'language': issue.get('language', ''),
-        'difficulty': issue.get('difficulty', ''),
-        'stars': issue.get('stars', 0),
-        'labels': issue.get('labels', []),
-        'status': 'drawn',
-        'pr_url': None,
-        'drawn_at': datetime.now(timezone.utc).isoformat(),
-        'bookmarked_at': None, 'pr_submitted_at': None,
-        'merged_at': None, 'expired_at': None,
-    }
+    draw = build_draw_record(user['id'], issue, 'draw')
     await db.draws.insert_one({**draw})
     if user.get('last_redraw_date') != today:
         await db.users.update_one({'id': user['id']}, {'$set': {'redraws_today': 1, 'last_redraw_date': today}})
     else:
         await db.users.update_one({'id': user['id']}, {'$inc': {'redraws_today': 1}})
-    await award_xp(user['id'], 5)
+    await award_xp(user['id'], 10)
     updated = await db.users.find_one({'id': user['id']}, {'_id': 0})
-    draw['redraws_remaining'] = 3 - updated.get('redraws_today', 0)
+    draw['redraws_remaining'] = get_draws_remaining(updated)
+    draw['xp_awarded'] = 10
+    return draw
+
+@api_router.post("/draws/choose")
+async def choose_issue(req: ChooseIssueRequest, user=Depends(auth_user)):
+    issue = await db.cached_issues.find_one({'id': req.issue_id}, {'_id': 0})
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    draw = build_draw_record(user['id'], issue, 'choose')
+    await db.draws.insert_one({**draw})
+    await award_xp(user['id'], 5)
+    fresh_user = await db.users.find_one({'id': user['id']}, {'_id': 0})
+    draw['redraws_remaining'] = get_draws_remaining(fresh_user)
+    draw['xp_awarded'] = 5
     return draw
 
 @api_router.post("/draws/{draw_id}/bookmark")
