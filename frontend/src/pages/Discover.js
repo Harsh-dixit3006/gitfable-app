@@ -17,6 +17,7 @@ const DIFF_COLORS = {
   Intermediate: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   Advanced: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
+const EASE = [0.22, 1, 0.36, 1];
 
 export default function Discover() {
   const { user, token, setShowLogin, refreshUser } = useAuth();
@@ -117,19 +118,19 @@ export default function Discover() {
   return (
     <div className="pt-20 pb-16 relative" data-testid="discover-page">
       {/* Ambient glows */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none" style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.06) 0%, transparent 70%)' }} />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.08) 0%, transparent 70%)' }} />
 
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-2 tracking-tight">
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE }}>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 tracking-tight">
             <span className="text-amber-500 font-mono text-xl">//</span> Discover
           </h1>
-          <p className="text-zinc-400 text-base md:text-lg mb-8">Draw your next contribution from the archive.</p>
+          <p className="text-zinc-300 text-base md:text-lg mb-8">Draw your next contribution from the archive.</p>
         </motion.div>
 
         {/* Active Bookmark */}
         {activeBookmark && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8" data-testid="active-bookmark">
+          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, ease: EASE }} className="mb-8" data-testid="active-bookmark">
             <div className="obsidian inner-glow rounded-xl p-5 border-amber-500/20">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -174,7 +175,7 @@ export default function Discover() {
         )}
 
         {/* Filters */}
-        <div className="obsidian rounded-xl p-6 mb-10" data-testid="filter-section">
+        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.78, ease: EASE, delay: 0.1 }} className="obsidian rounded-xl p-6 mb-10" data-testid="filter-section">
           <div className="mb-5">
             <p className="font-mono text-xs text-zinc-500 uppercase tracking-wider mb-3">Languages</p>
             <div className="flex flex-wrap gap-2">
@@ -201,15 +202,15 @@ export default function Discover() {
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card Draw Area */}
-        <div className="flex flex-col items-center mb-12" data-testid="card-draw-area">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE, delay: 0.15 }} className="flex flex-col items-center mb-12" data-testid="card-draw-area">
           {/* Ambient glow ring */}
           <div className="relative">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full pointer-events-none" style={{ background: drawState === 'shuffling' ? 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)' : 'radial-gradient(circle, rgba(245,158,11,0.05), transparent 70%)', filter: 'blur(30px)', transition: 'background 0.5s' }} />
 
-            <div className="relative w-72 h-96 mb-8">
+            <div className="relative w-72 h-96 mb-8 animate-card-breathe">
               {[0, 1, 2, 3, 4].map((i) => (
                 <motion.div
                   key={i}
@@ -227,7 +228,9 @@ export default function Discover() {
                       x: i * 3, y: -i * 4, rotate: (i - 2) * 2.5, scale: 1 - i * 0.015, opacity: 1 - i * 0.15,
                     }
                   }
-                  transition={{ type: 'spring', stiffness: 160, damping: 18, mass: 0.8 }}
+                  transition={drawState === 'shuffling'
+                    ? { type: 'spring', stiffness: 105, damping: 18, mass: 1 }
+                    : { type: 'spring', stiffness: 120, damping: 22, mass: 0.95 }}
                 >
                   {/* Inner glow line on top */}
                   <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
@@ -266,7 +269,7 @@ export default function Discover() {
           {/* Draw / Action Buttons */}
           <AnimatePresence mode="wait">
             {drawState === 'idle' && (
-              <motion.div key="draw" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-4">
+              <motion.div key="draw" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.55, ease: EASE }} className="flex flex-col items-center gap-4">
                 <button onClick={handleDraw} className="rune-btn px-10 py-3.5 rounded-lg animate-pulse-glow" data-testid="draw-button">
                   <Shuffle className="w-4 h-4 inline mr-2" />Draw Issue
                 </button>
@@ -277,12 +280,12 @@ export default function Discover() {
               </motion.div>
             )}
             {drawState === 'shuffling' && (
-              <motion.div key="shuffling" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
+              <motion.div key="shuffling" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: EASE }} className="text-center">
                 <p className="font-mono text-xs text-amber-500 uppercase tracking-widest animate-pulse">Shuffling the archive...</p>
               </motion.div>
             )}
             {drawState === 'revealed' && drawnIssue && (
-              <motion.div key="actions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-wrap gap-3 justify-center">
+              <motion.div key="actions" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: EASE }} className="flex flex-wrap gap-3 justify-center">
                 <button onClick={handleBookmark} className="rune-btn px-6 py-2.5 rounded-md" data-testid="bookmark-button">
                   <Bookmark className="w-3.5 h-3.5 inline mr-1.5" />Bookmark
                 </button>
@@ -295,7 +298,7 @@ export default function Discover() {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
       </div>
 
       {/* PR Dialog */}

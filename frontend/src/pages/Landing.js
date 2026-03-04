@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { ArrowRight, BookOpen, Compass, GitPullRequest, Award, Star, Users, FolderGit2, ChevronRight, Zap, Sparkles } from 'lucide-react';
 import axios from 'axios';
@@ -38,6 +37,16 @@ const ACCENT_MAP = {
   emerald: { border: 'border-emerald-500/30', glow: 'rgba(16,185,129,0.15)', text: 'text-emerald-400', bg: 'bg-emerald-500/10' },
 };
 
+const EASE = [0.22, 1, 0.36, 1];
+const HERO_STAGGER = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.9, ease: EASE, staggerChildren: 0.12 } },
+};
+const HERO_ITEM = {
+  initial: { opacity: 0, y: 18 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE } },
+};
+
 export default function Landing() {
   const { user, setShowLogin } = useAuth();
   const navigate = useNavigate();
@@ -67,35 +76,35 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-20 w-full">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             {/* Left: Copy */}
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 mb-8">
+            <motion.div variants={HERO_STAGGER} initial="initial" animate="animate">
+              <motion.div variants={HERO_ITEM} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 mb-8">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
                 <span className="font-mono text-xs text-amber-500 uppercase tracking-widest">Open Source Archive</span>
-              </div>
+              </motion.div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-serif leading-[1.08] tracking-tight mb-6">
+              <motion.h1 variants={HERO_ITEM} className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.04] tracking-tight mb-6">
                 Write Your<br />
                 <span className="gold-text">Open Source</span><br />
                 Story
-              </h1>
+              </motion.h1>
 
-              <p className="text-base md:text-lg text-zinc-400 max-w-lg mb-10 leading-relaxed">
+              <motion.p variants={HERO_ITEM} className="text-base md:text-lg text-zinc-300 max-w-lg mb-10 leading-relaxed">
                 GitFable matches you with curated issues from top repositories.
                 Draw your next contribution, earn XP, collect narrative badges,
                 and forge your developer legend.
-              </p>
+              </motion.p>
 
-              <div className="flex flex-wrap gap-4">
+              <motion.div variants={HERO_ITEM} className="flex flex-wrap gap-4">
                 <button onClick={handleCTA} className="rune-btn px-8 py-3.5 rounded-lg text-sm tracking-widest animate-pulse-glow" data-testid="hero-cta-button">
                   Begin Your Story <ArrowRight className="w-4 h-4 inline ml-2" />
                 </button>
                 <button onClick={() => navigate('/leaderboard')} className="px-6 py-3.5 text-zinc-400 hover:text-white font-mono text-xs uppercase tracking-widest hover:bg-white/5 rounded-lg border border-white/5 hover:border-white/10" style={{ transition: 'color 0.2s, background-color 0.2s, border-color 0.2s' }} data-testid="hero-leaderboard-button">
                   View Leaderboard
                 </button>
-              </div>
+              </motion.div>
 
               {/* Quick stats under CTA */}
-              <div className="flex gap-6 mt-10 pt-8 border-t border-white/5">
+              <motion.div variants={HERO_ITEM} className="flex gap-6 mt-10 pt-8 border-t border-white/5">
                 {[
                   { label: 'Issues', value: '28+', icon: Zap },
                   { label: 'Languages', value: '10+', icon: FolderGit2 },
@@ -107,13 +116,13 @@ export default function Landing() {
                     <span className="text-xs text-zinc-500">{s.label}</span>
                   </div>
                 ))}
-              </div>
+              </motion.div>
             </motion.div>
 
             {/* Right: Floating card stack */}
             <div className="hidden lg:block relative h-[500px]">
               {/* Ambient glow behind cards */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%)', filter: 'blur(40px)' }} />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full animate-soft-glow" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%)', filter: 'blur(40px)' }} />
 
               {[0, 1, 2, 3].map((i) => (
                 <motion.div
@@ -127,7 +136,7 @@ export default function Landing() {
                   }}
                   initial={{ opacity: 0, x: 60, rotate: (i - 1.5) * 4 }}
                   animate={{ opacity: 1 - i * 0.15, x: 0, rotate: (i - 1.5) * 3 }}
-                  transition={{ delay: 0.4 + i * 0.15, duration: 0.6 }}
+                  transition={{ delay: 0.35 + i * 0.14, duration: 0.9, ease: EASE }}
                 >
                   <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
                     <FolderGit2 className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -151,7 +160,7 @@ export default function Landing() {
       <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="how-it-works">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <div className="max-w-7xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.8, ease: EASE }}>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-3 tracking-tight">
               <span className="text-amber-500 font-mono text-2xl">//</span> How It Works
             </h2>
@@ -167,7 +176,7 @@ export default function Landing() {
                   initial={{ opacity: 0, y: 25 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1, duration: 0.5 }}
+                  transition={{ delay: i * 0.08, duration: 0.75, ease: EASE }}
                   whileHover={{ scale: 1.02, y: -4 }}
                   className={`relative obsidian inner-glow rounded-xl p-6 group cursor-default ${a.border}`}
                 >
@@ -206,7 +215,7 @@ export default function Landing() {
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  transition={{ delay: i * 0.08, duration: 0.75, ease: EASE }}
                   className={`obsidian inner-glow rounded-xl p-7 ${a.border}`}
                 >
                   <div className="flex items-center gap-3 mb-4">
@@ -241,7 +250,7 @@ export default function Landing() {
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
+                  transition={{ delay: i * 0.05, duration: 0.65, ease: EASE }}
                   whileHover={{ scale: 1.01, y: -2 }}
                   className="obsidian rounded-xl p-5 inner-glow border-white/[0.06] hover:border-amber-500/20 cursor-default"
                 >

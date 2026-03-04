@@ -10,7 +10,7 @@
     inset: 0;
     pointer-events: none;
     z-index: 50;
-    opacity: 0.025;
+    opacity: 0.018;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -20,7 +20,8 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .obsidian:hover {
     border-color: rgba(255, 255, 255, 0.15);
@@ -64,7 +65,8 @@
     border: 1px solid rgba(245, 158, 11, 0.4);
     color: #F59E0B;
     box-shadow: 0 0 15px -3px rgba(245, 158, 11, 0.3);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Satoshi', 'Inter', sans-serif;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-size: 0.75rem;
@@ -73,6 +75,7 @@
     background: rgba(245, 158, 11, 0.2);
     box-shadow: 0 0 30px -5px rgba(245, 158, 11, 0.5);
     border-color: rgba(245, 158, 11, 0.6);
+    transform: translateY(-1px);
 }
 
 /* ═══ Animations ═══ */
@@ -93,6 +96,18 @@
     50% { transform: translateY(-8px) rotate(1deg); }
 }
 .animate-float-slow { animation: float-slow 6s ease-in-out infinite; }
+
+@keyframes card-breathe {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-4px); }
+}
+.animate-card-breathe { animation: card-breathe 4.2s ease-in-out infinite; }
+
+@keyframes soft-glow {
+    0%, 100% { opacity: 0.48; filter: blur(28px); }
+    50% { opacity: 0.75; filter: blur(34px); }
+}
+.animate-soft-glow { animation: soft-glow 5.5s ease-in-out infinite; }
 
 @keyframes shimmer {
     0% { background-position: -200% 0; }
