@@ -128,11 +128,11 @@ export default function Navbar() {
       </nav>
 
       <Dialog open={showLogin} onOpenChange={setShowLogin}>
-        <DialogContent className="bg-zinc-950 border-white/10 sm:max-w-md" data-testid="login-dialog">
+        <DialogContent className="bg-zinc-950 border-white/10 sm:max-w-md" data-testid="login-dialog" aria-describedby="login-dialog-description">
           <div className="absolute inset-0 rounded-lg" style={{ background: 'radial-gradient(300px circle at 50% 0%, rgba(245,158,11,0.06), transparent)' }} />
           <DialogHeader className="relative">
             <DialogTitle className="font-serif text-2xl text-center">Begin Your Story</DialogTitle>
-            <DialogDescription className="text-center text-zinc-500 text-sm">
+            <DialogDescription id="login-dialog-description" className="text-center text-zinc-500 text-sm">
               Sign in with your GitHub username to enter the archive.
             </DialogDescription>
           </DialogHeader>

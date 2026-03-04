@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shuffle, Bookmark, ExternalLink, RotateCcw, Star, FolderGit2, Clock, X, Send, CheckCircle2, BookOpen, Zap } from 'lucide-react';
@@ -300,9 +300,12 @@ export default function Discover() {
 
       {/* PR Dialog */}
       <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
-        <DialogContent className="bg-zinc-950 border-white/10" data-testid="pr-dialog">
+        <DialogContent className="bg-zinc-950 border-white/10" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Submit Pull Request</DialogTitle>
+            <DialogDescription id="pr-dialog-description" className="text-zinc-500 text-sm">
+              Paste your pull request URL to track and verify merge progress.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <Input placeholder="https://github.com/.../pull/123" value={prUrl} onChange={e => setPrUrl(e.target.value)}
