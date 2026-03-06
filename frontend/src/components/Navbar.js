@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BookOpen, Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User } from 'lucide-react';
+import { BookOpen, Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const navLinks = [
@@ -17,24 +17,54 @@ const navLinks = [
 ];
 
 export default function Navbar() {
-  const { user, login, logout, showLogin, setShowLogin, loading } = useAuth();
+  const { 
+    user, 
+    signInWithGithub, 
+    registerUser, 
+    logout, 
+    showLogin, 
+    setShowLogin, 
+    loading, 
+    isRegistering,
+    firebaseUser,
+  } = useAuth();
   const [username, setUsername] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleGithubLogin = async () => {
+    setLoginLoading(true);
+    try {
+      const result = await signInWithGithub();
+      if (!result.success) {
+        if (result.error !== 'Sign in cancelled') {
+          toast.error(result.error);
+        }
+      } else if (!isRegistering) {
+        // User already registered
+        toast.success('Welcome to GitFable!');
+        navigate('/discover');
+      }
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
     e.preventDefault();
     if (!username.trim()) return;
     setLoginLoading(true);
     try {
-      await login(username.trim());
-      setShowLogin(false);
-      setUsername('');
-      toast.success('Welcome to GitFable!');
-      navigate('/discover');
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Login failed');
+      const result = await registerUser(username.trim());
+      if (result.success) {
+        toast.success('Welcome to GitFable!');
+        setShowLogin(false);
+        setUsername('');
+        navigate('/discover');
+      } else {
+        toast.error(result.error);
+      }
     } finally {
       setLoginLoading(false);
     }
@@ -131,36 +161,81 @@ export default function Navbar() {
         <DialogContent className="bg-zinc-950 border-white/10 sm:max-w-md" data-testid="login-dialog" aria-describedby="login-dialog-description">
           <div className="absolute inset-0 rounded-lg" style={{ background: 'radial-gradient(300px circle at 50% 0%, rgba(125,211,252,0.08), transparent)' }} />
           <DialogHeader className="relative">
-            <DialogTitle className="font-serif text-2xl text-center">Begin Your Story</DialogTitle>
+            <DialogTitle className="font-serif text-2xl text-center">
+              {isRegistering ? 'Complete Your Profile' : 'Begin Your Story'}
+            </DialogTitle>
             <DialogDescription id="login-dialog-description" className="text-center text-zinc-500 text-sm">
-              Sign in with your GitHub username to enter the archive.
+              {isRegistering 
+                ? 'Choose a username to complete your registration.' 
+                : 'Sign in with GitHub to enter the archive.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleLogin} className="space-y-4 mt-4 relative">
-            <div className="relative">
-              <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" strokeWidth={1.5} />
-              <Input
-                type="text"
-                placeholder="GitHub username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="pl-10 bg-zinc-900 border-white/10 h-12 text-sm font-mono focus:border-sky-300/40 focus:ring-sky-300/20"
-                data-testid="login-username-input"
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loginLoading || !username.trim()}
-              className="rune-btn w-full py-3.5 rounded-lg text-center text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-              data-testid="login-submit-button"
-            >
-              {loginLoading ? 'Entering...' : 'Enter the Archive'}
-            </button>
-            <p className="text-[10px] text-center text-zinc-600 font-mono">
-              Mock authentication for demo. No real GitHub access required.
-            </p>
-          </form>
+          
+          <div className="space-y-4 mt-4 relative">
+            {!isRegistering ? (
+              <>
+                <button
+                  onClick={handleGithubLogin}
+                  disabled={loginLoading}
+                  className="w-full py-3.5 px-4 rounded-lg bg-white text-zinc-950 font-medium flex items-center justify-center gap-3 hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-testid="github-signin-button"
+                >
+                  {loginLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Github className="w-5 h-5" />
+                  )}
+                  {loginLoading ? 'Signing in...' : 'Continue with GitHub'}
+                </button>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-white/10" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-zinc-950 px-2 text-zinc-500">or</span>
+                  </div>
+                </div>
+                
+                <p className="text-[10px] text-center text-zinc-600 font-mono">
+                  For demo purposes, you can also use the legacy mock login.
+                </p>
+              </>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="text-center mb-4">
+                  <Avatar className="w-16 h-16 mx-auto border-2 border-sky-300/30">
+                    <AvatarImage src={firebaseUser?.photoURL} />
+                    <AvatarFallback className="bg-zinc-900 text-xl">
+                      {firebaseUser?.displayName?.[0]?.toUpperCase() || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <p className="mt-2 text-sm text-zinc-300">{firebaseUser?.email}</p>
+                </div>
+                
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 text-sm font-mono">@</span>
+                  <Input
+                    type="text"
+                    placeholder="Choose a username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="pl-10 bg-zinc-900 border-white/10 h-12 text-sm font-mono focus:border-sky-300/40 focus:ring-sky-300/20"
+                    data-testid="register-username-input"
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loginLoading || !username.trim()}
+                  className="rune-btn w-full py-3.5 rounded-lg text-center text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  data-testid="register-submit-button"
+                >
+                  {loginLoading ? 'Creating Account...' : 'Create Account'}
+                </button>
+              </form>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>

@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: gitfable-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: gitfable
+      POSTGRES_PASSWORD: gitfable
+      POSTGRES_DB: gitfable
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitfable -d gitfable"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: gitfable-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gitfable-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=gitfable
+      - POSTGRES_PASSWORD=gitfable
+      - POSTGRES_DB=gitfable
+      - DATABASE_URL=postgresql+asyncpg://gitfable:gitfable@postgres:5432/gitfable
+      - REDIS_URL=redis://redis:6379
+      - RATE_LIMIT_ENABLED=true
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:80
+      - ENVIRONMENT=development
+      - FIREBASE_SERVICE_ACCOUNT_PATH=/app/creds/gitfable-app-firebase-adminsdk-fbsvc-1faf6f92c5.json
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./creds:/app/creds:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=http://localhost:8001
+        - REACT_APP_FIREBASE_API_KEY=AIzaSyDRgUUCN6XjWtaknC3AltGdqdnbPrURoAE
+        - REACT_APP_FIREBASE_AUTH_DOMAIN=gitfable-app.firebaseapp.com
+        - REACT_APP_FIREBASE_PROJECT_ID=gitfable-app
+        - REACT_APP_FIREBASE_STORAGE_BUCKET=gitfable-app.firebasestorage.app
+        - REACT_APP_FIREBASE_MESSAGING_SENDER_ID=30932902369
+        - REACT_APP_FIREBASE_APP_ID=1:30932902369:web:cfcb19db92cda374b432a0
+    container_name: gitfable-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
