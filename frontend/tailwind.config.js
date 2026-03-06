@@ -7,11 +7,11 @@ module.exports = {
   ],
   theme: {
         extend: {
-                fontFamily: {
-                        serif: ['Satoshi', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-                        sans: ['Satoshi', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-                        mono: ['Satoshi', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-                },
+		fontFamily: {
+				serif: ['Satoshi', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+				sans: ['Satoshi', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+				mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace'],
+			},
                 borderRadius: {
                         lg: 'var(--radius)',
                         md: 'calc(var(--radius) - 2px)',
