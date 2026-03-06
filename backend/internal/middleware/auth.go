@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/nishantg96/gitfable/internal/ctxutil"
 	"github.com/nishantg96/gitfable/internal/database"
 	"github.com/nishantg96/gitfable/internal/firebase"
 	"github.com/nishantg96/gitfable/internal/handler"
 )
-
-type ctxKeyUser struct{}
 
 type AuthMiddleware struct {
 	fb      *firebase.Client
@@ -47,12 +46,13 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), ctxKeyUser{}, &user)
+		ctx := ctxutil.SetUser(r.Context(), &user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
+// UserFromContext extracts the authenticated user from the context.
+// Deprecated: Use ctxutil.UserFromContext directly.
 func UserFromContext(ctx context.Context) *database.User {
-	user, _ := ctx.Value(ctxKeyUser{}).(*database.User)
-	return user
+	return ctxutil.UserFromContext(ctx)
 }
