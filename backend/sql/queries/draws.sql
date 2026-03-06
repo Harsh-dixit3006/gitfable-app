@@ -16,7 +16,7 @@ SELECT * FROM draws WHERE public_id = $1 AND user_id = $2;
 SELECT * FROM draws WHERE pr_url = $1 AND status = 'pr_submitted';
 
 -- name: UpdateDrawStatus :one
-UPDATE draws SET status = $2 WHERE id = $1 RETURNING *;
+UPDATE draws SET status = $2 WHERE id = $1 AND status = sqlc.arg('current_status') RETURNING *;
 
 -- name: BookmarkDraw :one
 UPDATE draws SET status = 'bookmarked', expires_at = $2 WHERE id = $1 AND status = 'drawn' RETURNING *;
@@ -75,6 +75,14 @@ FROM draws d
 JOIN issues i ON d.issue_id = i.id
 WHERE d.user_id = $1 AND d.status = 'merged'
 ORDER BY d.merged_at DESC;
+
+-- name: GetRecentMergedDrawsWithIssues :many
+SELECT d.id, d.public_id, d.created_at, d.merged_at, d.xp_awarded, i.repo_owner, i.repo_name, i.language, i.labels, i.difficulty
+FROM draws d
+JOIN issues i ON d.issue_id = i.id
+WHERE d.user_id = $1 AND d.status = 'merged'
+ORDER BY d.merged_at DESC
+LIMIT $2;
 
 -- name: GetUserDrawStats :one
 SELECT

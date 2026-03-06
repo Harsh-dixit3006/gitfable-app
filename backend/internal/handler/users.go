@@ -40,14 +40,14 @@ func (h *UsersHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch merged draws with issues (last 5).
-	mergedDraws, err := h.Queries.GetUserMergedDrawsWithIssues(ctx, user.ID)
+	mergedDraws, err := h.Queries.GetRecentMergedDrawsWithIssues(ctx, database.GetRecentMergedDrawsWithIssuesParams{
+		UserID: user.ID,
+		Limit:  5,
+	})
 	if err != nil {
 		slog.Error("get user merged draws", "error", err)
 		InternalError(w)
 		return
-	}
-	if len(mergedDraws) > 5 {
-		mergedDraws = mergedDraws[:5]
 	}
 
 	// Fetch 365-day heatmap.
@@ -99,14 +99,14 @@ func (h *UsersHandler) PublicProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch recent 10 merged draws.
-	mergedDraws, err := h.Queries.GetUserMergedDrawsWithIssues(ctx, user.ID)
+	mergedDraws, err := h.Queries.GetRecentMergedDrawsWithIssues(ctx, database.GetRecentMergedDrawsWithIssuesParams{
+		UserID: user.ID,
+		Limit:  10,
+	})
 	if err != nil {
 		slog.Error("get user merged draws", "error", err)
 		InternalError(w)
 		return
-	}
-	if len(mergedDraws) > 10 {
-		mergedDraws = mergedDraws[:10]
 	}
 
 	// Fetch badges.
@@ -179,7 +179,7 @@ func publicUserToResponse(u database.User) map[string]any {
 	}
 }
 
-func mergedDrawsToResponse(draws []database.GetUserMergedDrawsWithIssuesRow) []map[string]any {
+func mergedDrawsToResponse(draws []database.GetRecentMergedDrawsWithIssuesRow) []map[string]any {
 	items := make([]map[string]any, len(draws))
 	for i, d := range draws {
 		item := map[string]any{
