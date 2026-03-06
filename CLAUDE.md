@@ -10,10 +10,10 @@ Gamified web app that matches developers with open-source "good first issues" th
 
 ```bash
 # Install all dependencies
-make install              # runs uv sync (backend) + yarn install (frontend)
+make install              # go mod download (backend) + yarn install (frontend)
 
 # Development servers (run in separate terminals)
-make dev-backend          # FastAPI on :8001 (uvicorn with --reload)
+make dev-backend          # Go server on :8001 (air hot-reload or go run)
 make dev-frontend         # React on :3000 (craco start)
 
 # Docker (starts postgres, redis, backend, frontend)
@@ -22,35 +22,49 @@ make docker-down          # stop all services
 make docker-logs          # tail all service logs
 
 # Testing
-make test                 # runs backend tests only
-cd backend && uv run pytest tests/ -v                # verbose backend tests
-cd backend && uv run pytest tests/test_foo.py -v     # single test file
-cd backend && uv run pytest tests/test_foo.py::test_bar -v  # single test
+make test                 # runs backend tests
+cd backend && go test ./... -v                    # verbose
+cd backend && go test ./internal/service/ -v      # single package
+cd backend && go test ./internal/service/ -run TestCalcLevel -v  # single test
+
+# Code generation (after changing SQL queries)
+make generate             # sqlc generate
+
+# Database migrations
+make migrate-up           # apply migrations
+make migrate-down         # roll back last migration
 
 # Linting
-make lint                 # ESLint on frontend/src
+make lint                 # golangci-lint (backend) + ESLint (frontend)
 
-# Add Python dependency
-make add PKG=package-name
+# Build
+make build-backend        # go build -o bin/server ./cmd/server
 ```
 
 ## Architecture
 
-**Backend:** FastAPI (async) with SQLAlchemy async ORM on PostgreSQL. Auth via Firebase Admin SDK (verifies ID tokens). Redis for rate limiting (falls back to local if unavailable). Entry point: `backend/app/main.py`.
+**Backend:** Go (Chi router) with sqlc-generated type-safe queries over pgx/PostgreSQL. Auth via Firebase Admin SDK for Go. Redis for rate limiting with in-memory fallback. Entry point: `backend/cmd/server/main.go`.
 
 **Frontend:** React 19 (CRA + CRACO) with Tailwind CSS, Shadcn/Radix UI components, Framer Motion. Uses `@` path alias mapped to `src/`. Auth state managed in `AuthContext` which wraps Firebase client SDK. API calls use axios with Bearer token from Firebase.
 
 **Auth flow:** Frontend authenticates via Firebase (GitHub OAuth popup) -> gets Firebase ID token -> sends as `Authorization: Bearer <token>` -> backend verifies with Firebase Admin SDK -> looks up user by `firebase_uid` in PostgreSQL.
 
-### Backend structure
-- `app/routes/` - API route handlers: auth, draws, users, public, webhooks
-- `app/services/` - Business logic: auth, badges, draws, github_pr, streaks, xp
-- `app/models/database.py` - SQLAlchemy ORM models (Base declarative)
-- `app/models/requests.py` - Pydantic request/response models
-- `app/middleware/` - Rate limiting, security headers
-- `app/config.py` - All env var loading, uses dotenv from `backend/.env`
-- `app/database.py` - Async SQLAlchemy engine + session factory (`AsyncSessionLocal`)
-- `app/seed.py` - Mock data seeding (runs automatically in dev on startup)
+**API:** All endpoints under `/api/v1/`. Standard JSON envelope: `{"data": ..., "meta": {...}, "error": null}`. Cursor-based pagination on all list endpoints. Machine-readable error codes.
+
+### Backend structure (`backend/`)
+- `cmd/server/main.go` - Entry point, wires all dependencies, Chi router setup, graceful shutdown
+- `internal/handler/` - HTTP handlers: auth, draws, users, public, webhooks, health
+- `internal/service/` - Business logic: xp, badges, streaks, github (PR verification)
+- `internal/middleware/` - Request ID, security headers, rate limiting, auth, logging, request size
+- `internal/database/` - sqlc-generated query functions and model structs
+- `internal/config/` - Env var loading and validation
+- `internal/firebase/` - Firebase Admin SDK wrapper
+- `internal/redis/` - Redis client with nil fallback
+- `internal/ctxutil/` - Shared context helpers (user from context)
+- `internal/seed/` - Mock data seeding (runs in dev on startup)
+- `sql/migrations/` - golang-migrate SQL migration files
+- `sql/queries/` - sqlc query definitions (users, issues, draws, badges, activities, events)
+- `sqlc.yaml` - sqlc code generation config
 
 ### Frontend structure
 - `src/pages/` - Route pages: Landing, Discover, Dashboard, Leaderboard, History, Profile
@@ -59,14 +73,18 @@ make add PKG=package-name
 - `src/lib/firebase.js` - Firebase client SDK initialization
 
 ### Key patterns
-- Backend DB sessions: use `get_db()` async generator as FastAPI dependency
-- Tables auto-created on startup via `Base.metadata.create_all`; indexes created in `database_indexes.py`
+- **sqlc workflow:** Write SQL in `sql/queries/*.sql` -> run `sqlc generate` -> type-safe Go code in `internal/database/`
+- **DB IDs:** Internal `BIGSERIAL` PKs, `UUID` public_ids exposed in API. Never leak internal IDs.
+- **Handler pattern:** Struct with dependencies, `Routes() chi.Router` method, auth middleware applied per-group
+- **Transactions:** Multi-step operations (merge -> XP -> streak -> badges -> activity) use explicit `pgx.Tx` via `queries.WithTx(tx)`
+- **Service interfaces:** Services define store interfaces consumed by the service, satisfied implicitly by `*database.Queries`
+- **Import cycle fix:** `ctxutil` package provides shared context key between handler and middleware packages
 - Non-production environments auto-seed mock data on startup
 - Frontend imports use `@/` alias (e.g., `import Foo from "@/components/Foo"`)
 
 ## Environment
 
-Backend `.env` requires: `DATABASE_URL`, Firebase credentials (either `FIREBASE_SERVICE_ACCOUNT_PATH` or individual `FIREBASE_*` vars), `CORS_ORIGINS`. See `backend/.env.example`.
+Backend `.env` requires: `DATABASE_URL` (postgresql:// format, no asyncpg), Firebase credentials (`FIREBASE_SERVICE_ACCOUNT_PATH` or individual `FIREBASE_*` vars), `CORS_ORIGINS`. See `backend/.env.example`.
 
 Frontend `.env` requires: `REACT_APP_BACKEND_URL`, `REACT_APP_FIREBASE_*` config vars. See `frontend/.env.example`.
 
