@@ -258,6 +258,64 @@ func (q *Queries) GetDrawByPublicIDAndUser(ctx context.Context, arg GetDrawByPub
 	return i, err
 }
 
+const getRecentMergedDrawsWithIssues = `-- name: GetRecentMergedDrawsWithIssues :many
+SELECT d.id, d.public_id, d.created_at, d.merged_at, d.xp_awarded, i.repo_owner, i.repo_name, i.language, i.labels, i.difficulty
+FROM draws d
+JOIN issues i ON d.issue_id = i.id
+WHERE d.user_id = $1 AND d.status = 'merged'
+ORDER BY d.merged_at DESC
+LIMIT $2
+`
+
+type GetRecentMergedDrawsWithIssuesParams struct {
+	UserID int64 `json:"user_id"`
+	Limit  int32 `json:"limit"`
+}
+
+type GetRecentMergedDrawsWithIssuesRow struct {
+	ID         int64              `json:"id"`
+	PublicID   pgtype.UUID        `json:"public_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	MergedAt   pgtype.Timestamptz `json:"merged_at"`
+	XpAwarded  int32              `json:"xp_awarded"`
+	RepoOwner  string             `json:"repo_owner"`
+	RepoName   string             `json:"repo_name"`
+	Language   pgtype.Text        `json:"language"`
+	Labels     []string           `json:"labels"`
+	Difficulty pgtype.Text        `json:"difficulty"`
+}
+
+func (q *Queries) GetRecentMergedDrawsWithIssues(ctx context.Context, arg GetRecentMergedDrawsWithIssuesParams) ([]GetRecentMergedDrawsWithIssuesRow, error) {
+	rows, err := q.db.Query(ctx, getRecentMergedDrawsWithIssues, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetRecentMergedDrawsWithIssuesRow{}
+	for rows.Next() {
+		var i GetRecentMergedDrawsWithIssuesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.CreatedAt,
+			&i.MergedAt,
+			&i.XpAwarded,
+			&i.RepoOwner,
+			&i.RepoName,
+			&i.Language,
+			&i.Labels,
+			&i.Difficulty,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserDrawStats = `-- name: GetUserDrawStats :one
 SELECT
     COUNT(*) AS total_draws,
@@ -694,16 +752,17 @@ func (q *Queries) SubmitPR(ctx context.Context, arg SubmitPRParams) (Draw, error
 }
 
 const updateDrawStatus = `-- name: UpdateDrawStatus :one
-UPDATE draws SET status = $2 WHERE id = $1 RETURNING id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at
+UPDATE draws SET status = $2 WHERE id = $1 AND status = $3 RETURNING id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at
 `
 
 type UpdateDrawStatusParams struct {
-	ID     int64      `json:"id"`
-	Status DrawStatus `json:"status"`
+	ID            int64      `json:"id"`
+	Status        DrawStatus `json:"status"`
+	CurrentStatus DrawStatus `json:"current_status"`
 }
 
 func (q *Queries) UpdateDrawStatus(ctx context.Context, arg UpdateDrawStatusParams) (Draw, error) {
-	row := q.db.QueryRow(ctx, updateDrawStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateDrawStatus, arg.ID, arg.Status, arg.CurrentStatus)
 	var i Draw
 	err := row.Scan(
 		&i.ID,

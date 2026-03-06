@@ -14,11 +14,12 @@ import (
 )
 
 type RateLimiter struct {
-	redis  *goredis.Client
-	local  map[string][]time.Time
-	mu     sync.Mutex
-	limits map[string]rateConfig
-	done   chan struct{}
+	redis     *goredis.Client
+	local     map[string][]time.Time
+	mu        sync.Mutex
+	limits    map[string]rateConfig
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 type rateConfig struct {
@@ -44,9 +45,9 @@ func NewRateLimiter(redisClient *goredis.Client) *RateLimiter {
 	return rl
 }
 
-// Close stops the cleanup goroutine.
+// Close stops the cleanup goroutine. Safe to call multiple times.
 func (rl *RateLimiter) Close() {
-	close(rl.done)
+	rl.closeOnce.Do(func() { close(rl.done) })
 }
 
 func (rl *RateLimiter) cleanupLoop() {

@@ -329,10 +329,15 @@ func (h *DrawHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	case database.DrawStatusExpired, database.DrawStatusAbandoned:
 		updatedDraw, err = h.queries.UpdateDrawStatus(ctx, database.UpdateDrawStatusParams{
-			ID:     draw.ID,
-			Status: targetStatus,
+			ID:            draw.ID,
+			Status:        targetStatus,
+			CurrentStatus: draw.Status,
 		})
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				BadRequest(w, ErrCodeInvalidStatus, "Draw status has changed, please refresh")
+				return
+			}
 			slog.Error("update draw status", "error", err)
 			InternalError(w)
 			return
