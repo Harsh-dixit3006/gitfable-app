@@ -46,17 +46,12 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=gitfable
-      - POSTGRES_PASSWORD=gitfable
-      - POSTGRES_DB=gitfable
-      - DATABASE_URL=postgresql+asyncpg://gitfable:gitfable@postgres:5432/gitfable
+      - DATABASE_URL=postgresql://gitfable:gitfable@postgres:5432/gitfable?sslmode=disable
+      - MIGRATIONS_PATH=/migrations
       - REDIS_URL=redis://redis:6379
-      - RATE_LIMIT_ENABLED=true
       - CORS_ORIGINS=http://localhost:3000,http://frontend:80
       - ENVIRONMENT=development
-      - FIREBASE_SERVICE_ACCOUNT_PATH=/app/creds/gitfable-app-firebase-adminsdk-fbsvc-1faf6f92c5.json
+      - FIREBASE_SERVICE_ACCOUNT_PATH=/creds/gitfable-app-firebase-adminsdk-fbsvc-1faf6f92c5.json
     env_file:
       - ./backend/.env
     depends_on:
@@ -65,9 +60,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend:/app
-      - ./creds:/app/creds:ro
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+      - ./creds:/creds:ro
 
   # Frontend
   frontend:
