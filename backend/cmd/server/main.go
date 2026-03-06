@@ -20,6 +20,7 @@ import (
 	"github.com/nishantg96/gitfable/internal/handler"
 	mw "github.com/nishantg96/gitfable/internal/middleware"
 	goredis "github.com/nishantg96/gitfable/internal/redis"
+	"github.com/nishantg96/gitfable/internal/seed"
 	"github.com/nishantg96/gitfable/internal/service"
 )
 
@@ -88,6 +89,14 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("badges initialized")
+
+	// 9b. Seed database in non-production.
+	if !cfg.IsProduction() {
+		if err := seed.SeedDatabase(ctx, queries); err != nil {
+			slog.Error("failed to seed database", "error", err)
+			os.Exit(1)
+		}
+	}
 
 	// 10. Create middleware.
 	authMiddleware := mw.NewAuthMiddleware(fbClient, queries)
