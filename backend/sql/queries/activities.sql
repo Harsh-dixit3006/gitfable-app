@@ -7,7 +7,7 @@ RETURNING *;
 SELECT a.*, u.username, u.avatar_url, u.public_id AS user_public_id
 FROM activities a
 JOIN users u ON a.user_id = u.id
-ORDER BY a.created_at DESC
+ORDER BY a.created_at DESC, a.id DESC
 LIMIT $1;
 
 -- name: ListRecentActivitiesAfterCursor :many

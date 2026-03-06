@@ -183,7 +183,7 @@ func mergedDrawsToResponse(draws []database.GetUserMergedDrawsWithIssuesRow) []m
 	items := make([]map[string]any, len(draws))
 	for i, d := range draws {
 		item := map[string]any{
-			"id":         d.ID,
+			"id":         uuidToString(d.PublicID),
 			"xp_awarded": d.XpAwarded,
 			"created_at": pgTimestamptzToString(d.CreatedAt),
 			"merged_at":  pgTimestamptzToString(d.MergedAt),

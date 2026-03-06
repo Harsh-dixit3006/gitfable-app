@@ -18,6 +18,7 @@ type RateLimiter struct {
 	local  map[string][]time.Time
 	mu     sync.Mutex
 	limits map[string]rateConfig
+	done   chan struct{}
 }
 
 type rateConfig struct {
@@ -29,6 +30,7 @@ func NewRateLimiter(redisClient *goredis.Client) *RateLimiter {
 	rl := &RateLimiter{
 		redis: redisClient,
 		local: make(map[string][]time.Time),
+		done:  make(chan struct{}),
 		limits: map[string]rateConfig{
 			"auth":    {requests: 10, window: time.Minute},
 			"draws":   {requests: 5, window: time.Minute},
@@ -42,26 +44,36 @@ func NewRateLimiter(redisClient *goredis.Client) *RateLimiter {
 	return rl
 }
 
+// Close stops the cleanup goroutine.
+func (rl *RateLimiter) Close() {
+	close(rl.done)
+}
+
 func (rl *RateLimiter) cleanupLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		for key, timestamps := range rl.local {
-			valid := timestamps[:0]
-			for _, t := range timestamps {
-				if now.Sub(t) < 2*time.Minute {
-					valid = append(valid, t)
+	for {
+		select {
+		case <-rl.done:
+			return
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			for key, timestamps := range rl.local {
+				valid := timestamps[:0]
+				for _, t := range timestamps {
+					if now.Sub(t) < 2*time.Minute {
+						valid = append(valid, t)
+					}
+				}
+				if len(valid) == 0 {
+					delete(rl.local, key)
+				} else {
+					rl.local[key] = valid
 				}
 			}
-			if len(valid) == 0 {
-				delete(rl.local, key)
-			} else {
-				rl.local[key] = valid
-			}
+			rl.mu.Unlock()
 		}
-		rl.mu.Unlock()
 	}
 }
 

@@ -319,7 +319,7 @@ func (q *Queries) GetUserHeatmap(ctx context.Context, arg GetUserHeatmapParams) 
 }
 
 const getUserMergedDrawsWithIssues = `-- name: GetUserMergedDrawsWithIssues :many
-SELECT d.id, d.created_at, d.merged_at, d.xp_awarded, i.repo_owner, i.repo_name, i.language, i.labels, i.difficulty
+SELECT d.id, d.public_id, d.created_at, d.merged_at, d.xp_awarded, i.repo_owner, i.repo_name, i.language, i.labels, i.difficulty
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
 WHERE d.user_id = $1 AND d.status = 'merged'
@@ -328,6 +328,7 @@ ORDER BY d.merged_at DESC
 
 type GetUserMergedDrawsWithIssuesRow struct {
 	ID         int64              `json:"id"`
+	PublicID   pgtype.UUID        `json:"public_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	MergedAt   pgtype.Timestamptz `json:"merged_at"`
 	XpAwarded  int32              `json:"xp_awarded"`
@@ -349,6 +350,7 @@ func (q *Queries) GetUserMergedDrawsWithIssues(ctx context.Context, userID int64
 		var i GetUserMergedDrawsWithIssuesRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.PublicID,
 			&i.CreatedAt,
 			&i.MergedAt,
 			&i.XpAwarded,
@@ -373,7 +375,7 @@ SELECT d.id, d.public_id, d.user_id, d.issue_id, d.status, d.source, d.pr_url, d
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
 WHERE d.user_id = $1
-ORDER BY d.created_at DESC
+ORDER BY d.created_at DESC, d.id DESC
 LIMIT $2
 `
 
@@ -548,7 +550,7 @@ SELECT d.id, d.public_id, d.user_id, d.issue_id, d.status, d.source, d.pr_url, d
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
 WHERE d.user_id = $1 AND d.status = $2
-ORDER BY d.created_at DESC
+ORDER BY d.created_at DESC, d.id DESC
 LIMIT $3
 `
 

@@ -217,6 +217,11 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if issue.State != database.IssueStateOpen {
+		BadRequest(w, ErrCodeBadRequest, "Issue is no longer open")
+		return
+	}
+
 	draw, err := h.queries.CreateDraw(ctx, database.CreateDrawParams{
 		UserID:  user.ID,
 		IssueID: issue.ID,

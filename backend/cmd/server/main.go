@@ -101,6 +101,7 @@ func main() {
 	// 10. Create middleware.
 	authMiddleware := mw.NewAuthMiddleware(fbClient, queries)
 	rateLimiter := mw.NewRateLimiter(redisClient)
+	defer rateLimiter.Close()
 
 	// 11. Create handlers.
 	healthHandler := &handler.HealthHandler{

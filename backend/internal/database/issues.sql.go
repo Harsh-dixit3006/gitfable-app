@@ -198,7 +198,7 @@ SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, di
 WHERE state = 'open'
   AND ($2::varchar IS NULL OR language = $2)
   AND ($3::varchar IS NULL OR difficulty = $3)
-ORDER BY repo_stars DESC
+ORDER BY repo_stars DESC, id DESC
 LIMIT $1
 `
 

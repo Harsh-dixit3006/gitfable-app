@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nishantg96/gitfable/internal/database"
 )
@@ -257,6 +259,10 @@ func (s *BadgeService) CheckBadges(ctx context.Context, userID int64, user Badge
 			DrawID:  pgtype.Int8{Valid: false},
 		})
 		if err != nil {
+			// ON CONFLICT DO NOTHING returns no rows — badge already awarded concurrently.
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
 			return awarded, fmt.Errorf("award badge %q: %w", bd.Name, err)
 		}
 		awarded = append(awarded, bd.Name)
