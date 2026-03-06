@@ -170,7 +170,10 @@ func main() {
 		r.Mount("/auth", authHandler.Routes())
 		r.Mount("/draws", drawHandler.Routes())
 		r.Mount("/users", usersHandler.Routes())
-		r.Mount("/public", publicHandler.Routes())
+		r.Get("/issues", publicHandler.ListIssues)
+		r.Get("/leaderboard", publicHandler.Leaderboard)
+		r.Get("/stats", publicHandler.Stats)
+		r.Get("/activity", publicHandler.Activity)
 		r.Mount("/webhooks", webhookHandler.Routes())
 	})
 
