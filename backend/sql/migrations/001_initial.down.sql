@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS activities;
+DROP TABLE IF EXISTS user_badges;
+DROP TABLE IF EXISTS badges;
+DROP TABLE IF EXISTS draws;
+DROP TABLE IF EXISTS issues;
+DROP TABLE IF EXISTS users;
+DROP FUNCTION IF EXISTS update_updated_at();
+DROP TYPE IF EXISTS activity_action;
+DROP TYPE IF EXISTS issue_state;
+DROP TYPE IF EXISTS draw_status;
+DROP TYPE IF EXISTS user_status;
