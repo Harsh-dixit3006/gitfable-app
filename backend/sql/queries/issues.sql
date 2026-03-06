@@ -4,12 +4,18 @@ SELECT * FROM issues WHERE id = $1;
 -- name: GetIssueByPublicID :one
 SELECT * FROM issues WHERE public_id = $1;
 
+-- name: CountFilteredIssues :one
+SELECT COUNT(*) FROM issues
+WHERE state = 'open'
+  AND (sqlc.narg('language')::varchar IS NULL OR language = sqlc.narg('language'))
+  AND (sqlc.narg('difficulty')::varchar IS NULL OR difficulty = sqlc.narg('difficulty'));
+
 -- name: GetRandomIssue :one
 SELECT * FROM issues
 WHERE state = 'open'
   AND (sqlc.narg('language')::varchar IS NULL OR language = sqlc.narg('language'))
   AND (sqlc.narg('difficulty')::varchar IS NULL OR difficulty = sqlc.narg('difficulty'))
-ORDER BY RANDOM()
+OFFSET $1
 LIMIT 1;
 
 -- name: ListIssues :many
@@ -25,9 +31,9 @@ SELECT * FROM issues
 WHERE state = 'open'
   AND (sqlc.narg('language')::varchar IS NULL OR language = sqlc.narg('language'))
   AND (sqlc.narg('difficulty')::varchar IS NULL OR difficulty = sqlc.narg('difficulty'))
-  AND (repo_stars, id) < ($1, $2)
+  AND (repo_stars < $1 OR (repo_stars = $1 AND id < sqlc.arg('cursor_id')::bigint))
 ORDER BY repo_stars DESC, id DESC
-LIMIT $3;
+LIMIT $2;
 
 -- name: CountDistinctRepos :one
 SELECT COUNT(DISTINCT (repo_owner, repo_name)) FROM issues WHERE state = 'open';

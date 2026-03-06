@@ -124,15 +124,15 @@ func (q *Queries) GetLeaderboard(ctx context.Context, limit int32) ([]GetLeaderb
 const getLeaderboardAfterCursor = `-- name: GetLeaderboardAfterCursor :many
 SELECT id, public_id, username, display_name, avatar_url, xp, level, total_contributions
 FROM users
-WHERE status = 'active' AND (xp, id) < ($1, $2)
+WHERE status = 'active' AND (xp < $1 OR (xp = $1 AND id < $3::bigint))
 ORDER BY xp DESC, id DESC
-LIMIT $3
+LIMIT $2
 `
 
 type GetLeaderboardAfterCursorParams struct {
-	Xp    int32 `json:"xp"`
-	Xp_2  int32 `json:"xp_2"`
-	Limit int32 `json:"limit"`
+	Xp       int32 `json:"xp"`
+	Limit    int32 `json:"limit"`
+	CursorID int64 `json:"cursor_id"`
 }
 
 type GetLeaderboardAfterCursorRow struct {
@@ -147,7 +147,7 @@ type GetLeaderboardAfterCursorRow struct {
 }
 
 func (q *Queries) GetLeaderboardAfterCursor(ctx context.Context, arg GetLeaderboardAfterCursorParams) ([]GetLeaderboardAfterCursorRow, error) {
-	rows, err := q.db.Query(ctx, getLeaderboardAfterCursor, arg.Xp, arg.Xp_2, arg.Limit)
+	rows, err := q.db.Query(ctx, getLeaderboardAfterCursor, arg.Xp, arg.Limit, arg.CursorID)
 	if err != nil {
 		return nil, err
 	}

@@ -22,14 +22,14 @@ UPDATE draws SET status = $2 WHERE id = $1 RETURNING *;
 UPDATE draws SET status = 'bookmarked', expires_at = $2 WHERE id = $1 AND status = 'drawn' RETURNING *;
 
 -- name: SubmitPR :one
-UPDATE draws SET status = 'pr_submitted', pr_url = $2, pr_submitted_at = NOW() WHERE id = $1 RETURNING *;
+UPDATE draws SET status = 'pr_submitted', pr_url = $2, pr_submitted_at = NOW() WHERE id = $1 AND status = 'bookmarked' RETURNING *;
 
 -- name: MergeDraw :one
-UPDATE draws SET status = 'merged', merged_at = NOW(), merge_commit_sha = $2, xp_awarded = $3 WHERE id = $1 RETURNING *;
+UPDATE draws SET status = 'merged', merged_at = NOW(), merge_commit_sha = $2, xp_awarded = $3 WHERE id = $1 AND status = 'pr_submitted' RETURNING *;
 
 -- name: CountDrawsToday :one
 SELECT COUNT(*) FROM draws
-WHERE user_id = $1 AND created_at >= CURRENT_DATE AND source = 'draw';
+WHERE user_id = $1 AND created_at >= CURRENT_DATE;
 
 -- name: GetActiveBookmark :one
 SELECT * FROM draws
@@ -48,9 +48,9 @@ LIMIT $2;
 SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
-WHERE d.user_id = $1 AND (d.created_at, d.id) < ($2, $3)
+WHERE d.user_id = $1 AND (d.created_at < $2 OR (d.created_at = $2 AND d.id < sqlc.arg('cursor_id')::bigint))
 ORDER BY d.created_at DESC, d.id DESC
-LIMIT $4;
+LIMIT $3;
 
 -- name: ListUserDrawsByStatus :many
 SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels

@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nishantg96/gitfable/internal/database"
 	"github.com/nishantg96/gitfable/internal/firebase"
@@ -211,6 +212,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		GithubUsername: githubUsername,
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if strings.Contains(pgErr.ConstraintName, "email") {
+				BadRequest(w, ErrCodeEmailTaken, "Email is already registered")
+				return
+			}
+			BadRequest(w, ErrCodeConflict, "User already exists")
+			return
+		}
 		InternalError(w)
 		return
 	}

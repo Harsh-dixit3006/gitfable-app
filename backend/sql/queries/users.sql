@@ -40,9 +40,9 @@ LIMIT $1;
 -- name: GetLeaderboardAfterCursor :many
 SELECT id, public_id, username, display_name, avatar_url, xp, level, total_contributions
 FROM users
-WHERE status = 'active' AND (xp, id) < ($1, $2)
+WHERE status = 'active' AND (xp < $1 OR (xp = $1 AND id < sqlc.arg('cursor_id')::bigint))
 ORDER BY xp DESC, id DESC
-LIMIT $3;
+LIMIT $2;
 
 -- name: CountActiveUsers :one
 SELECT COUNT(*) FROM users WHERE status = 'active';

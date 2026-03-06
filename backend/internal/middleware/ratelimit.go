@@ -26,7 +26,7 @@ type rateConfig struct {
 }
 
 func NewRateLimiter(redisClient *goredis.Client) *RateLimiter {
-	return &RateLimiter{
+	rl := &RateLimiter{
 		redis: redisClient,
 		local: make(map[string][]time.Time),
 		limits: map[string]rateConfig{
@@ -34,6 +34,34 @@ func NewRateLimiter(redisClient *goredis.Client) *RateLimiter {
 			"draws":   {requests: 5, window: time.Minute},
 			"default": {requests: 100, window: time.Minute},
 		},
+	}
+	// Periodic cleanup of stale in-memory rate limit entries.
+	if redisClient == nil {
+		go rl.cleanupLoop()
+	}
+	return rl
+}
+
+func (rl *RateLimiter) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		rl.mu.Lock()
+		now := time.Now()
+		for key, timestamps := range rl.local {
+			valid := timestamps[:0]
+			for _, t := range timestamps {
+				if now.Sub(t) < 2*time.Minute {
+					valid = append(valid, t)
+				}
+			}
+			if len(valid) == 0 {
+				delete(rl.local, key)
+			} else {
+				rl.local[key] = valid
+			}
+		}
+		rl.mu.Unlock()
 	}
 }
 
