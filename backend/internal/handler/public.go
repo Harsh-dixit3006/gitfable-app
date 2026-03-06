@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -52,11 +51,11 @@ func (h *PublicHandler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		}
 
 		issues, err := h.Queries.ListIssuesAfterCursor(ctx, database.ListIssuesAfterCursorParams{
-			RepoStars:   int32(cursorStars),
-			RepoStars_2: int32(cursorID),
-			Limit:       int32(limit),
-			Language:    langParam,
-			Difficulty:  diffParam,
+			RepoStars:  int32(cursorStars),
+			CursorID:   cursorID,
+			Limit:      int32(limit),
+			Language:   langParam,
+			Difficulty: diffParam,
 		})
 		if err != nil {
 			slog.Error("list issues after cursor", "error", err)
@@ -111,9 +110,9 @@ func (h *PublicHandler) Leaderboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		rows, err := h.Queries.GetLeaderboardAfterCursor(ctx, database.GetLeaderboardAfterCursorParams{
-			Xp:    int32(cursorXP),
-			Xp_2:  int32(cursorID),
-			Limit: int32(limit),
+			Xp:       int32(cursorXP),
+			CursorID: cursorID,
+			Limit:    int32(limit),
 		})
 		if err != nil {
 			slog.Error("get leaderboard after cursor", "error", err)
@@ -196,9 +195,9 @@ func (h *PublicHandler) Activity(w http.ResponseWriter, r *http.Request) {
 		}
 
 		rows, err := h.Queries.ListRecentActivitiesAfterCursor(ctx, database.ListRecentActivitiesAfterCursorParams{
-			CreatedAt:   pgtype.Timestamptz{Time: cursorTime, Valid: true},
-			CreatedAt_2: pgtype.Timestamptz{Time: time.Unix(cursorID, 0), Valid: true},
-			Limit:       int32(limit),
+			CreatedAt: pgtype.Timestamptz{Time: cursorTime, Valid: true},
+			CursorID:  cursorID,
+			Limit:     int32(limit),
 		})
 		if err != nil {
 			slog.Error("list activities after cursor", "error", err)

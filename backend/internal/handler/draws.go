@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -105,12 +107,31 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 	}
 
-	params := database.GetRandomIssueParams{
-		Language:   textFromPtr(req.Language),
-		Difficulty: textFromPtr(req.Difficulty),
+	langParam := textFromPtr(req.Language)
+	diffParam := textFromPtr(req.Difficulty)
+
+	// Count matching issues, then pick a random offset.
+	issueCount, err := h.queries.CountFilteredIssues(ctx, database.CountFilteredIssuesParams{
+		Language:   langParam,
+		Difficulty: diffParam,
+	})
+	if err != nil {
+		slog.Error("count filtered issues", "error", err)
+		InternalError(w)
+		return
+	}
+	if issueCount == 0 {
+		NotFound(w, "No matching issues available")
+		return
 	}
 
-	issue, err := h.queries.GetRandomIssue(ctx, params)
+	randOffset, _ := rand.Int(rand.Reader, big.NewInt(issueCount))
+
+	issue, err := h.queries.GetRandomIssue(ctx, database.GetRandomIssueParams{
+		Offset:     int32(randOffset.Int64()),
+		Language:   langParam,
+		Difficulty: diffParam,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			NotFound(w, "No matching issues available")
@@ -152,6 +173,18 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 	user := ctxutil.UserFromContext(ctx)
 	if user == nil {
 		Unauthorized(w)
+		return
+	}
+
+	// Check daily draw limit (shared with Draw).
+	count, err := h.queries.CountDrawsToday(ctx, user.ID)
+	if err != nil {
+		slog.Error("count draws today", "error", err)
+		InternalError(w)
+		return
+	}
+	if count >= maxDrawsPerDay {
+		BadRequest(w, ErrCodeDrawLimitReached, "Daily draw limit reached (3 per day)")
 		return
 	}
 
@@ -364,6 +397,10 @@ func (h *DrawHandler) SubmitPR(w http.ResponseWriter, r *http.Request) {
 		PrUrl: pgtype.Text{String: req.PRURL, Valid: true},
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			BadRequest(w, ErrCodeInvalidStatus, "Draw status has changed, please refresh")
+			return
+		}
 		slog.Error("submit pr", "error", err)
 		InternalError(w)
 		return
@@ -460,13 +497,17 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 
 	qtx := h.queries.WithTx(tx)
 
-	// Merge the draw.
+	// Merge the draw (status guard: only merges if still pr_submitted).
 	mergedDraw, err := qtx.MergeDraw(ctx, database.MergeDrawParams{
 		ID:             draw.ID,
 		MergeCommitSha: pgtype.Text{String: prStatus.MergeCommitSHA, Valid: prStatus.MergeCommitSHA != ""},
 		XpAwarded:      int32(mergeXP),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			BadRequest(w, ErrCodeInvalidStatus, "Draw has already been merged or status changed")
+			return
+		}
 		slog.Error("merge draw", "error", err)
 		InternalError(w)
 		return
@@ -591,10 +632,10 @@ func (h *DrawHandler) History(w http.ResponseWriter, r *http.Request) {
 		}
 
 		draws, err := h.queries.ListUserDrawsAfterCursor(ctx, database.ListUserDrawsAfterCursorParams{
-			UserID:      user.ID,
-			CreatedAt:   pgtype.Timestamptz{Time: cursorTime, Valid: true},
-			CreatedAt_2: pgtype.Timestamptz{Time: time.Unix(cursorID, 0), Valid: true},
-			Limit:       int32(limit),
+			UserID:    user.ID,
+			CreatedAt: pgtype.Timestamptz{Time: cursorTime, Valid: true},
+			CursorID:  cursorID,
+			Limit:     int32(limit),
 		})
 		if err != nil {
 			slog.Error("list user draws after cursor", "error", err)

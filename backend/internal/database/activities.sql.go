@@ -107,15 +107,15 @@ const listRecentActivitiesAfterCursor = `-- name: ListRecentActivitiesAfterCurso
 SELECT a.id, a.user_id, a.draw_id, a.action, a.repo_owner, a.repo_name, a.title, a.created_at, u.username, u.avatar_url, u.public_id AS user_public_id
 FROM activities a
 JOIN users u ON a.user_id = u.id
-WHERE (a.created_at, a.id) < ($1, $2)
+WHERE (a.created_at < $1 OR (a.created_at = $1 AND a.id < $3::bigint))
 ORDER BY a.created_at DESC, a.id DESC
-LIMIT $3
+LIMIT $2
 `
 
 type ListRecentActivitiesAfterCursorParams struct {
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
-	Limit       int32              `json:"limit"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Limit     int32              `json:"limit"`
+	CursorID  int64              `json:"cursor_id"`
 }
 
 type ListRecentActivitiesAfterCursorRow struct {
@@ -133,7 +133,7 @@ type ListRecentActivitiesAfterCursorRow struct {
 }
 
 func (q *Queries) ListRecentActivitiesAfterCursor(ctx context.Context, arg ListRecentActivitiesAfterCursorParams) ([]ListRecentActivitiesAfterCursorRow, error) {
-	rows, err := q.db.Query(ctx, listRecentActivitiesAfterCursor, arg.CreatedAt, arg.CreatedAt_2, arg.Limit)
+	rows, err := q.db.Query(ctx, listRecentActivitiesAfterCursor, arg.CreatedAt, arg.Limit, arg.CursorID)
 	if err != nil {
 		return nil, err
 	}

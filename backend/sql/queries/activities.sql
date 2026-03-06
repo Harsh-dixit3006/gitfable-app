@@ -14,6 +14,6 @@ LIMIT $1;
 SELECT a.*, u.username, u.avatar_url, u.public_id AS user_public_id
 FROM activities a
 JOIN users u ON a.user_id = u.id
-WHERE (a.created_at, a.id) < ($1, $2)
+WHERE (a.created_at < $1 OR (a.created_at = $1 AND a.id < sqlc.arg('cursor_id')::bigint))
 ORDER BY a.created_at DESC, a.id DESC
-LIMIT $3;
+LIMIT $2;

@@ -22,6 +22,25 @@ func (q *Queries) CountDistinctRepos(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countFilteredIssues = `-- name: CountFilteredIssues :one
+SELECT COUNT(*) FROM issues
+WHERE state = 'open'
+  AND ($1::varchar IS NULL OR language = $1)
+  AND ($2::varchar IS NULL OR difficulty = $2)
+`
+
+type CountFilteredIssuesParams struct {
+	Language   pgtype.Text `json:"language"`
+	Difficulty pgtype.Text `json:"difficulty"`
+}
+
+func (q *Queries) CountFilteredIssues(ctx context.Context, arg CountFilteredIssuesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countFilteredIssues, arg.Language, arg.Difficulty)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countIssues = `-- name: CountIssues :one
 SELECT COUNT(*) FROM issues
 `
@@ -140,19 +159,20 @@ func (q *Queries) GetIssueByPublicID(ctx context.Context, publicID pgtype.UUID) 
 const getRandomIssue = `-- name: GetRandomIssue :one
 SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at FROM issues
 WHERE state = 'open'
-  AND ($1::varchar IS NULL OR language = $1)
-  AND ($2::varchar IS NULL OR difficulty = $2)
-ORDER BY RANDOM()
+  AND ($2::varchar IS NULL OR language = $2)
+  AND ($3::varchar IS NULL OR difficulty = $3)
+OFFSET $1
 LIMIT 1
 `
 
 type GetRandomIssueParams struct {
+	Offset     int32       `json:"offset"`
 	Language   pgtype.Text `json:"language"`
 	Difficulty pgtype.Text `json:"difficulty"`
 }
 
 func (q *Queries) GetRandomIssue(ctx context.Context, arg GetRandomIssueParams) (Issue, error) {
-	row := q.db.QueryRow(ctx, getRandomIssue, arg.Language, arg.Difficulty)
+	row := q.db.QueryRow(ctx, getRandomIssue, arg.Offset, arg.Language, arg.Difficulty)
 	var i Issue
 	err := row.Scan(
 		&i.ID,
@@ -226,28 +246,28 @@ func (q *Queries) ListIssues(ctx context.Context, arg ListIssuesParams) ([]Issue
 const listIssuesAfterCursor = `-- name: ListIssuesAfterCursor :many
 SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at FROM issues
 WHERE state = 'open'
-  AND ($4::varchar IS NULL OR language = $4)
-  AND ($5::varchar IS NULL OR difficulty = $5)
-  AND (repo_stars, id) < ($1, $2)
+  AND ($3::varchar IS NULL OR language = $3)
+  AND ($4::varchar IS NULL OR difficulty = $4)
+  AND (repo_stars < $1 OR (repo_stars = $1 AND id < $5::bigint))
 ORDER BY repo_stars DESC, id DESC
-LIMIT $3
+LIMIT $2
 `
 
 type ListIssuesAfterCursorParams struct {
-	RepoStars   int32       `json:"repo_stars"`
-	RepoStars_2 int32       `json:"repo_stars_2"`
-	Limit       int32       `json:"limit"`
-	Language    pgtype.Text `json:"language"`
-	Difficulty  pgtype.Text `json:"difficulty"`
+	RepoStars  int32       `json:"repo_stars"`
+	Limit      int32       `json:"limit"`
+	Language   pgtype.Text `json:"language"`
+	Difficulty pgtype.Text `json:"difficulty"`
+	CursorID   int64       `json:"cursor_id"`
 }
 
 func (q *Queries) ListIssuesAfterCursor(ctx context.Context, arg ListIssuesAfterCursorParams) ([]Issue, error) {
 	rows, err := q.db.Query(ctx, listIssuesAfterCursor,
 		arg.RepoStars,
-		arg.RepoStars_2,
 		arg.Limit,
 		arg.Language,
 		arg.Difficulty,
+		arg.CursorID,
 	)
 	if err != nil {
 		return nil, err

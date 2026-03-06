@@ -44,7 +44,7 @@ func (q *Queries) BookmarkDraw(ctx context.Context, arg BookmarkDrawParams) (Dra
 
 const countDrawsToday = `-- name: CountDrawsToday :one
 SELECT COUNT(*) FROM draws
-WHERE user_id = $1 AND created_at >= CURRENT_DATE AND source = 'draw'
+WHERE user_id = $1 AND created_at >= CURRENT_DATE
 `
 
 func (q *Queries) CountDrawsToday(ctx context.Context, userID int64) (int64, error) {
@@ -456,16 +456,16 @@ const listUserDrawsAfterCursor = `-- name: ListUserDrawsAfterCursor :many
 SELECT d.id, d.public_id, d.user_id, d.issue_id, d.status, d.source, d.pr_url, d.pr_submitted_at, d.merge_commit_sha, d.merged_at, d.expires_at, d.xp_awarded, d.created_at, d.updated_at, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
-WHERE d.user_id = $1 AND (d.created_at, d.id) < ($2, $3)
+WHERE d.user_id = $1 AND (d.created_at < $2 OR (d.created_at = $2 AND d.id < $4::bigint))
 ORDER BY d.created_at DESC, d.id DESC
-LIMIT $4
+LIMIT $3
 `
 
 type ListUserDrawsAfterCursorParams struct {
-	UserID      int64              `json:"user_id"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
-	Limit       int32              `json:"limit"`
+	UserID    int64              `json:"user_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Limit     int32              `json:"limit"`
+	CursorID  int64              `json:"cursor_id"`
 }
 
 type ListUserDrawsAfterCursorRow struct {
@@ -498,8 +498,8 @@ func (q *Queries) ListUserDrawsAfterCursor(ctx context.Context, arg ListUserDraw
 	rows, err := q.db.Query(ctx, listUserDrawsAfterCursor,
 		arg.UserID,
 		arg.CreatedAt,
-		arg.CreatedAt_2,
 		arg.Limit,
+		arg.CursorID,
 	)
 	if err != nil {
 		return nil, err
@@ -629,7 +629,7 @@ func (q *Queries) ListUserDrawsByStatus(ctx context.Context, arg ListUserDrawsBy
 }
 
 const mergeDraw = `-- name: MergeDraw :one
-UPDATE draws SET status = 'merged', merged_at = NOW(), merge_commit_sha = $2, xp_awarded = $3 WHERE id = $1 RETURNING id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at
+UPDATE draws SET status = 'merged', merged_at = NOW(), merge_commit_sha = $2, xp_awarded = $3 WHERE id = $1 AND status = 'pr_submitted' RETURNING id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at
 `
 
 type MergeDrawParams struct {
@@ -661,7 +661,7 @@ func (q *Queries) MergeDraw(ctx context.Context, arg MergeDrawParams) (Draw, err
 }
 
 const submitPR = `-- name: SubmitPR :one
-UPDATE draws SET status = 'pr_submitted', pr_url = $2, pr_submitted_at = NOW() WHERE id = $1 RETURNING id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at
+UPDATE draws SET status = 'pr_submitted', pr_url = $2, pr_submitted_at = NOW() WHERE id = $1 AND status = 'bookmarked' RETURNING id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at
 `
 
 type SubmitPRParams struct {

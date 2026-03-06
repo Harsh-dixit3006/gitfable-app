@@ -2,11 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nishantg96/gitfable/internal/database"
@@ -118,13 +120,19 @@ func (h *WebhookHandler) GitHub(w http.ResponseWriter, r *http.Request) {
 
 	qtx := h.queries.WithTx(tx)
 
-	// MergeDraw.
+	// MergeDraw (status guard: only merges if still pr_submitted).
 	mergedDraw, err := qtx.MergeDraw(ctx, database.MergeDrawParams{
 		ID:             draw.ID,
 		MergeCommitSha: pgtype.Text{String: mergeCommitSHA, Valid: mergeCommitSHA != ""},
 		XpAwarded:      int32(webhookMergeXP),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Already merged (e.g. via manual verify) or status changed — idempotent success.
+			slog.Info("webhook: draw already merged or status changed", "draw_id", draw.ID)
+			OK(w, map[string]any{"ignored": true, "reason": "draw already merged"})
+			return
+		}
 		slog.Error("webhook: merge draw", "error", err)
 		InternalError(w)
 		return
