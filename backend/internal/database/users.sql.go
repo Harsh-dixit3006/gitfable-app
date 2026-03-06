@@ -77,7 +77,7 @@ const getLeaderboard = `-- name: GetLeaderboard :many
 SELECT id, public_id, username, display_name, avatar_url, xp, level, total_contributions
 FROM users
 WHERE status = 'active'
-ORDER BY xp DESC
+ORDER BY xp DESC, id DESC
 LIMIT $1
 `
 

@@ -41,7 +41,7 @@ SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title A
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
 WHERE d.user_id = $1
-ORDER BY d.created_at DESC
+ORDER BY d.created_at DESC, d.id DESC
 LIMIT $2;
 
 -- name: ListUserDrawsAfterCursor :many
@@ -57,7 +57,7 @@ SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title A
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
 WHERE d.user_id = $1 AND d.status = $2
-ORDER BY d.created_at DESC
+ORDER BY d.created_at DESC, d.id DESC
 LIMIT $3;
 
 -- name: CountUserDraws :one
@@ -70,7 +70,7 @@ SELECT COUNT(*) FROM draws WHERE user_id = $1 AND status = 'merged';
 SELECT COUNT(*) FROM draws WHERE status = 'merged';
 
 -- name: GetUserMergedDrawsWithIssues :many
-SELECT d.id, d.created_at, d.merged_at, d.xp_awarded, i.repo_owner, i.repo_name, i.language, i.labels, i.difficulty
+SELECT d.id, d.public_id, d.created_at, d.merged_at, d.xp_awarded, i.repo_owner, i.repo_name, i.language, i.labels, i.difficulty
 FROM draws d
 JOIN issues i ON d.issue_id = i.id
 WHERE d.user_id = $1 AND d.status = 'merged'

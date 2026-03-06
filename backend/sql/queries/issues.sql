@@ -23,7 +23,7 @@ SELECT * FROM issues
 WHERE state = 'open'
   AND (sqlc.narg('language')::varchar IS NULL OR language = sqlc.narg('language'))
   AND (sqlc.narg('difficulty')::varchar IS NULL OR difficulty = sqlc.narg('difficulty'))
-ORDER BY repo_stars DESC
+ORDER BY repo_stars DESC, id DESC
 LIMIT $1;
 
 -- name: ListIssuesAfterCursor :many

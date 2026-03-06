@@ -53,7 +53,7 @@ const listRecentActivities = `-- name: ListRecentActivities :many
 SELECT a.id, a.user_id, a.draw_id, a.action, a.repo_owner, a.repo_name, a.title, a.created_at, u.username, u.avatar_url, u.public_id AS user_public_id
 FROM activities a
 JOIN users u ON a.user_id = u.id
-ORDER BY a.created_at DESC
+ORDER BY a.created_at DESC, a.id DESC
 LIMIT $1
 `
 
