@@ -1,0 +1,41 @@
+-- name: GetIssueByID :one
+SELECT * FROM issues WHERE id = $1;
+
+-- name: GetIssueByPublicID :one
+SELECT * FROM issues WHERE public_id = $1;
+
+-- name: GetRandomIssue :one
+SELECT * FROM issues
+WHERE state = 'open'
+  AND (sqlc.narg('language')::varchar IS NULL OR language = sqlc.narg('language'))
+  AND (sqlc.narg('difficulty')::varchar IS NULL OR difficulty = sqlc.narg('difficulty'))
+ORDER BY RANDOM()
+LIMIT 1;
+
+-- name: ListIssues :many
+SELECT * FROM issues
+WHERE state = 'open'
+  AND (sqlc.narg('language')::varchar IS NULL OR language = sqlc.narg('language'))
+  AND (sqlc.narg('difficulty')::varchar IS NULL OR difficulty = sqlc.narg('difficulty'))
+ORDER BY repo_stars DESC
+LIMIT $1;
+
+-- name: ListIssuesAfterCursor :many
+SELECT * FROM issues
+WHERE state = 'open'
+  AND (sqlc.narg('language')::varchar IS NULL OR language = sqlc.narg('language'))
+  AND (sqlc.narg('difficulty')::varchar IS NULL OR difficulty = sqlc.narg('difficulty'))
+  AND (repo_stars, id) < ($1, $2)
+ORDER BY repo_stars DESC, id DESC
+LIMIT $3;
+
+-- name: CountDistinctRepos :one
+SELECT COUNT(DISTINCT (repo_owner, repo_name)) FROM issues WHERE state = 'open';
+
+-- name: CreateIssue :one
+INSERT INTO issues (github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING *;
+
+-- name: CountIssues :one
+SELECT COUNT(*) FROM issues;
