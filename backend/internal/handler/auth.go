@@ -41,7 +41,6 @@ func (h *AuthHandler) Routes() chi.Router {
 
 type registerRequest struct {
 	Username string `json:"username"`
-	Token    string `json:"token"`
 }
 
 type updateMeRequest struct {
@@ -145,15 +144,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Token == "" {
-		BadRequest(w, ErrCodeBadRequest, "Token is required")
+	// Extract token from Authorization header
+	bearerToken := r.Header.Get("Authorization")
+	if !strings.HasPrefix(bearerToken, "Bearer ") {
+		Unauthorized(w)
 		return
 	}
+	bearerToken = strings.TrimPrefix(bearerToken, "Bearer ")
 
 	ctx := r.Context()
 
 	// Verify Firebase token
-	tokenInfo, err := h.FB.VerifyToken(ctx, req.Token)
+	tokenInfo, err := h.FB.VerifyToken(ctx, bearerToken)
 	if err != nil {
 		Unauthorized(w)
 		return

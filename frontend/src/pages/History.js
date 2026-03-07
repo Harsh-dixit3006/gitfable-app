@@ -30,27 +30,24 @@ function normalizeDraw(draw) {
 }
 
 export default function History() {
-  const { user, token, setShowLogin } = useAuth();
+  const { user, setShowLogin } = useAuth();
   const [draws, setDraws] = useState([]);
   const [stats, setStats] = useState({ total_draws: 0, bookmark_rate: 0, merge_rate: 0 });
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    if (!user) { setLoading(false); return; }
     fetchHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, statusFilter]);
+  }, [user, statusFilter]);
 
   const fetchHistory = async () => {
     setLoading(true);
     try {
       const params = { limit: 50 };
       if (statusFilter !== 'all') params.status = statusFilter;
-      const res = await api.get('/draws/history', {
-        headers: { Authorization: `Bearer ${token}` },
-        params,
-      });
+      const res = await api.get('/draws/history', { params });
       const rawDraws = (res._data || []).map(normalizeDraw);
       setDraws(rawDraws);
 

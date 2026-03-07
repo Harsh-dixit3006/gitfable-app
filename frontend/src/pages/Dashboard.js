@@ -17,14 +17,14 @@ const BADGE_ICONS = {
 };
 
 export default function Dashboard() {
-  const { user, token, setShowLogin } = useAuth();
+  const { user, setShowLogin } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
-    api.get('/users/dashboard', { headers: { Authorization: `Bearer ${token}` } })
+    if (!user) { setLoading(false); return; }
+    api.get('/users/dashboard')
       .then(r => {
         const d = r._data;
         // Convert heatmap array to object keyed by date
@@ -49,7 +49,7 @@ export default function Dashboard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [user]);
 
   if (loading) return (
     <div className="pt-20 px-6 sm:px-8 lg:px-12 max-w-7xl mx-auto">
@@ -70,7 +70,8 @@ export default function Dashboard() {
   const u = data?.user || user;
   const xpProgress = ((u.xp % 500) / 500) * 100;
   const xpToNext = 500 - (u.xp % 500);
-  const earned = new Set((data?.badges || []).map(b => b.name));
+  const badgeMap = new Map((data?.badges || []).map(b => [b.name, b]));
+  const earned = new Set(badgeMap.keys());
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="dashboard-page">
@@ -170,7 +171,7 @@ export default function Dashboard() {
                             <span className="text-[10px] text-center leading-tight font-mono">{name}</span>
                           </motion.div>
                         </TooltipTrigger>
-                        <TooltipContent className="bg-zinc-900 border-white/10"><p className="text-xs">{name}</p></TooltipContent>
+                        <TooltipContent className="bg-zinc-900 border-white/10"><p className="text-xs">{badgeMap.get(name)?.description || name}</p></TooltipContent>
                       </Tooltip>
                     );
                   })}

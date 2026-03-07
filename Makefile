@@ -65,10 +65,10 @@ generate: ## Generate Go code from sqlc queries
 # ─── Database Migrations ────────────────────────────────────────────
 
 migrate-up: ## Run database migrations up
-	cd backend && go run ./cmd/server migrate up
+	cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" up
 
 migrate-down: ## Roll back the last database migration
-	cd backend && go run ./cmd/server migrate down
+	cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" down 1
 
 # ─── Cleanup ─────────────────────────────────────────────────────────
 
