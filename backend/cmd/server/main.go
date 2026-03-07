@@ -22,6 +22,7 @@ import (
 	goredis "github.com/nishantg96/gitfable/internal/redis"
 	"github.com/nishantg96/gitfable/internal/seed"
 	"github.com/nishantg96/gitfable/internal/service"
+	isync "github.com/nishantg96/gitfable/internal/sync"
 )
 
 func main() {
@@ -96,6 +97,13 @@ func main() {
 			slog.Error("failed to seed database", "error", err)
 			os.Exit(1)
 		}
+	}
+
+	// 9c. Start issue sync service.
+	if cfg.SyncEnabled {
+		syncService := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncInterval, cfg.StaleInterval)
+		syncService.Start(ctx)
+		defer syncService.Stop()
 	}
 
 	// 10. Create middleware.
