@@ -230,20 +230,24 @@ type Event struct {
 }
 
 type Issue struct {
-	ID         int64              `json:"id"`
-	PublicID   pgtype.UUID        `json:"public_id"`
-	GithubID   int64              `json:"github_id"`
-	RepoOwner  string             `json:"repo_owner"`
-	RepoName   string             `json:"repo_name"`
-	Title      string             `json:"title"`
-	Url        string             `json:"url"`
-	Language   pgtype.Text        `json:"language"`
-	Difficulty pgtype.Text        `json:"difficulty"`
-	RepoStars  int32              `json:"repo_stars"`
-	Labels     []string           `json:"labels"`
-	State      IssueState         `json:"state"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID              int64              `json:"id"`
+	PublicID        pgtype.UUID        `json:"public_id"`
+	GithubID        int64              `json:"github_id"`
+	GithubNumber    int32              `json:"github_number"`
+	RepoOwner       string             `json:"repo_owner"`
+	RepoName        string             `json:"repo_name"`
+	Title           string             `json:"title"`
+	Url             string             `json:"url"`
+	Language        pgtype.Text        `json:"language"`
+	Difficulty      pgtype.Text        `json:"difficulty"`
+	RepoStars       int32              `json:"repo_stars"`
+	RepoPushedAt    pgtype.Timestamptz `json:"repo_pushed_at"`
+	GithubCreatedAt pgtype.Timestamptz `json:"github_created_at"`
+	Labels          []string           `json:"labels"`
+	State           IssueState         `json:"state"`
+	LastSyncedAt    pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {

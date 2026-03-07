@@ -41,6 +41,29 @@ func (q *Queries) CountFilteredIssues(ctx context.Context, arg CountFilteredIssu
 	return count, err
 }
 
+const countFilteredIssuesForUser = `-- name: CountFilteredIssuesForUser :one
+SELECT COUNT(*) FROM issues
+WHERE state = 'open'
+  AND ($2::varchar IS NULL OR language = $2)
+  AND ($3::varchar IS NULL OR difficulty = $3)
+  AND NOT EXISTS (
+    SELECT 1 FROM draws d WHERE d.issue_id = issues.id AND d.user_id = $1
+  )
+`
+
+type CountFilteredIssuesForUserParams struct {
+	UserID     int64       `json:"user_id"`
+	Language   pgtype.Text `json:"language"`
+	Difficulty pgtype.Text `json:"difficulty"`
+}
+
+func (q *Queries) CountFilteredIssuesForUser(ctx context.Context, arg CountFilteredIssuesForUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countFilteredIssuesForUser, arg.UserID, arg.Language, arg.Difficulty)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countIssues = `-- name: CountIssues :one
 SELECT COUNT(*) FROM issues
 `
@@ -52,28 +75,72 @@ func (q *Queries) CountIssues(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countOpenIssues = `-- name: CountOpenIssues :one
+SELECT COUNT(*) FROM issues WHERE state = 'open'
+`
+
+func (q *Queries) CountOpenIssues(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenIssues)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countOpenIssuesByLanguage = `-- name: CountOpenIssuesByLanguage :many
+SELECT language, COUNT(*) as count FROM issues WHERE state = 'open' GROUP BY language ORDER BY count DESC
+`
+
+type CountOpenIssuesByLanguageRow struct {
+	Language pgtype.Text `json:"language"`
+	Count    int64       `json:"count"`
+}
+
+func (q *Queries) CountOpenIssuesByLanguage(ctx context.Context) ([]CountOpenIssuesByLanguageRow, error) {
+	rows, err := q.db.Query(ctx, countOpenIssuesByLanguage)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountOpenIssuesByLanguageRow{}
+	for rows.Next() {
+		var i CountOpenIssuesByLanguageRow
+		if err := rows.Scan(&i.Language, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createIssue = `-- name: CreateIssue :one
-INSERT INTO issues (github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at
+INSERT INTO issues (github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at
 `
 
 type CreateIssueParams struct {
-	GithubID   int64       `json:"github_id"`
-	RepoOwner  string      `json:"repo_owner"`
-	RepoName   string      `json:"repo_name"`
-	Title      string      `json:"title"`
-	Url        string      `json:"url"`
-	Language   pgtype.Text `json:"language"`
-	Difficulty pgtype.Text `json:"difficulty"`
-	RepoStars  int32       `json:"repo_stars"`
-	Labels     []string    `json:"labels"`
-	State      IssueState  `json:"state"`
+	GithubID        int64              `json:"github_id"`
+	GithubNumber    int32              `json:"github_number"`
+	RepoOwner       string             `json:"repo_owner"`
+	RepoName        string             `json:"repo_name"`
+	Title           string             `json:"title"`
+	Url             string             `json:"url"`
+	Language        pgtype.Text        `json:"language"`
+	Difficulty      pgtype.Text        `json:"difficulty"`
+	RepoStars       int32              `json:"repo_stars"`
+	RepoPushedAt    pgtype.Timestamptz `json:"repo_pushed_at"`
+	GithubCreatedAt pgtype.Timestamptz `json:"github_created_at"`
+	Labels          []string           `json:"labels"`
+	State           IssueState         `json:"state"`
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, createIssue,
 		arg.GithubID,
+		arg.GithubNumber,
 		arg.RepoOwner,
 		arg.RepoName,
 		arg.Title,
@@ -81,6 +148,8 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 		arg.Language,
 		arg.Difficulty,
 		arg.RepoStars,
+		arg.RepoPushedAt,
+		arg.GithubCreatedAt,
 		arg.Labels,
 		arg.State,
 	)
@@ -89,6 +158,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 		&i.ID,
 		&i.PublicID,
 		&i.GithubID,
+		&i.GithubNumber,
 		&i.RepoOwner,
 		&i.RepoName,
 		&i.Title,
@@ -96,8 +166,11 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 		&i.Language,
 		&i.Difficulty,
 		&i.RepoStars,
+		&i.RepoPushedAt,
+		&i.GithubCreatedAt,
 		&i.Labels,
 		&i.State,
+		&i.LastSyncedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -105,7 +178,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 }
 
 const getIssueByID = `-- name: GetIssueByID :one
-SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at FROM issues WHERE id = $1
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues WHERE id = $1
 `
 
 func (q *Queries) GetIssueByID(ctx context.Context, id int64) (Issue, error) {
@@ -115,6 +188,7 @@ func (q *Queries) GetIssueByID(ctx context.Context, id int64) (Issue, error) {
 		&i.ID,
 		&i.PublicID,
 		&i.GithubID,
+		&i.GithubNumber,
 		&i.RepoOwner,
 		&i.RepoName,
 		&i.Title,
@@ -122,8 +196,11 @@ func (q *Queries) GetIssueByID(ctx context.Context, id int64) (Issue, error) {
 		&i.Language,
 		&i.Difficulty,
 		&i.RepoStars,
+		&i.RepoPushedAt,
+		&i.GithubCreatedAt,
 		&i.Labels,
 		&i.State,
+		&i.LastSyncedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -131,7 +208,7 @@ func (q *Queries) GetIssueByID(ctx context.Context, id int64) (Issue, error) {
 }
 
 const getIssueByPublicID = `-- name: GetIssueByPublicID :one
-SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at FROM issues WHERE public_id = $1
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues WHERE public_id = $1
 `
 
 func (q *Queries) GetIssueByPublicID(ctx context.Context, publicID pgtype.UUID) (Issue, error) {
@@ -141,6 +218,7 @@ func (q *Queries) GetIssueByPublicID(ctx context.Context, publicID pgtype.UUID) 
 		&i.ID,
 		&i.PublicID,
 		&i.GithubID,
+		&i.GithubNumber,
 		&i.RepoOwner,
 		&i.RepoName,
 		&i.Title,
@@ -148,8 +226,11 @@ func (q *Queries) GetIssueByPublicID(ctx context.Context, publicID pgtype.UUID) 
 		&i.Language,
 		&i.Difficulty,
 		&i.RepoStars,
+		&i.RepoPushedAt,
+		&i.GithubCreatedAt,
 		&i.Labels,
 		&i.State,
+		&i.LastSyncedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -157,7 +238,7 @@ func (q *Queries) GetIssueByPublicID(ctx context.Context, publicID pgtype.UUID) 
 }
 
 const getRandomIssue = `-- name: GetRandomIssue :one
-SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at FROM issues
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues
 WHERE state = 'open'
   AND ($2::varchar IS NULL OR language = $2)
   AND ($3::varchar IS NULL OR difficulty = $3)
@@ -178,6 +259,7 @@ func (q *Queries) GetRandomIssue(ctx context.Context, arg GetRandomIssueParams) 
 		&i.ID,
 		&i.PublicID,
 		&i.GithubID,
+		&i.GithubNumber,
 		&i.RepoOwner,
 		&i.RepoName,
 		&i.Title,
@@ -185,16 +267,115 @@ func (q *Queries) GetRandomIssue(ctx context.Context, arg GetRandomIssueParams) 
 		&i.Language,
 		&i.Difficulty,
 		&i.RepoStars,
+		&i.RepoPushedAt,
+		&i.GithubCreatedAt,
 		&i.Labels,
 		&i.State,
+		&i.LastSyncedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
+const getRandomIssueForUser = `-- name: GetRandomIssueForUser :one
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues
+WHERE state = 'open'
+  AND ($3::varchar IS NULL OR language = $3)
+  AND ($4::varchar IS NULL OR difficulty = $4)
+  AND NOT EXISTS (
+    SELECT 1 FROM draws d WHERE d.issue_id = issues.id AND d.user_id = $1
+  )
+OFFSET $2
+LIMIT 1
+`
+
+type GetRandomIssueForUserParams struct {
+	UserID     int64       `json:"user_id"`
+	Offset     int32       `json:"offset"`
+	Language   pgtype.Text `json:"language"`
+	Difficulty pgtype.Text `json:"difficulty"`
+}
+
+func (q *Queries) GetRandomIssueForUser(ctx context.Context, arg GetRandomIssueForUserParams) (Issue, error) {
+	row := q.db.QueryRow(ctx, getRandomIssueForUser,
+		arg.UserID,
+		arg.Offset,
+		arg.Language,
+		arg.Difficulty,
+	)
+	var i Issue
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.GithubID,
+		&i.GithubNumber,
+		&i.RepoOwner,
+		&i.RepoName,
+		&i.Title,
+		&i.Url,
+		&i.Language,
+		&i.Difficulty,
+		&i.RepoStars,
+		&i.RepoPushedAt,
+		&i.GithubCreatedAt,
+		&i.Labels,
+		&i.State,
+		&i.LastSyncedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStaleIssues = `-- name: GetStaleIssues :many
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues
+WHERE state = 'open'
+ORDER BY last_synced_at ASC
+LIMIT $1
+`
+
+func (q *Queries) GetStaleIssues(ctx context.Context, limit int32) ([]Issue, error) {
+	rows, err := q.db.Query(ctx, getStaleIssues, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Issue{}
+	for rows.Next() {
+		var i Issue
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.GithubID,
+			&i.GithubNumber,
+			&i.RepoOwner,
+			&i.RepoName,
+			&i.Title,
+			&i.Url,
+			&i.Language,
+			&i.Difficulty,
+			&i.RepoStars,
+			&i.RepoPushedAt,
+			&i.GithubCreatedAt,
+			&i.Labels,
+			&i.State,
+			&i.LastSyncedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssues = `-- name: ListIssues :many
-SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at FROM issues
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues
 WHERE state = 'open'
   AND ($2::varchar IS NULL OR language = $2)
   AND ($3::varchar IS NULL OR difficulty = $3)
@@ -221,6 +402,7 @@ func (q *Queries) ListIssues(ctx context.Context, arg ListIssuesParams) ([]Issue
 			&i.ID,
 			&i.PublicID,
 			&i.GithubID,
+			&i.GithubNumber,
 			&i.RepoOwner,
 			&i.RepoName,
 			&i.Title,
@@ -228,8 +410,11 @@ func (q *Queries) ListIssues(ctx context.Context, arg ListIssuesParams) ([]Issue
 			&i.Language,
 			&i.Difficulty,
 			&i.RepoStars,
+			&i.RepoPushedAt,
+			&i.GithubCreatedAt,
 			&i.Labels,
 			&i.State,
+			&i.LastSyncedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -244,7 +429,7 @@ func (q *Queries) ListIssues(ctx context.Context, arg ListIssuesParams) ([]Issue
 }
 
 const listIssuesAfterCursor = `-- name: ListIssuesAfterCursor :many
-SELECT id, public_id, github_id, repo_owner, repo_name, title, url, language, difficulty, repo_stars, labels, state, created_at, updated_at FROM issues
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues
 WHERE state = 'open'
   AND ($3::varchar IS NULL OR language = $3)
   AND ($4::varchar IS NULL OR difficulty = $4)
@@ -280,6 +465,7 @@ func (q *Queries) ListIssuesAfterCursor(ctx context.Context, arg ListIssuesAfter
 			&i.ID,
 			&i.PublicID,
 			&i.GithubID,
+			&i.GithubNumber,
 			&i.RepoOwner,
 			&i.RepoName,
 			&i.Title,
@@ -287,8 +473,11 @@ func (q *Queries) ListIssuesAfterCursor(ctx context.Context, arg ListIssuesAfter
 			&i.Language,
 			&i.Difficulty,
 			&i.RepoStars,
+			&i.RepoPushedAt,
+			&i.GithubCreatedAt,
 			&i.Labels,
 			&i.State,
+			&i.LastSyncedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -300,4 +489,95 @@ func (q *Queries) ListIssuesAfterCursor(ctx context.Context, arg ListIssuesAfter
 		return nil, err
 	}
 	return items, nil
+}
+
+const markIssueClosed = `-- name: MarkIssueClosed :exec
+UPDATE issues SET state = 'closed', last_synced_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) MarkIssueClosed(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, markIssueClosed, id)
+	return err
+}
+
+const updateIssueSyncedAt = `-- name: UpdateIssueSyncedAt :exec
+UPDATE issues SET last_synced_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) UpdateIssueSyncedAt(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, updateIssueSyncedAt, id)
+	return err
+}
+
+const upsertIssue = `-- name: UpsertIssue :one
+INSERT INTO issues (
+    github_id, github_number, repo_owner, repo_name, title, url,
+    language, difficulty, repo_stars, repo_pushed_at, github_created_at,
+    labels, state, last_synced_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+ON CONFLICT (github_id) DO UPDATE SET
+    title = EXCLUDED.title,
+    repo_stars = EXCLUDED.repo_stars,
+    labels = EXCLUDED.labels,
+    difficulty = EXCLUDED.difficulty,
+    repo_pushed_at = EXCLUDED.repo_pushed_at,
+    last_synced_at = NOW(),
+    state = EXCLUDED.state
+RETURNING id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at
+`
+
+type UpsertIssueParams struct {
+	GithubID        int64              `json:"github_id"`
+	GithubNumber    int32              `json:"github_number"`
+	RepoOwner       string             `json:"repo_owner"`
+	RepoName        string             `json:"repo_name"`
+	Title           string             `json:"title"`
+	Url             string             `json:"url"`
+	Language        pgtype.Text        `json:"language"`
+	Difficulty      pgtype.Text        `json:"difficulty"`
+	RepoStars       int32              `json:"repo_stars"`
+	RepoPushedAt    pgtype.Timestamptz `json:"repo_pushed_at"`
+	GithubCreatedAt pgtype.Timestamptz `json:"github_created_at"`
+	Labels          []string           `json:"labels"`
+	State           IssueState         `json:"state"`
+}
+
+func (q *Queries) UpsertIssue(ctx context.Context, arg UpsertIssueParams) (Issue, error) {
+	row := q.db.QueryRow(ctx, upsertIssue,
+		arg.GithubID,
+		arg.GithubNumber,
+		arg.RepoOwner,
+		arg.RepoName,
+		arg.Title,
+		arg.Url,
+		arg.Language,
+		arg.Difficulty,
+		arg.RepoStars,
+		arg.RepoPushedAt,
+		arg.GithubCreatedAt,
+		arg.Labels,
+		arg.State,
+	)
+	var i Issue
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.GithubID,
+		&i.GithubNumber,
+		&i.RepoOwner,
+		&i.RepoName,
+		&i.Title,
+		&i.Url,
+		&i.Language,
+		&i.Difficulty,
+		&i.RepoStars,
+		&i.RepoPushedAt,
+		&i.GithubCreatedAt,
+		&i.Labels,
+		&i.State,
+		&i.LastSyncedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
