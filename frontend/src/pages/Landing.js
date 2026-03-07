@@ -1,14 +1,161 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { motion } from 'framer-motion';
-import { ArrowRight, BookOpen, Compass, GitPullRequest, Award, Star, Users, FolderGit2, ChevronRight, Zap, Sparkles } from 'lucide-react';
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
+import { ArrowRight, BookOpen, Compass, GitPullRequest, Award, Star, Users, FolderGit2, Zap, Github, ScrollText, GitCommitHorizontal, Trophy } from 'lucide-react';
 import { api } from '@/lib/api';
 
+const EASE = [0.22, 1, 0.36, 1];
+
+/* ═══ Embers ═══ */
+function Embers({ count = 25 }) {
+  const embers = useMemo(() =>
+    Array.from({ length: count }, (_, i) => ({
+      left: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 10}s`,
+      duration: `${8 + Math.random() * 12}s`,
+      size: 2 + Math.random() * 3,
+      brightness: 0.3 + Math.random() * 0.6,
+      alt: i % 3 === 0,
+    })), [count]
+  );
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {embers.map((e, i) => (
+        <div
+          key={i}
+          className="absolute bottom-[-10px] rounded-full"
+          style={{
+            left: e.left,
+            width: `${e.size}px`,
+            height: `${e.size}px`,
+            background: `rgba(251,191,36,${e.brightness})`,
+            boxShadow: `0 0 ${e.size * 4}px ${e.size}px rgba(251,191,36,${e.brightness * 0.4})`,
+            animation: `${e.alt ? 'ember-rise-alt' : 'ember-rise'} ${e.duration} ${e.delay} ease-out infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ═══ 3D Card ═══ */
+function HeroCard({ card }) {
+  const cardRef = useRef(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0, active: false });
+  const handleMouseMove = useCallback((e) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: y * -15, y: x * 15, active: true });
+  }, []);
+  const handleLeave = useCallback(() => setTilt({ x: 0, y: 0, active: false }), []);
+
+  return (
+    <div ref={cardRef} onMouseMove={handleMouseMove} onMouseLeave={handleLeave} className="relative cursor-default" style={{ perspective: '1200px' }}>
+      <motion.div
+        animate={{ rotateX: tilt.x, rotateY: tilt.y, scale: tilt.active ? 1.03 : 1 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+        style={{ transformStyle: 'preserve-3d' }}
+        className="relative"
+      >
+        <div className="relative rounded-2xl overflow-hidden" style={{
+          background: 'linear-gradient(160deg, rgba(15,15,18,0.98), rgba(9,9,11,0.99))',
+          border: '1px solid rgba(251,191,36,0.2)',
+          boxShadow: '0 25px 60px -12px rgba(0,0,0,0.7), 0 0 60px -20px rgba(251,191,36,0.1)',
+        }}>
+          <div className="absolute inset-0 card-shimmer pointer-events-none" />
+          <div className="absolute top-0 left-8 right-8 h-px pointer-events-none" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.3), transparent)' }} />
+          <div className="relative p-8">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2 text-xs text-zinc-600 font-mono">
+                <Github className="w-3.5 h-3.5" strokeWidth={1.5} />{card.repo}
+              </div>
+              <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2.5 py-1 rounded-full text-amber-300 border border-amber-400/25 bg-amber-400/6">legendary</span>
+            </div>
+            <h3 className="text-lg font-medium text-zinc-100 leading-snug mb-5 tracking-tight">{card.title}</h3>
+            <div className="flex items-center gap-2 mb-5 py-2.5 px-3.5 rounded-lg" style={{ background: 'rgba(251,191,36,0.04)', border: '1px solid rgba(251,191,36,0.08)' }}>
+              <Zap className="w-3.5 h-3.5 text-amber-400/60" strokeWidth={2} />
+              <span className="text-xs font-mono text-amber-300/70">+85 XP on merge</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] px-2.5 py-1.5 rounded-md font-mono text-amber-300 border border-amber-400/25 bg-amber-400/6">{card.lang}</span>
+              <span className="text-xs text-zinc-500 flex items-center gap-1.5 font-mono"><Star className="w-3.5 h-3.5" strokeWidth={1.5} />{card.stars}</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ═══ Code Block ═══ */
+function CodeBlock() {
+  return (
+    <div className="rounded-xl overflow-hidden text-left" style={{ background: 'rgba(9,9,11,0.7)', border: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.04]">
+        <div className="w-2.5 h-2.5 rounded-full bg-white/[0.06]" />
+        <div className="w-2.5 h-2.5 rounded-full bg-white/[0.06]" />
+        <div className="w-2.5 h-2.5 rounded-full bg-white/[0.06]" />
+        <span className="ml-2 text-[10px] font-mono text-zinc-700">your-journey.ts</span>
+      </div>
+      <div className="p-5 font-mono text-[13px] leading-[1.9] whitespace-nowrap">
+        <span className="text-purple-400">import</span>
+        <span className="text-zinc-500">{' { '}</span>
+        <span className="text-zinc-300">draw</span>
+        <span className="text-zinc-500">,</span>
+        <span className="text-zinc-300"> submit</span>
+        <span className="text-zinc-500">,</span>
+        <span className="text-zinc-300"> merge</span>
+        <span className="text-zinc-500">{' } '}</span>
+        <span className="text-purple-400">from</span>{' '}
+        <span className="text-amber-300">"gitfable"</span>
+        <span className="text-zinc-500">;</span>
+        <br /><br />
+        <span className="text-purple-400">const</span>{' '}
+        <span className="text-zinc-300">issue</span>
+        <span className="text-zinc-500"> = </span>
+        <span className="text-blue-400">draw</span>
+        <span className="text-zinc-500">{'({ '}</span>
+        <span className="text-zinc-400">lang</span>
+        <span className="text-zinc-500">: </span>
+        <span className="text-amber-300">"typescript"</span>
+        <span className="text-zinc-500">{', '}</span>
+        <span className="text-zinc-400">difficulty</span>
+        <span className="text-zinc-500">: </span>
+        <span className="text-amber-300">"beginner"</span>
+        <span className="text-zinc-500">{' });'}</span>
+        <br />
+        <span className="text-purple-400">const</span>{' '}
+        <span className="text-zinc-300">pr</span>
+        <span className="text-zinc-500">{'    = '}</span>
+        <span className="text-blue-400">submit</span>
+        <span className="text-zinc-500">(</span>
+        <span className="text-zinc-300">issue</span>
+        <span className="text-zinc-500">);</span>
+        <br />
+        <span className="text-purple-400">const</span>{' '}
+        <span className="text-zinc-300">xp</span>
+        <span className="text-zinc-500">{'    = '}</span>
+        <span className="text-blue-400">merge</span>
+        <span className="text-zinc-500">(</span>
+        <span className="text-zinc-300">pr</span>
+        <span className="text-zinc-500">);</span>
+        {'  '}
+        <span className="text-zinc-700">{'// +85 XP earned'}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Animated Number ═══ */
 function AnimatedNumber({ target, duration = 2000 }) {
   const [current, setCurrent] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true });
   useEffect(() => {
-    if (target <= 0) return;
+    if (!isInView || target <= 0) return;
     const steps = 50;
     const increment = target / steps;
     let step = 0;
@@ -18,38 +165,181 @@ function AnimatedNumber({ target, duration = 2000 }) {
       if (step >= steps) clearInterval(timer);
     }, duration / steps);
     return () => clearInterval(timer);
-  }, [target, duration]);
-  return <span>{current.toLocaleString()}</span>;
+  }, [target, duration, isInView]);
+  return <span ref={ref}>{current.toLocaleString()}</span>;
 }
 
-const steps = [
-  { icon: Compass, title: 'Set Your Filters', desc: 'Choose languages and difficulty levels that match your expertise and curiosity.', accent: 'slate' },
-  { icon: BookOpen, title: 'Draw an Issue', desc: 'The archive shuffles and presents a curated issue from top open-source projects.', accent: 'sky' },
-  { icon: GitPullRequest, title: 'Submit Your PR', desc: 'Work on it externally, submit your pull request on GitHub.', accent: 'stone' },
-  { icon: Award, title: 'Earn Your Legend', desc: 'Gain XP, unlock narrative badges, and climb the leaderboard.', accent: 'sky' },
+/* ═══ Marquee ═══ */
+function Marquee({ items, speed = 35 }) {
+  return (
+    <div className="overflow-hidden whitespace-nowrap select-none">
+      <motion.div
+        className="inline-flex gap-14"
+        animate={{ x: ['0%', '-50%'] }}
+        transition={{ duration: speed, ease: 'linear', repeat: Infinity }}
+      >
+        {[...items, ...items].map((item, i) => (
+          <span key={i} className="inline-flex items-center gap-3 text-zinc-600 font-mono text-[11px] tracking-wider uppercase">
+            <span className="w-1 h-1 rounded-full bg-amber-400/25 flex-shrink-0" />{item}
+          </span>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+/* ═══ Scroll-driven text reveal — words light up as you scroll ═══ */
+function TextRevealSection({ paragraphs }) {
+  const containerRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start 0.8', 'end 0.35'],
+  });
+
+  /* Count total words across all paragraphs to assign global indices */
+  const totalWords = paragraphs.reduce((sum, p) => sum + p.text.split(' ').length, 0);
+  let wordIndex = 0;
+
+  return (
+    <div ref={containerRef}>
+      {paragraphs.map((para, pi) => {
+        const words = para.text.split(' ');
+        const elements = words.map((word) => {
+          const globalStart = wordIndex / totalWords;
+          const globalEnd = (wordIndex + 1) / totalWords;
+          wordIndex++;
+          return (
+            <TextRevealWord
+              key={`${pi}-${wordIndex}`}
+              word={word}
+              progress={scrollYProgress}
+              range={[globalStart, globalEnd]}
+              colorFrom={para.colorFrom}
+              colorTo={para.colorTo}
+            />
+          );
+        });
+        return (
+          <div key={pi}>
+            {para.divider && <div className="h-px w-16 my-10" style={{ background: 'linear-gradient(to right, rgba(251,191,36,0.4), transparent)' }} />}
+            <p className={para.className} style={{ ...para.style, display: 'flex', flexWrap: 'wrap', gap: '0 0.3em' }}>
+              {elements}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TextRevealWord({ word, progress, range, colorFrom, colorTo }) {
+  const opacity = useTransform(progress, range, [0.15, 1]);
+  const color = useTransform(progress, range, [colorFrom, colorTo]);
+  return (
+    <motion.span style={{ opacity, color }} className="inline-block">
+      {word}
+    </motion.span>
+  );
+}
+
+/* ═══ Journey milestone ═══ */
+function Milestone({ stage, index, isLast }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true, amount: 0.4 }}
+      transition={{ delay: 0.1, duration: 0.8, ease: EASE }}
+      className="relative grid grid-cols-[60px_1fr] md:grid-cols-[80px_1fr] gap-6 md:gap-10"
+    >
+      <div className="flex flex-col items-center">
+        <div
+          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center flex-shrink-0 relative z-10"
+          style={{
+            background: `rgba(251,191,36,${0.04 + index * 0.03})`,
+            border: `1px solid rgba(251,191,36,${0.1 + index * 0.08})`,
+            boxShadow: `0 0 ${20 + index * 10}px -6px rgba(251,191,36,${0.1 + index * 0.08})`,
+          }}
+        >
+          <stage.icon className="w-4 h-4 md:w-5 md:h-5 text-amber-400/70" strokeWidth={1.5} />
+        </div>
+        {!isLast && (
+          <div className="w-px flex-1 mt-4 min-h-[40px]" style={{ background: 'linear-gradient(to bottom, rgba(251,191,36,0.15), rgba(251,191,36,0.03))' }} />
+        )}
+      </div>
+      <div className="pb-16 md:pb-20">
+        <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.25em] block mb-3">{stage.label}</span>
+        <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-semibold leading-[1.1] mb-4 text-zinc-200" style={{ letterSpacing: '-0.05em' }}>
+          {stage.title}
+        </h3>
+        <p className="text-[15px] text-zinc-500 leading-relaxed max-w-lg">{stage.desc}</p>
+        {stage.detail && (
+          <p className="text-xs font-mono text-zinc-600 mt-4 tracking-wide">{stage.detail}</p>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ═══ DATA ═══ */
+
+const marqueeRepos = [
+  'vercel/next.js', 'facebook/react', 'rust-lang/rust', 'django/django', 'golang/go',
+  'sveltejs/svelte', 'vuejs/vue', 'denoland/deno', 'tailwindlabs/tailwindcss',
+  'prisma/prisma', 'supabase/supabase', 'withastro/astro',
 ];
 
-const ACCENT_MAP = {
-  slate: { border: 'border-white/15', glow: 'rgba(148,163,184,0.15)', text: 'text-slate-300', bg: 'bg-slate-400/10' },
-  sky: { border: 'border-sky-300/30', glow: 'rgba(125,211,252,0.16)', text: 'text-sky-200', bg: 'bg-sky-300/10' },
-  stone: { border: 'border-zinc-400/20', glow: 'rgba(212,212,216,0.12)', text: 'text-zinc-200', bg: 'bg-zinc-400/10' },
-};
+const journeyStages = [
+  {
+    icon: Compass,
+    label: 'The Discovery',
+    title: 'Find the issue that was meant for you.',
+    desc: 'No more doom-scrolling through thousands of issues. GitFable curates issues that match your language, skill level, and curiosity — then presents them one at a time.',
+    detail: 'Python, TypeScript, Rust, Go, and more',
+  },
+  {
+    icon: GitCommitHorizontal,
+    label: 'The First Commit',
+    title: 'Push code to a project you admire.',
+    desc: "You've read their docs. You've used their library. Now you're contributing to it. Fork the repo, write the code, open the PR. GitFable tracks your progress.",
+  },
+  {
+    icon: GitPullRequest,
+    label: 'The First Merge',
+    title: 'See your name in the commit log. Forever.',
+    desc: "That green 'Merged' badge isn't just a status — it's proof. Your code is now part of something bigger. GitFable verifies the merge and marks your chapter complete.",
+    detail: 'Verified via GitHub webhooks',
+  },
+  {
+    icon: Trophy,
+    label: 'The Legend Grows',
+    title: 'XP. Badges. Streaks. Recognition.',
+    desc: "Every contribution earns XP. Hit milestones to unlock narrative badges. Build streaks. Climb the leaderboard. Your profile becomes a living record of your open-source story.",
+    detail: 'Common, Rare, Epic, and Legendary tiers',
+  },
+];
 
-const EASE = [0.22, 1, 0.36, 1];
-const HERO_STAGGER = {
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.9, ease: EASE, staggerChildren: 0.12 } },
-};
-const HERO_ITEM = {
-  initial: { opacity: 0, y: 18 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE } },
-};
+/* ═══ LANDING PAGE ═══ */
 
 export default function Landing() {
   const { user, setShowLogin } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ merged_draws: 0, active_users: 0, distinct_repos: 0 });
   const [activity, setActivity] = useState([]);
+
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.6], [1, 0.96]);
+
+  const spotlightRef = useRef(null);
+  const handleSpotlight = useCallback((e) => {
+    const el = spotlightRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+    el.style.setProperty('--my', `${e.clientY - rect.top}px`);
+  }, []);
 
   useEffect(() => {
     api.get('/stats').then(r => setStats(r._data)).catch(() => {});
@@ -63,233 +353,367 @@ export default function Landing() {
 
   return (
     <div className="pt-16 relative" data-testid="landing-page">
-      {/* HERO */}
-      <section className="relative min-h-[92vh] flex items-center overflow-hidden">
-        {/* Layered ambient glows */}
-        <div className="absolute inset-0 ambient-amber" />
-        <div className="absolute inset-0 ambient-violet" />
-        <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(148,163,184,0.16), transparent 70%)', filter: 'blur(80px)' }} />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, rgba(125,211,252,0.16), transparent 70%)', filter: 'blur(60px)' }} />
 
-        <div className="relative max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-20 w-full">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            {/* Left: Copy */}
-            <motion.div variants={HERO_STAGGER} initial="initial" animate="animate">
-              <motion.div variants={HERO_ITEM} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-sky-300/30 bg-white/[0.04] mb-8">
-                <Sparkles className="w-3.5 h-3.5 text-sky-200" strokeWidth={1.5} />
-                <span className="font-mono text-xs text-sky-200 uppercase tracking-widest">Open Source Archive</span>
+      {/* ═══ HERO ═══ */}
+      <section
+        ref={(el) => { heroRef.current = el; spotlightRef.current = el; }}
+        onMouseMove={handleSpotlight}
+        className="spotlight-container relative min-h-[100vh] flex flex-col items-center justify-center overflow-hidden"
+      >
+        <Embers count={35} />
+        <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-background to-transparent z-20 pointer-events-none" />
+
+        <motion.div style={{ opacity: heroOpacity, scale: heroScale }} className="relative z-10 w-full max-w-[1400px] mx-auto px-6 sm:px-8 lg:px-16">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            {/* Left — headline + subtitle + CTA */}
+            <div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 1.2, ease: EASE }}
+                className="flex items-center gap-3 mb-10"
+              >
+                <div className="h-px w-12 bg-gradient-to-r from-transparent to-amber-400/40" />
+                <span className="font-mono text-[10px] text-amber-400/50 uppercase tracking-[0.3em]">GitFable</span>
               </motion.div>
 
-              <motion.h1 variants={HERO_ITEM} className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.04] tracking-tight mb-6">
-                Write Your<br />
-                <span className="gold-text">Open Source</span><br />
-                Story
+              <motion.h1
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45, duration: 1.2, ease: EASE }}
+                className="font-display font-semibold leading-[0.95] mb-8"
+                style={{ fontSize: 'clamp(2.2rem, 5vw, 4.5rem)', letterSpacing: '-0.07em' }}
+              >
+                <span className="text-zinc-200">EVERY CODER</span><br />
+                <span className="text-zinc-200">SHOULD HAVE AN </span><br />
+                <span style={{
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #b45309 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}>ORIGIN STORY.</span>
               </motion.h1>
 
-              <motion.p variants={HERO_ITEM} className="text-base md:text-lg text-zinc-300 max-w-lg mb-10 leading-relaxed">
-                GitFable matches you with curated issues from top repositories.
-                Draw your next contribution, earn XP, collect narrative badges,
-                and forge your developer legend.
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7, duration: 0.9, ease: EASE }}
+                className="text-zinc-500 text-base sm:text-lg max-w-lg leading-relaxed mb-10"
+              >
+                GitFable turns your first open-source contribution into an adventure.
+                Find issues. Submit PRs. Build your developer legend.
               </motion.p>
 
-              <motion.div variants={HERO_ITEM} className="flex flex-wrap gap-4">
-                <button onClick={handleCTA} className="rune-btn px-8 py-3.5 rounded-lg text-sm tracking-widest animate-pulse-glow" data-testid="hero-cta-button">
-                  Begin Your Story <ArrowRight className="w-4 h-4 inline ml-2" />
-                </button>
-                <button onClick={() => navigate('/leaderboard')} className="px-6 py-3.5 text-zinc-400 hover:text-white font-mono text-xs uppercase tracking-widest hover:bg-white/5 rounded-lg border border-white/5 hover:border-white/10" style={{ transition: 'color 0.2s, background-color 0.2s, border-color 0.2s' }} data-testid="hero-leaderboard-button">
-                  View Leaderboard
-                </button>
-              </motion.div>
-
-              {/* Quick stats under CTA */}
-              <motion.div variants={HERO_ITEM} className="flex gap-6 mt-10 pt-8 border-t border-white/5">
-                {[
-                  { label: 'Issues', value: '28+', icon: Zap },
-                  { label: 'Languages', value: '10+', icon: FolderGit2 },
-                  { label: 'Authors', value: `${stats.active_users}`, icon: Users },
-                ].map(s => (
-                  <div key={s.label} className="flex items-center gap-2">
-                    <s.icon className="w-3.5 h-3.5 text-sky-200/70" strokeWidth={1.5} />
-                    <span className="font-mono text-sm text-sky-100 font-bold">{s.value}</span>
-                    <span className="text-xs text-zinc-500">{s.label}</span>
-                  </div>
-                ))}
-              </motion.div>
-            </motion.div>
-
-            {/* Right: Floating card stack */}
-            <div className="hidden lg:block relative h-[500px]">
-              {/* Ambient glow behind cards */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full animate-soft-glow" style={{ background: 'radial-gradient(circle, rgba(125,211,252,0.12), transparent 70%)', filter: 'blur(40px)' }} />
-
-              {[0, 1, 2, 3].map((i) => (
-                <motion.div
-                  key={i}
-                  className={`absolute obsidian inner-glow rounded-xl p-5 w-72 ${i === 0 ? 'animate-float' : i === 1 ? 'animate-float-slow' : ''}`}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1, duration: 0.8, ease: EASE }}
+                className="flex flex-wrap items-center gap-5"
+              >
+                <button
+                  onClick={handleCTA}
+                  className="group relative flex items-center gap-3 px-9 py-4 rounded-full text-[12px] font-bold uppercase tracking-[0.2em] overflow-hidden font-mono"
                   style={{
-                    right: 20 + i * 15,
-                    top: 40 + i * 50,
-                    zIndex: 4 - i,
-                    opacity: 1 - i * 0.15,
+                    background: 'linear-gradient(135deg, rgba(251,191,36,0.14), rgba(245,158,11,0.06))',
+                    border: '1px solid rgba(251,191,36,0.35)',
+                    color: '#fef3c7',
+                    boxShadow: '0 0 50px -15px rgba(251,191,36,0.35), inset 0 1px 0 rgba(251,191,36,0.1)',
                   }}
-                  initial={{ opacity: 0, x: 60, rotate: (i - 1.5) * 4 }}
-                  animate={{ opacity: 1 - i * 0.15, x: 0, rotate: (i - 1.5) * 3 }}
-                  transition={{ delay: 0.35 + i * 0.14, duration: 0.9, ease: EASE }}
+                  data-testid="hero-cta-button"
                 >
-                  <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
-                    <FolderGit2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                    <span>{['vercel/next.js', 'facebook/react', 'rust-lang/rust', 'django/django'][i]}</span>
-                  </div>
-                  <p className="text-sm font-medium text-zinc-200 leading-snug mb-3">
-                    {['Fix hydration mismatch in App Router', 'Fix accessibility labels in Dialog', 'Improve borrow checker error hint', 'Add test for DateTimeField edge case'][i]}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded bg-white/[0.05] text-sky-100 border border-sky-300/20 font-mono">{['TypeScript', 'JavaScript', 'Rust', 'Python'][i]}</span>
-                    <span className="text-xs text-zinc-500 flex items-center gap-1"><Star className="w-3 h-3 text-sky-300/60" strokeWidth={1.5} />{['120k', '215k', '89k', '74k'][i]}</span>
-                  </div>
-                </motion.div>
-              ))}
+                  <span className="relative z-10">Start Your Journey</span>
+                  <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1.5 duration-300" />
+                  <div className="absolute inset-0 bg-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                </button>
+                <button
+                  onClick={() => navigate('/leaderboard')}
+                  className="text-zinc-500 hover:text-zinc-300 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors duration-300"
+                  data-testid="hero-leaderboard-button"
+                >
+                  View Leaderboard &rarr;
+                </button>
+              </motion.div>
             </div>
+
+            {/* Right — code block */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.85, duration: 0.9, ease: EASE }}
+              className="hidden lg:block"
+            >
+              <CodeBlock />
+            </motion.div>
           </div>
+
+          {/* Mobile code block — below on small screens */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.85, duration: 0.9, ease: EASE }}
+            className="lg:hidden mt-12 max-w-lg mx-auto"
+          >
+            <CodeBlock />
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* ═══ Marquee ═══ */}
+      <div className="py-6 border-y border-white/[0.025]">
+        <Marquee items={marqueeRepos} />
+      </div>
+
+      {/* ═══ THE UNCOMFORTABLE TRUTH — scroll-driven word reveal ═══ */}
+      <section className="relative py-32 sm:py-40 px-6 sm:px-8 lg:px-16">
+        <div className="max-w-4xl mx-auto">
+          <TextRevealSection paragraphs={[
+            {
+              text: "You've starred hundreds of repos. Bookmarked dozens of 'good first issues.' Read contributing guides you never came back to.",
+              className: 'font-display font-semibold leading-[1.35]',
+              style: { fontSize: 'clamp(1.3rem, 2.8vw, 2.2rem)', letterSpacing: '-0.06em' },
+              colorFrom: 'rgba(255,255,255,0.1)',
+              colorTo: '#a1a1aa',
+            },
+            {
+              text: "What if your first contribution felt less like a chore — and more like the start of something?",
+              className: 'font-display font-semibold leading-[1.3]',
+              style: { fontSize: 'clamp(1.5rem, 3.2vw, 2.8rem)', letterSpacing: '-0.06em' },
+              colorFrom: 'rgba(251,191,36,0.1)',
+              colorTo: '#fbbf24',
+              divider: true,
+            },
+          ]} />
         </div>
       </section>
 
-      <section className="relative px-6 sm:px-8 lg:px-12 pb-16" data-testid="signal-bento-section">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-5 obsidian rounded-xl p-6" data-testid="signal-bento-primary">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-500 mb-3">Contribution Control Center</p>
-            <h3 className="text-2xl md:text-3xl font-bold leading-tight mb-4">A denser workflow from draw to merge.</h3>
-            <p className="text-sm text-zinc-400 mb-6">Inspired by premium SaaS product surfaces: high signal cards, compact metrics, and fast visual scanning.</p>
-            <div className="grid grid-cols-3 gap-3">
-              {[{ label: 'Today Draws', value: '3' }, { label: 'Avg Merge', value: '27h' }, { label: 'XP Burst', value: '+130' }].map((item) => (
-                <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2" data-testid={`signal-metric-${item.label.toLowerCase().replace(/\s+/g, '-')}`}>
-                  <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">{item.label}</p>
-                  <p className="text-lg font-semibold text-sky-100">{item.value}</p>
+      {/* ═══ THE BRIDGE ═══ */}
+      <section className="relative py-32 px-6 sm:px-8 lg:px-16">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/8 to-transparent" />
+
+        <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.9, ease: EASE }}
+          >
+            <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-6">How It Works</span>
+            <h2 className="font-display font-semibold leading-[0.98] mb-6" style={{ fontSize: 'clamp(1.7rem, 3.2vw, 2.8rem)', letterSpacing: '-0.06em' }}>
+              GitFable matches you with{' '}
+              <span style={{ color: '#fbbf24' }}>real issues</span>{' '}
+              from projects that matter.
+            </h2>
+            <p className="text-[15px] text-zinc-500 leading-relaxed mb-8 max-w-lg">
+              Set your languages and skill level. We surface curated "good first issues"
+              from top open-source repositories — each one rated by difficulty and
+              impact. No more analysis paralysis. Just your next contribution, ready to go.
+            </p>
+            <div className="flex items-center gap-6 text-sm">
+              {[
+                { icon: Zap, val: '28+', label: 'Curated Issues' },
+                { icon: FolderGit2, val: '10+', label: 'Languages' },
+                { icon: Users, val: `${stats.active_users || '\u2014'}`, label: 'Contributors' },
+              ].map(s => (
+                <div key={s.label} className="flex items-center gap-2">
+                  <s.icon className="w-3 h-3 text-amber-400/50" strokeWidth={1.5} />
+                  <span className="font-mono text-[12px] text-zinc-400">{s.val}</span>
+                  <span className="text-[10px] text-zinc-500">{s.label}</span>
                 </div>
               ))}
             </div>
-          </div>
-          <div className="md:col-span-3 obsidian rounded-xl p-5" data-testid="signal-bento-secondary-a">
-            <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-3">Focus Language</p>
-            <p className="text-2xl font-semibold text-zinc-100 mb-1">TypeScript</p>
-            <p className="text-sm text-zinc-500">Highest active issue pool this week</p>
-          </div>
-          <div className="md:col-span-4 obsidian rounded-xl p-5" data-testid="signal-bento-secondary-b">
-            <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-3">Signal Feed</p>
-            <div className="space-y-2">
-              {['Hydration mismatch fixes trending', 'Docs issues up 18%', 'Rust beginner cards refreshed'].map((line) => (
-                <div key={line} className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300 bg-white/[0.02]">{line}</div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2, duration: 1, ease: EASE }}
+            className="flex justify-center"
+          >
+            <div className="w-full max-w-sm">
+              <HeroCard card={{ repo: 'vercel/next.js', title: 'Fix hydration mismatch in App Router streaming', lang: 'TypeScript', stars: '120k' }} />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══ THE JOURNEY ═══ */}
+      <section className="relative py-32 px-6 sm:px-8 lg:px-16" data-testid="how-it-works">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 50%, rgba(251,191,36,0.03), transparent 50%)' }} />
+
+        <div className="max-w-[1400px] mx-auto">
+          <div className="grid lg:grid-cols-12 gap-16 lg:gap-20">
+            <div className="lg:col-span-4">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.9, ease: EASE }}
+                className="lg:sticky lg:top-32"
+              >
+                <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-6">Your Path</span>
+                <h2 className="font-display font-semibold leading-[0.98] mb-6" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 3rem)', letterSpacing: '-0.06em' }}>
+                  From first commit to{' '}
+                  <span style={{ color: '#fbbf24' }}>legend.</span>
+                </h2>
+                <p className="text-zinc-500 text-sm leading-relaxed max-w-xs">
+                  Every open-source contributor started exactly where you are.
+                  Here's the path forward.
+                </p>
+              </motion.div>
+            </div>
+
+            <div className="lg:col-span-8">
+              {journeyStages.map((stage, i) => (
+                <Milestone key={i} stage={stage} index={i} isLast={i === journeyStages.length - 1} />
               ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="how-it-works">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <div className="max-w-7xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.8, ease: EASE }}>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-3 tracking-tight">
-              <span className="text-sky-200 font-mono text-2xl">//</span> How It Works
+      {/* ═══ STATS ═══ */}
+      <section className="relative py-36 px-6 sm:px-8 lg:px-16" data-testid="stats-section">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/8 to-transparent" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(251,191,36,0.03), transparent 50%)' }} />
+
+        <div className="relative max-w-[1400px] mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.9, ease: EASE }}
+            className="text-center mb-20"
+          >
+            <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-5">Community</span>
+            <h2 className="font-display font-semibold" style={{ fontSize: 'clamp(1.7rem, 3.2vw, 2.8rem)', letterSpacing: '-0.06em' }}>
+              A growing community of{' '}
+              <span style={{ color: '#fbbf24' }}>contributors.</span>
             </h2>
-            <p className="text-zinc-400 text-base md:text-lg mb-16 max-w-lg">Four steps from idle to impact. Every contribution writes a new chapter.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {steps.map((step, i) => {
-              const a = ACCENT_MAP[step.accent];
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 25 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08, duration: 0.75, ease: EASE }}
-                  whileHover={{ scale: 1.02, y: -4 }}
-                  className={`relative obsidian inner-glow rounded-xl p-6 group cursor-default ${a.border}`}
-                >
-                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100" style={{ background: `radial-gradient(300px circle at 50% 0%, ${a.glow}, transparent)`, transition: 'opacity 0.3s' }} />
-                  <div className="relative">
-                    <div className="flex items-center gap-3 mb-5">
-                      <span className={`font-mono text-xs ${a.text} ${a.bg} w-7 h-7 rounded flex items-center justify-center font-bold border ${a.border}`}>{String(i + 1).padStart(2, '0')}</span>
-                      <step.icon className={`w-5 h-5 ${a.text}`} strokeWidth={1.5} />
-                    </div>
-                    <h3 className="text-base font-semibold font-serif mb-2 text-zinc-100">{step.title}</h3>
-                    <p className="text-sm text-zinc-500 leading-relaxed">{step.desc}</p>
-                  </div>
-                  {i < 3 && <ChevronRight className="hidden lg:block absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700 z-10" />}
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section className="relative py-24 px-6 sm:px-8 lg:px-12" data-testid="stats-section">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-300/25 to-transparent" />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(125,211,252,0.05) 0%, transparent 70%)' }} />
-        <div className="relative max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3">
             {[
-              { label: 'Issues Resolved', value: stats.merged_draws, icon: GitPullRequest, accent: 'slate' },
-              { label: 'Active Authors', value: stats.active_users, icon: Users, accent: 'sky' },
-              { label: 'Repositories Reached', value: stats.distinct_repos, icon: FolderGit2, accent: 'stone' },
-            ].map(({ label, value, icon: Icon, accent }, i) => {
-              const a = ACCENT_MAP[accent];
-              return (
-                <motion.div
-                  key={label}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08, duration: 0.75, ease: EASE }}
-                  className={`obsidian inner-glow rounded-xl p-7 ${a.border}`}
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg ${a.bg} border ${a.border}`}>
-                      <Icon className={`w-4 h-4 ${a.text}`} strokeWidth={1.5} />
-                    </div>
-                    <span className="text-xs text-zinc-500 uppercase tracking-wider font-mono">{label}</span>
-                  </div>
-                  <p className={`text-4xl sm:text-5xl font-bold font-mono ${a.text}`}>
-                    <AnimatedNumber target={value} />
-                  </p>
-                </motion.div>
-              );
-            })}
+              { label: 'Contributions Merged', value: stats.merged_draws, icon: GitPullRequest },
+              { label: 'Active Contributors', value: stats.active_users, icon: Users },
+              { label: 'Repositories', value: stats.distinct_repos, icon: FolderGit2 },
+            ].map(({ label, value, icon: Icon }, i) => (
+              <motion.div
+                key={label}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12, duration: 0.8, ease: EASE }}
+                className="text-center py-10 md:py-0"
+                style={i > 0 ? { borderLeft: '1px solid rgba(255,255,255,0.03)' } : undefined}
+              >
+                <Icon className="w-5 h-5 text-zinc-600 mx-auto mb-8" strokeWidth={1.5} />
+                <p className="font-display font-semibold text-zinc-100" style={{ fontSize: 'clamp(2.8rem, 5.5vw, 4.5rem)', letterSpacing: '-0.07em' }}>
+                  <AnimatedNumber target={value} />
+                </p>
+                <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mt-4">{label}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ACTIVITY FEED */}
+      {/* ═══ BENTO ═══ */}
+      <section className="relative px-6 sm:px-8 lg:px-16 py-20" data-testid="signal-bento-section">
+        <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: EASE }}
+            className="md:col-span-5 rounded-2xl p-8"
+            style={{ background: 'rgba(9,9,11,0.5)', border: '1px solid rgba(255,255,255,0.03)' }}
+            data-testid="signal-bento-primary"
+          >
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400/60 mb-5">Your Dashboard</p>
+            <h3 className="font-display text-xl md:text-2xl font-semibold leading-tight mb-4" style={{ letterSpacing: '-0.05em' }}>Track every step of your journey.</h3>
+            <p className="text-[13px] text-zinc-500 mb-8">Contributions, streaks, XP progress — all in one place.</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[{ label: 'This Week', value: '3' }, { label: 'Avg Merge', value: '27h' }, { label: 'XP Earned', value: '+130' }].map((item) => (
+                <div key={item.label} className="rounded-lg px-3 py-3" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.025)' }} data-testid={`signal-metric-${item.label.toLowerCase().replace(/\s+/g, '-')}`}>
+                  <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest mb-1">{item.label}</p>
+                  <p className="text-lg font-semibold text-zinc-300">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.08, duration: 0.8, ease: EASE }}
+            className="md:col-span-3 rounded-2xl p-7"
+            style={{ background: 'rgba(9,9,11,0.5)', border: '1px solid rgba(255,255,255,0.03)' }}
+            data-testid="signal-bento-secondary-a"
+          >
+            <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest mb-4">Top Language</p>
+            <p className="text-2xl font-semibold text-zinc-200 mb-1">TypeScript</p>
+            <p className="text-[13px] text-zinc-600">Most active issue pool this week</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.16, duration: 0.8, ease: EASE }}
+            className="md:col-span-4 rounded-2xl p-7"
+            style={{ background: 'rgba(9,9,11,0.5)', border: '1px solid rgba(255,255,255,0.03)' }}
+            data-testid="signal-bento-secondary-b"
+          >
+            <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest mb-4">Trending</p>
+            <div className="space-y-2">
+              {['Hydration mismatch fixes trending', 'Documentation issues up 18%', 'Rust beginner issues refreshed'].map((line) => (
+                <div key={line} className="rounded-lg px-3 py-2.5 text-[12px] text-zinc-500" style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>{line}</div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══ ACTIVITY ═══ */}
       {activity.length > 0 && (
-        <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="activity-feed">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-3 tracking-tight">
-              <span className="text-sky-200 font-mono text-2xl">//</span> Recent Chapters
-            </h2>
-            <p className="text-zinc-400 text-base md:text-lg mb-12">Stories being written right now across the archive.</p>
+        <section className="relative py-32 px-6 sm:px-8 lg:px-16" data-testid="activity-feed">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" />
+          <div className="max-w-[1400px] mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, ease: EASE }}
+              className="mb-16"
+            >
+              <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-6">Live</span>
+              <h2 className="font-display font-semibold" style={{ fontSize: 'clamp(1.5rem, 2.8vw, 2.4rem)', letterSpacing: '-0.06em' }}>
+                Developers writing their stories{' '}
+                <span style={{ color: '#fbbf24' }}>right now.</span>
+              </h2>
+            </motion.div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activity.slice(0, 6).map((a, i) => (
                 <motion.div
                   key={a.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 16 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.05, duration: 0.65, ease: EASE }}
-                  whileHover={{ scale: 1.01, y: -2 }}
-                  className="obsidian rounded-xl p-5 inner-glow border-white/[0.06] hover:border-sky-300/25 cursor-default"
+                  transition={{ delay: i * 0.06, duration: 0.7, ease: EASE }}
+                  className="group rounded-xl p-6 cursor-default"
+                  style={{ background: 'rgba(9,9,11,0.4)', border: '1px solid rgba(255,255,255,0.025)' }}
+                  whileHover={{ y: -4, borderColor: 'rgba(251,191,36,0.1)' }}
                 >
                   <div className="flex items-center gap-3 mb-3">
-                    <img src={a.avatar_url} alt="" className="w-8 h-8 rounded-full border border-white/10 bg-zinc-900" />
-                    <span className="text-sm font-medium text-zinc-200">{a.username}</span>
-                    <span className="text-xs text-zinc-600 font-mono ml-auto">{getTimeAgo(a.created_at)}</span>
+                    <img src={a.avatar_url} alt="" className="w-7 h-7 rounded-full border border-white/[0.05] bg-zinc-900" />
+                    <span className="text-sm font-medium text-zinc-300">{a.username}</span>
+                    <span className="text-[10px] text-zinc-600 font-mono ml-auto">{getTimeAgo(a.created_at)}</span>
                   </div>
-                  <p className="text-sm text-zinc-400">
-                    merged a chapter in <span className="text-sky-200 font-medium">{a.repo_owner}/{a.repo_name}</span>
+                  <p className="text-[13px] text-zinc-500">
+                    contributed to <span className="text-amber-400/50 font-medium">{a.repo_owner}/{a.repo_name}</span>
                   </p>
                 </motion.div>
               ))}
@@ -298,32 +722,61 @@ export default function Landing() {
         </section>
       )}
 
-      {/* BOTTOM CTA */}
-      <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="bottom-cta">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(125,211,252,0.08) 0%, transparent 60%)' }} />
-        <div className="relative max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-5 tracking-tight">
-            Ready to Write<br /><span className="gold-text">Your Chapter?</span>
+      {/* ═══ FINAL CTA ═══ */}
+      <section className="relative py-44 px-6 sm:px-8 lg:px-16 overflow-hidden" data-testid="bottom-cta">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/6 to-transparent" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(600px circle at 50% 60%, rgba(251,191,36,0.05), transparent)' }} />
+        <Embers count={15} />
+
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 1.2, ease: EASE }}
+          className="relative z-10 text-center max-w-5xl mx-auto"
+        >
+          <div className="w-8 h-px bg-amber-400/30 mx-auto mb-12" />
+
+          <h2 className="font-display font-semibold leading-[0.95] mb-8" style={{ fontSize: 'clamp(2.2rem, 5.5vw, 5rem)', letterSpacing: '-0.07em' }}>
+            Your origin story<br />
+            <span style={{
+              background: 'linear-gradient(135deg, #fbbf24, #f59e0b, #b45309)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>starts here.</span>
           </h2>
-          <p className="text-zinc-400 text-base md:text-lg mb-10">
-            Join developers crafting their open-source stories, one pull request at a time.
+
+          <p className="text-zinc-500 text-base sm:text-lg mb-14 max-w-md mx-auto leading-relaxed">
+            One issue. One pull request. One contribution at a time.
           </p>
-          <button onClick={handleCTA} className="rune-btn px-10 py-4 rounded-lg text-sm tracking-widest animate-pulse-glow" data-testid="bottom-cta-button">
-            Begin Your Story <ArrowRight className="w-4 h-4 inline ml-2" />
+
+          <button
+            onClick={handleCTA}
+            className="group relative inline-flex items-center gap-3 px-10 py-5 rounded-full text-[12px] font-bold uppercase tracking-[0.2em] overflow-hidden font-mono"
+            style={{
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.14), rgba(245,158,11,0.06))',
+              border: '1px solid rgba(251,191,36,0.35)',
+              color: '#fef3c7',
+              boxShadow: '0 0 60px -15px rgba(251,191,36,0.4), 0 0 120px -30px rgba(251,191,36,0.15), inset 0 1px 0 rgba(251,191,36,0.15)',
+            }}
+            data-testid="bottom-cta-button"
+          >
+            <span className="relative z-10">Start Your Journey</span>
+            <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-2 duration-300" />
+            <div className="absolute inset-0 bg-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </button>
-        </div>
+        </motion.div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="relative py-8 px-6 sm:px-8">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-zinc-600">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-sky-300/70" strokeWidth={1.5} />
-            <span className="font-serif font-medium text-zinc-400">GitFable</span>
+      {/* ═══ FOOTER ═══ */}
+      <footer className="relative py-12 px-6 sm:px-8 lg:px-16">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.02] to-transparent" />
+        <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <BookOpen className="w-4 h-4 text-amber-400/40" strokeWidth={1.5} />
+            <span className="font-display text-lg text-zinc-500 tracking-tight">GitFable</span>
           </div>
-          <p className="font-mono text-xs">Every PR is a page in your legend.</p>
+          <p className="font-mono text-[10px] text-zinc-600 tracking-wider">Every PR is a page in your legend.</p>
         </div>
       </footer>
     </div>

@@ -65,7 +65,7 @@
     border: 1px solid rgba(125, 211, 252, 0.4);
     color: #e7f5ff;
     box-shadow: 0 0 15px -4px rgba(125, 211, 252, 0.45);
-    font-family: 'Satoshi', 'Inter', sans-serif;
+    font-family: 'Satoshi', sans-serif;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -178,7 +178,7 @@
 
 /* Rarity badge pill */
 .rarity-badge {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Geist Mono', monospace;
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
@@ -226,6 +226,51 @@
 .rarity-line-rare { background: linear-gradient(90deg, transparent, rgba(96,165,250,0.4), transparent); }
 .rarity-line-epic { background: linear-gradient(90deg, transparent, rgba(168,85,247,0.5), transparent); }
 .rarity-line-legendary { background: linear-gradient(90deg, transparent, rgba(251,191,36,0.6), rgba(245,158,11,0.6), transparent); }
+
+/* ═══ Card Shimmer ═══ */
+.card-shimmer {
+  background: linear-gradient(
+    135deg,
+    transparent 30%,
+    rgba(251,191,36,0.04) 45%,
+    rgba(251,191,36,0.02) 55%,
+    transparent 70%
+  );
+  background-size: 200% 200%;
+  animation: shimmer-slide 4s ease-in-out infinite;
+}
+@keyframes shimmer-slide {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+}
+
+/* ═══ Ember Particles ═══ */
+@keyframes ember-rise {
+  0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+  8% { opacity: 1; }
+  80% { opacity: 0.5; }
+  100% { transform: translateY(-100vh) translateX(30px) scale(0.2); opacity: 0; }
+}
+@keyframes ember-rise-alt {
+  0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+  10% { opacity: 0.8; }
+  85% { opacity: 0.3; }
+  100% { transform: translateY(-100vh) translateX(-20px) scale(0.15); opacity: 0; }
+}
+
+/* ═══ Spotlight Effect ═══ */
+.spotlight-container {
+  --mx: 50%;
+  --my: 50%;
+}
+.spotlight-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(800px circle at var(--mx) var(--my), rgba(251,191,36,0.04), transparent 60%);
+  pointer-events: none;
+  z-index: 1;
+}
 
 /* ═══ Scrollbar ═══ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
