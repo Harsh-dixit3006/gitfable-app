@@ -41,7 +41,7 @@ const SearchQuery = `query($query: String!, $cursor: String) {
 
 // BuildSearchQuery returns a GitHub search query string for the given language.
 func BuildSearchQuery(language string) string {
-	return fmt.Sprintf(`label:"good first issue" language:%s state:open sort:updated`, language)
+	return fmt.Sprintf(`is:open is:issue label:"good first issue" language:%s`, language)
 }
 
 // BuildStaleCheckQuery builds a GraphQL query with aliased resource lookups
