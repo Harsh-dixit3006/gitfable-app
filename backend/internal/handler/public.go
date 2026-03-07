@@ -33,6 +33,7 @@ func (h *PublicHandler) ListIssues(w http.ResponseWriter, r *http.Request) {
 	cursor := r.URL.Query().Get("cursor")
 	language := r.URL.Query().Get("language")
 	difficulty := r.URL.Query().Get("difficulty")
+	rarity := r.URL.Query().Get("rarity")
 
 	langParam := pgtype.Text{}
 	if language != "" {
@@ -41,6 +42,10 @@ func (h *PublicHandler) ListIssues(w http.ResponseWriter, r *http.Request) {
 	diffParam := pgtype.Text{}
 	if difficulty != "" {
 		diffParam = pgtype.Text{String: difficulty, Valid: true}
+	}
+	rarityParam := pgtype.Text{}
+	if rarity != "" {
+		rarityParam = pgtype.Text{String: rarity, Valid: true}
 	}
 
 	if cursor != "" {
@@ -56,6 +61,7 @@ func (h *PublicHandler) ListIssues(w http.ResponseWriter, r *http.Request) {
 			Limit:      int32(limit),
 			Language:   langParam,
 			Difficulty: diffParam,
+			Rarity:     rarityParam,
 		})
 		if err != nil {
 			slog.Error("list issues after cursor", "error", err)
@@ -79,6 +85,7 @@ func (h *PublicHandler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		Limit:      int32(limit),
 		Language:   langParam,
 		Difficulty: diffParam,
+		Rarity:     rarityParam,
 	})
 	if err != nil {
 		slog.Error("list issues", "error", err)

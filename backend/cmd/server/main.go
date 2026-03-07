@@ -83,6 +83,7 @@ func main() {
 	badgeService := service.NewBadgeService(queries)
 	streakService := service.NewStreakService(queries)
 	githubClient := service.NewGitHubClient()
+	issueChecker := service.NewIssueChecker(redisClient)
 
 	// 9. Initialize badges in DB.
 	if err := badgeService.InitializeBadges(ctx); err != nil {
@@ -132,6 +133,7 @@ func main() {
 		badgeService,
 		streakService,
 		githubClient,
+		issueChecker,
 	)
 
 	usersHandler := &handler.UsersHandler{
@@ -158,9 +160,6 @@ func main() {
 	// Global middleware.
 	r.Use(mw.RequestID)
 	r.Use(chimw.Recoverer)
-	r.Use(mw.LimitRequestSize)
-	r.Use(mw.SecurityHeaders)
-	r.Use(rateLimiter.Middleware)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -168,6 +167,9 @@ func main() {
 		ExposedHeaders:   []string{"X-RateLimit-Remaining", "X-RateLimit-Reset"},
 		AllowCredentials: true,
 	}))
+	r.Use(mw.LimitRequestSize)
+	r.Use(mw.SecurityHeaders)
+	r.Use(rateLimiter.Middleware)
 	r.Use(mw.Logger)
 
 	// Health (no version prefix).

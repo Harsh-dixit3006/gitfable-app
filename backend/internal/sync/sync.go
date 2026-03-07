@@ -13,7 +13,13 @@ import (
 	"github.com/nishantg96/gitfable/internal/database"
 )
 
-const graphqlEndpoint = "https://api.github.com/graphql"
+const (
+	graphqlEndpoint = "https://api.github.com/graphql"
+	maxRetries      = 3
+	retryBaseDelay  = 30 * time.Second // GitHub recommends waiting "a few minutes"
+	interPageDelay  = 1 * time.Second
+	interLangDelay  = 3 * time.Second
+)
 
 // DefaultLanguages is the full set of languages to sync when a GitHub token is available.
 var DefaultLanguages = []string{
@@ -135,7 +141,7 @@ func (s *SyncService) syncAll(ctx context.Context) error {
 
 		// Rate-limit between languages to avoid GitHub API abuse.
 		select {
-		case <-time.After(2 * time.Second):
+		case <-time.After(interLangDelay):
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -170,8 +176,13 @@ func (s *SyncService) syncLanguage(ctx context.Context, language string) (upsert
 				skipped++
 				continue
 			}
+			if IsClaimed(issue.Labels, issue.HasOpenPR, issue.AssigneeCount, issue.Comments) {
+				skipped++
+				continue
+			}
 
 			difficulty := ScoreDifficulty(issue.Labels, issue.RepoStars)
+			rarity := ScoreRarity(issue.RepoStars)
 			langValue := issue.Language
 			if langValue == "" {
 				langValue = language
@@ -186,6 +197,7 @@ func (s *SyncService) syncLanguage(ctx context.Context, language string) (upsert
 				Url:             issue.URL,
 				Language:        pgtype.Text{String: langValue, Valid: langValue != ""},
 				Difficulty:      pgtype.Text{String: difficulty, Valid: true},
+				Rarity:          rarity,
 				RepoStars:       issue.RepoStars,
 				RepoPushedAt:    pgtype.Timestamptz{Time: issue.PushedAt, Valid: !issue.PushedAt.IsZero()},
 				GithubCreatedAt: pgtype.Timestamptz{Time: issue.CreatedAt, Valid: !issue.CreatedAt.IsZero()},
@@ -203,6 +215,13 @@ func (s *SyncService) syncLanguage(ctx context.Context, language string) (upsert
 			break
 		}
 		cursor = &result.PageInfo.EndCursor
+
+		// Pause between pages to avoid secondary rate limits.
+		select {
+		case <-time.After(interPageDelay):
+		case <-ctx.Done():
+			return upserted, skipped, ctx.Err()
+		}
 	}
 
 	return upserted, skipped, nil
@@ -266,25 +285,43 @@ func (s *SyncService) checkStale(ctx context.Context) error {
 }
 
 func (s *SyncService) doGraphQL(ctx context.Context, body []byte) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, graphqlEndpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if s.token != "" {
-		req.Header.Set("Authorization", "Bearer "+s.token)
-	}
+	for attempt := range maxRetries {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, graphqlEndpoint, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if s.token != "" {
+			req.Header.Set("Authorization", "Bearer "+s.token)
+		}
 
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http request: %w", err)
-	}
-	defer resp.Body.Close()
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("http request: %w", err)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("github API returned %d: %s", resp.StatusCode, string(bodyBytes))
-	}
+		if resp.StatusCode == http.StatusOK {
+			data, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return data, err
+		}
 
-	return io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		// Retry on 403 (secondary rate limit) with exponential backoff.
+		if resp.StatusCode == http.StatusForbidden && attempt < maxRetries-1 {
+			delay := retryBaseDelay * time.Duration(1<<attempt)
+			slog.Warn("rate limited, backing off", "attempt", attempt+1, "delay", delay, "status", resp.StatusCode)
+			select {
+			case <-time.After(delay):
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		return nil, fmt.Errorf("github API returned %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil, fmt.Errorf("exhausted retries")
 }

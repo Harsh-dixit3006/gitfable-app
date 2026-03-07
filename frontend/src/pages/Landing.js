@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { ArrowRight, BookOpen, Compass, GitPullRequest, Award, Star, Users, FolderGit2, ChevronRight, Zap, Sparkles } from 'lucide-react';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { api } from '@/lib/api';
 
 function AnimatedNumber({ target, duration = 2000 }) {
   const [current, setCurrent] = useState(0);
@@ -50,12 +48,12 @@ const HERO_ITEM = {
 export default function Landing() {
   const { user, setShowLogin } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ issues_resolved: 0, active_authors: 0, repositories_reached: 0 });
+  const [stats, setStats] = useState({ merged_draws: 0, active_users: 0, distinct_repos: 0 });
   const [activity, setActivity] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API}/stats`).then(r => setStats(r.data)).catch(() => {});
-    axios.get(`${API}/activity`).then(r => setActivity(r.data)).catch(() => {});
+    api.get('/stats').then(r => setStats(r._data)).catch(() => {});
+    api.get('/activity').then(r => setActivity(r._data || [])).catch(() => {});
   }, []);
 
   const handleCTA = useCallback(() => {
@@ -65,7 +63,7 @@ export default function Landing() {
 
   return (
     <div className="pt-16 relative" data-testid="landing-page">
-      {/* ═══ HERO ═══ */}
+      {/* HERO */}
       <section className="relative min-h-[92vh] flex items-center overflow-hidden">
         {/* Layered ambient glows */}
         <div className="absolute inset-0 ambient-amber" />
@@ -108,7 +106,7 @@ export default function Landing() {
                 {[
                   { label: 'Issues', value: '28+', icon: Zap },
                   { label: 'Languages', value: '10+', icon: FolderGit2 },
-                  { label: 'Authors', value: `${stats.active_authors}`, icon: Users },
+                  { label: 'Authors', value: `${stats.active_users}`, icon: Users },
                 ].map(s => (
                   <div key={s.label} className="flex items-center gap-2">
                     <s.icon className="w-3.5 h-3.5 text-sky-200/70" strokeWidth={1.5} />
@@ -187,7 +185,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══ HOW IT WORKS ═══ */}
+      {/* HOW IT WORKS */}
       <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="how-it-works">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <div className="max-w-7xl mx-auto">
@@ -228,16 +226,16 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══ STATS ═══ */}
+      {/* STATS */}
       <section className="relative py-24 px-6 sm:px-8 lg:px-12" data-testid="stats-section">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-300/25 to-transparent" />
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(125,211,252,0.05) 0%, transparent 70%)' }} />
         <div className="relative max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { label: 'Issues Resolved', value: stats.issues_resolved, icon: GitPullRequest, accent: 'slate' },
-              { label: 'Active Authors', value: stats.active_authors, icon: Users, accent: 'sky' },
-              { label: 'Repositories Reached', value: stats.repositories_reached, icon: FolderGit2, accent: 'stone' },
+              { label: 'Issues Resolved', value: stats.merged_draws, icon: GitPullRequest, accent: 'slate' },
+              { label: 'Active Authors', value: stats.active_users, icon: Users, accent: 'sky' },
+              { label: 'Repositories Reached', value: stats.distinct_repos, icon: FolderGit2, accent: 'stone' },
             ].map(({ label, value, icon: Icon, accent }, i) => {
               const a = ACCENT_MAP[accent];
               return (
@@ -265,7 +263,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══ ACTIVITY FEED ═══ */}
+      {/* ACTIVITY FEED */}
       {activity.length > 0 && (
         <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="activity-feed">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -288,10 +286,10 @@ export default function Landing() {
                   <div className="flex items-center gap-3 mb-3">
                     <img src={a.avatar_url} alt="" className="w-8 h-8 rounded-full border border-white/10 bg-zinc-900" />
                     <span className="text-sm font-medium text-zinc-200">{a.username}</span>
-                    <span className="text-xs text-zinc-600 font-mono ml-auto">{getTimeAgo(a.timestamp)}</span>
+                    <span className="text-xs text-zinc-600 font-mono ml-auto">{getTimeAgo(a.created_at)}</span>
                   </div>
                   <p className="text-sm text-zinc-400">
-                    merged a chapter in <span className="text-sky-200 font-medium">{a.repo}</span>
+                    merged a chapter in <span className="text-sky-200 font-medium">{a.repo_owner}/{a.repo_name}</span>
                   </p>
                 </motion.div>
               ))}
@@ -300,7 +298,7 @@ export default function Landing() {
         </section>
       )}
 
-      {/* ═══ BOTTOM CTA ═══ */}
+      {/* BOTTOM CTA */}
       <section className="relative py-28 px-6 sm:px-8 lg:px-12" data-testid="bottom-cta">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(125,211,252,0.08) 0%, transparent 60%)' }} />
@@ -317,7 +315,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══ FOOTER ═══ */}
+      {/* FOOTER */}
       <footer className="relative py-8 px-6 sm:px-8">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
         <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-zinc-600">

@@ -3,12 +3,31 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { FolderGit2, ExternalLink, Star, ArrowUpRight, BarChart3, Bookmark, GitMerge } from 'lucide-react';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { api } from '@/lib/api';
 
 const STATUSES = ['all', 'drawn', 'bookmarked', 'pr_submitted', 'merged', 'expired'];
 const STATUS_LABELS = { drawn: 'Drawn', bookmarked: 'Bookmarked', pr_submitted: 'PR Submitted', merged: 'Merged', expired: 'Expired' };
+
+// Normalize draw row from Go backend (has nested issue object)
+function normalizeDraw(draw) {
+  const issue = draw.issue || {};
+  return {
+    id: draw.id,
+    status: draw.status,
+    source: draw.source,
+    pr_url: draw.pr_url,
+    expires_at: draw.expires_at,
+    merged_at: draw.merged_at,
+    created_at: draw.created_at,
+    repo: `${issue.repo_owner || ''}/${issue.repo_name || ''}`,
+    title: issue.title || '',
+    url: issue.url || '',
+    language: issue.language || '',
+    difficulty: issue.difficulty || '',
+    stars: issue.repo_stars,
+    labels: issue.labels || [],
+  };
+}
 
 export default function History() {
   const { user, token, setShowLogin } = useAuth();
@@ -26,10 +45,26 @@ export default function History() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const params = statusFilter !== 'all' ? `?status=${statusFilter}` : '';
-      const res = await axios.get(`${API}/draws/history${params}`, { headers: { Authorization: `Bearer ${token}` } });
-      setDraws(res.data.draws || []);
-      setStats(res.data.stats || {});
+      const params = { limit: 50 };
+      if (statusFilter !== 'all') params.status = statusFilter;
+      const res = await api.get('/draws/history', {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
+      const rawDraws = (res._data || []).map(normalizeDraw);
+      setDraws(rawDraws);
+
+      // Compute stats from all draws (fetch without status filter)
+      if (statusFilter === 'all' && rawDraws.length > 0) {
+        const total = rawDraws.length;
+        const bookmarked = rawDraws.filter(d => ['bookmarked', 'pr_submitted', 'merged'].includes(d.status)).length;
+        const merged = rawDraws.filter(d => d.status === 'merged').length;
+        setStats({
+          total_draws: total,
+          bookmark_rate: total > 0 ? Math.round((bookmarked / total) * 100) : 0,
+          merge_rate: total > 0 ? Math.round((merged / total) * 100) : 0,
+        });
+      }
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -110,7 +145,7 @@ export default function History() {
                       <div className="flex items-center gap-2 text-xs text-zinc-600 font-mono mb-1">
                         <FolderGit2 className="w-3.5 h-3.5 shrink-0" strokeWidth={1.5} />
                         <span className="truncate">{draw.repo}</span>
-                        <span className="shrink-0 text-zinc-700">{new Date(draw.drawn_at).toLocaleDateString()}</span>
+                        <span className="shrink-0 text-zinc-700">{draw.created_at ? new Date(draw.created_at).toLocaleDateString() : ''}</span>
                       </div>
                       <p className="text-sm font-medium text-zinc-300 mb-2 line-clamp-1">{draw.title}</p>
                       <div className="flex items-center gap-2 flex-wrap">

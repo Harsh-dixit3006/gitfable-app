@@ -43,6 +43,7 @@ CREATE TABLE issues (
     url TEXT NOT NULL,
     language VARCHAR(50),
     difficulty VARCHAR(20),
+    rarity VARCHAR(20) NOT NULL DEFAULT 'common',
     repo_stars INTEGER NOT NULL DEFAULT 0,
     repo_pushed_at TIMESTAMPTZ,
     github_created_at TIMESTAMPTZ,
@@ -55,6 +56,7 @@ CREATE TABLE issues (
 
 CREATE INDEX idx_issues_language ON issues(language);
 CREATE INDEX idx_issues_difficulty ON issues(difficulty);
+CREATE INDEX idx_issues_rarity ON issues(rarity);
 CREATE INDEX idx_issues_state ON issues(state);
 CREATE INDEX idx_issues_repo ON issues(repo_owner, repo_name);
 CREATE INDEX idx_issues_stars ON issues(repo_stars DESC);
