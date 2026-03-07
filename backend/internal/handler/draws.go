@@ -111,7 +111,8 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 	diffParam := textFromPtr(req.Difficulty)
 
 	// Count matching issues, then pick a random offset.
-	issueCount, err := h.queries.CountFilteredIssues(ctx, database.CountFilteredIssuesParams{
+	issueCount, err := h.queries.CountFilteredIssuesForUser(ctx, database.CountFilteredIssuesForUserParams{
+		UserID:     user.ID,
 		Language:   langParam,
 		Difficulty: diffParam,
 	})
@@ -127,7 +128,8 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 
 	randOffset, _ := rand.Int(rand.Reader, big.NewInt(issueCount))
 
-	issue, err := h.queries.GetRandomIssue(ctx, database.GetRandomIssueParams{
+	issue, err := h.queries.GetRandomIssueForUser(ctx, database.GetRandomIssueForUserParams{
+		UserID:     user.ID,
 		Offset:     int32(randOffset.Int64()),
 		Language:   langParam,
 		Difficulty: diffParam,
