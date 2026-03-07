@@ -207,7 +207,7 @@ metadata:
   test_sequence: 1
   run_ui: true
   test_date: "2025-03-04"
-  test_url: "https://localhost:3000"
+  test_url: "http://localhost:3000"
 
 test_plan:
   current_focus:

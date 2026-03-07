@@ -63,5 +63,9 @@ uv.lock
 # Deployment
 .vercel
 
+# Go binaries
+backend/bin/
+backend/server
+
 # Creds
 creds/

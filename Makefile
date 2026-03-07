@@ -1,4 +1,4 @@
-.PHONY: help install install-backend install-frontend dev dev-backend dev-frontend build test test-backend clean lint env docker-build docker-up docker-down docker-logs
+.PHONY: help install install-backend install-frontend dev dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
 
 # Default target
 help: ## Show this help
@@ -9,11 +9,11 @@ help: ## Show this help
 
 install: install-backend install-frontend ## Install all dependencies
 
-install-backend: ## Install backend Python dependencies using UV
-	cd backend && uv sync
+install-backend: ## Install backend Go dependencies
+	cd backend && go mod download
 
 install-frontend: ## Install frontend Node dependencies
-	cd frontend && yarn install
+	cd frontend && npm install
 
 # ─── Development ─────────────────────────────────────────────────────
 
@@ -23,36 +23,59 @@ dev: ## Start both backend and frontend (requires two terminals)
 	@echo "  make dev-frontend"
 
 dev-backend: ## Start backend dev server (port 8001)
-	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+	@command -v air >/dev/null 2>&1 && (cd backend && air) || (cd backend && go run ./cmd/server)
 
 dev-frontend: ## Start frontend dev server (port 3000)
-	cd frontend && yarn start
+	cd frontend && npm start
 
 # ─── Build ───────────────────────────────────────────────────────────
 
-build: ## Build frontend for production
-	cd frontend && yarn build
+build: build-backend ## Build frontend and backend for production
+	cd frontend && npm run build
+
+build-backend: ## Build backend Go binary
+	cd backend && go build -o bin/server ./cmd/server
+
+sync-issues: ## Run a one-time issue sync from GitHub
+	cd backend && go run ./cmd/sync
+
+build-sync: ## Build the sync CLI binary
+	cd backend && go build -o bin/sync ./cmd/sync
 
 # ─── Testing ─────────────────────────────────────────────────────────
 
 test: test-backend ## Run all tests
 
-test-backend: ## Run backend pytest suite
-	cd backend && uv run pytest tests/ -v
+test-backend: ## Run backend tests with verbose output
+	cd backend && go test ./... -v
 
 # ─── Code Quality ────────────────────────────────────────────────────
 
-lint: ## Lint frontend code
+lint: lint-backend ## Lint frontend and backend code
 	cd frontend && npx eslint src/ --ext .js,.jsx
+
+lint-backend: ## Lint backend Go code
+	cd backend && golangci-lint run
+
+# ─── Code Generation ────────────────────────────────────────────────
+
+generate: ## Generate Go code from sqlc queries
+	cd backend && sqlc generate
+
+# ─── Database Migrations ────────────────────────────────────────────
+
+migrate-up: ## Run database migrations up
+	cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" up
+
+migrate-down: ## Roll back the last database migration
+	cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" down 1
 
 # ─── Cleanup ─────────────────────────────────────────────────────────
 
 clean: ## Remove build artifacts and caches
 	rm -rf frontend/build
 	rm -rf frontend/node_modules/.cache
-	find backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find backend -name "*.pyc" -delete 2>/dev/null || true
-	rm -f backend/uv.lock
+	rm -rf backend/bin
 
 # ─── Environment Setup ───────────────────────────────────────────────
 
@@ -60,19 +83,6 @@ env: ## Create .env files from examples
 	@test -f backend/.env || (cp backend/.env.example backend/.env && echo "Created backend/.env")
 	@test -f frontend/.env || (cp frontend/.env.example frontend/.env && echo "Created frontend/.env")
 	@echo "Edit .env files with your local values"
-
-# ─── UV Commands ─────────────────────────────────────────────────────
-
-lock: ## Update uv.lock with latest dependencies
-	cd backend && uv lock
-
-add: ## Add a Python package (usage: make add PKG=fastapi)
-	@if [ -z "$(PKG)" ]; then echo "Usage: make add PKG=package-name"; exit 1; fi
-	cd backend && uv add $(PKG)
-
-add-dev: ## Add a dev Python package (usage: make add-dev PKG=pytest)
-	@if [ -z "$(PKG)" ]; then echo "Usage: make add-dev PKG=package-name"; exit 1; fi
-	cd backend && uv add --dev $(PKG)
 
 # ─── Docker ──────────────────────────────────────────────────────────
 
