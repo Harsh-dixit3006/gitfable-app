@@ -119,6 +119,14 @@
     animation: shimmer 1.5s infinite;
 }
 
+@keyframes shimmer-sweep-anim {
+    0% { background-position: -250% 0; }
+    100% { background-position: 250% 0; }
+}
+.shimmer-sweep {
+    animation: shimmer-sweep-anim 1.2s ease-in-out 0.2s forwards;
+}
+
 @keyframes grid-drift {
     0% { background-position: 0 0; }
     100% { background-position: 32px 32px; }

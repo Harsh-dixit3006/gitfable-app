@@ -33,7 +33,9 @@
       "Bash(python3:*)",
       "Bash(corepack enable:*)",
       "Bash(npx:*)",
-      "Bash(docker ps:*)"
+      "Bash(docker ps:*)",
+      "WebSearch",
+      "Bash(node:*)"
     ]
   }
 }
