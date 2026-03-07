@@ -1,4 +1,4 @@
-.PHONY: help install install-backend install-frontend dev dev-backend dev-frontend build build-backend test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
+.PHONY: help install install-backend install-frontend dev dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
 
 # Default target
 help: ## Show this help
@@ -35,6 +35,12 @@ build: build-backend ## Build frontend and backend for production
 
 build-backend: ## Build backend Go binary
 	cd backend && go build -o bin/server ./cmd/server
+
+sync-issues: ## Run a one-time issue sync from GitHub
+	cd backend && go run ./cmd/sync
+
+build-sync: ## Build the sync CLI binary
+	cd backend && go build -o bin/sync ./cmd/sync
 
 # ─── Testing ─────────────────────────────────────────────────────────
 
