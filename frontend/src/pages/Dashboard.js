@@ -7,9 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion } from 'framer-motion';
 import { PenTool, Flame, Trophy, GitPullRequest, BookOpen, Star, Files, Library, BookCopy, MoonStar, FastForward, Globe, Search, Bookmark as BookmarkIcon, Zap } from 'lucide-react';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { api } from '@/lib/api';
 
 const BADGE_ICONS = {
   'Prologue': BookOpen, 'Short Story': Files, 'The Epic': Library,
@@ -18,24 +16,40 @@ const BADGE_ICONS = {
   'The Archivist': BookmarkIcon,
 };
 
-const STATUS_COLORS = {
-  drawn: 'status-drawn', bookmarked: 'status-bookmarked',
-  pr_submitted: 'status-pr_submitted', merged: 'status-merged', expired: 'status-expired',
-};
-
 export default function Dashboard() {
-  const { user, token, setShowLogin } = useAuth();
+  const { user, setShowLogin } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
-    axios.get(`${API}/dashboard`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => setData(r.data))
+    if (!user) { setLoading(false); return; }
+    api.get('/users/dashboard')
+      .then(r => {
+        const d = r._data;
+        // Convert heatmap array to object keyed by date
+        const heatmapObj = {};
+        if (Array.isArray(d.heatmap)) {
+          d.heatmap.forEach(item => {
+            if (item.day) heatmapObj[item.day] = item.count;
+          });
+        }
+        setData({
+          user: d.user,
+          recent_draws: (d.recent_draws || []).map(draw => ({
+            id: draw.id,
+            repo: `${draw.repo_owner || ''}/${draw.repo_name || ''}`,
+            language: draw.language,
+            xp_awarded: draw.xp_awarded,
+            status: 'merged',
+          })),
+          heatmap: heatmapObj,
+          badges: d.badges || [],
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [user]);
 
   if (loading) return (
     <div className="pt-20 px-6 sm:px-8 lg:px-12 max-w-7xl mx-auto">
@@ -56,7 +70,8 @@ export default function Dashboard() {
   const u = data?.user || user;
   const xpProgress = ((u.xp % 500) / 500) * 100;
   const xpToNext = 500 - (u.xp % 500);
-  const earned = new Set((u.badges || []).map(b => b.name));
+  const badgeMap = new Map((data?.badges || []).map(b => [b.name, b]));
+  const earned = new Set(badgeMap.keys());
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="dashboard-page">
@@ -138,11 +153,10 @@ export default function Dashboard() {
               </h3>
               <TooltipProvider>
                 <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
-                  {(data?.badges_meta || []).map((badge) => {
-                    const Icon = BADGE_ICONS[badge.name] || Star;
-                    const isEarned = earned.has(badge.name);
+                  {Object.entries(BADGE_ICONS).map(([name, Icon]) => {
+                    const isEarned = earned.has(name);
                     return (
-                      <Tooltip key={badge.name}>
+                      <Tooltip key={name}>
                         <TooltipTrigger asChild>
                           <motion.div
                             whileHover={{ scale: 1.08, y: -2 }}
@@ -151,13 +165,13 @@ export default function Dashboard() {
                                 ? 'border-sky-300/30 bg-sky-300/10 shadow-[0_0_15px_-7px_rgba(125,211,252,0.6)]'
                                 : 'border-white/5 bg-zinc-900/30 opacity-35'
                             }`}
-                            data-testid={`badge-${badge.name.toLowerCase().replace(/\s/g, '-')}`}
+                            data-testid={`badge-${name.toLowerCase().replace(/\s/g, '-')}`}
                           >
                             <Icon className={`w-6 h-6 ${isEarned ? 'text-sky-100' : 'text-zinc-700'}`} strokeWidth={1.5} />
-                            <span className="text-[10px] text-center leading-tight font-mono">{badge.name}</span>
+                            <span className="text-[10px] text-center leading-tight font-mono">{name}</span>
                           </motion.div>
                         </TooltipTrigger>
-                        <TooltipContent className="bg-zinc-900 border-white/10"><p className="text-xs">{badge.description}</p></TooltipContent>
+                        <TooltipContent className="bg-zinc-900 border-white/10"><p className="text-xs">{badgeMap.get(name)?.description || name}</p></TooltipContent>
                       </Tooltip>
                     );
                   })}
@@ -183,8 +197,8 @@ export default function Dashboard() {
                   {data.recent_draws.map(draw => (
                     <div key={draw.id} className="p-2.5 rounded-lg bg-zinc-900/50 border border-white/5">
                       <p className="text-xs text-zinc-500 truncate font-mono">{draw.repo}</p>
-                      <p className="text-xs font-medium text-zinc-300 truncate mt-0.5">{draw.title}</p>
-                      <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded mt-1 font-mono ${STATUS_COLORS[draw.status] || ''}`}>
+                      <p className="text-xs font-medium text-zinc-300 truncate mt-0.5">{draw.language}</p>
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded mt-1 font-mono status-merged">
                         {draw.status}
                       </span>
                     </div>

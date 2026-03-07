@@ -41,8 +41,7 @@ export default function Navbar() {
         if (result.error !== 'Sign in cancelled') {
           toast.error(result.error);
         }
-      } else if (!isRegistering) {
-        // User already registered
+      } else if (!result.needsRegistration) {
         toast.success('Welcome to GitFable!');
         navigate('/discover');
       }

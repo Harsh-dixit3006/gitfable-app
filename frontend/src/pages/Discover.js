@@ -3,28 +3,69 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Shuffle, Bookmark, ExternalLink, RotateCcw, Star, FolderGit2, Clock, X, Send, CheckCircle2, BookOpen, Zap, Search, Crosshair } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { api } from '@/lib/api';
+import DrawAnimation, { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
+import InfoSidebar from '@/components/InfoSidebar';
+import IssueCardRow from '@/components/IssueCardRow';
 
 const LANGUAGES = ['JavaScript', 'TypeScript', 'Python', 'Rust', 'Go', 'Java', 'Ruby', 'C', 'Dart', 'Elixir'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
-const DIFF_COLORS = {
-  Beginner: 'bg-sky-300/10 text-sky-200 border-sky-300/20',
-  Intermediate: 'bg-slate-300/10 text-slate-200 border-slate-300/20',
-  Advanced: 'bg-red-500/10 text-red-400 border-red-500/20',
-};
+const RARITIES = ['common', 'rare', 'epic'];
 const EASE = [0.22, 1, 0.36, 1];
 
+function getRarity(issue) {
+  return RARITY[issue?.rarity] || RARITY.common;
+}
+
+// Normalize issue from Go backend shape to flat UI shape
+function normalizeIssue(issue) {
+  return {
+    ...issue,
+    repo: `${issue.repo_owner}/${issue.repo_name}`,
+    stars: issue.repo_stars,
+  };
+}
+
+// Normalize draw+issue response from draw/choose endpoints
+function normalizeDrawResponse(data) {
+  const issue = normalizeIssue(data.issue);
+  return {
+    ...issue,
+    draw_id: data.draw.id,
+    draw_status: data.draw.status,
+    draw_source: data.draw.source || 'draw',
+    expires_at: data.draw.expires_at,
+    xp_awarded: data.xp_awarded,
+  };
+}
+
+// Normalize a history draw row (has nested issue)
+function normalizeHistoryDraw(draw) {
+  const issue = draw.issue || {};
+  return {
+    ...draw,
+    repo: `${issue.repo_owner || ''}/${issue.repo_name || ''}`,
+    title: issue.title || '',
+    url: issue.url || '',
+    language: issue.language || '',
+    difficulty: issue.difficulty || '',
+    rarity: issue.rarity || 'common',
+    stars: issue.repo_stars,
+    labels: issue.labels || [],
+  };
+}
+
 export default function Discover() {
-  const { user, token, setShowLogin, refreshUser } = useAuth();
+  const { user, setShowLogin, refreshUser } = useAuth();
   const [languages, setLanguages] = useState([]);
   const [difficulties, setDifficulties] = useState([]);
+  const [rarities, setRarities] = useState([]);
   const [drawState, setDrawState] = useState('idle');
   const [drawnIssue, setDrawnIssue] = useState(null);
+  const [currentDrawId, setCurrentDrawId] = useState(null);
   const [redrawsRemaining, setRedrawsRemaining] = useState(3);
   const [activeBookmark, setActiveBookmark] = useState(null);
   const [showPRDialog, setShowPRDialog] = useState(false);
@@ -34,45 +75,90 @@ export default function Discover() {
   const [issuesLoading, setIssuesLoading] = useState(true);
   const [issueQuery, setIssueQuery] = useState('');
   const [choosingIssueId, setChoosingIssueId] = useState(null);
+  const [xpAwarded, setXpAwarded] = useState(null);
   const shuffleRef = useRef([]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Sort state
+  const [sortField, setSortField] = useState('stars');
+  const [sortDir, setSortDir] = useState('desc');
+
   useEffect(() => {
-    if (user?.active_bookmark) {
-      loadBookmark(user.active_bookmark.draw_id);
-    }
-    const today = new Date().toISOString().slice(0, 10);
-    if (user?.last_redraw_date === today) {
-      setRedrawsRemaining(Math.max(0, 3 - (user?.redraws_today || 0)));
-    } else {
-      setRedrawsRemaining(3);
+    if (user) {
+      loadActiveBookmark();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const loadIdRef = useRef(0);
+
   useEffect(() => {
-    const loadIssues = async () => {
+    const id = ++loadIdRef.current;
+    let cancelled = false;
+
+    const load = async () => {
       setIssuesLoading(true);
       try {
-        const res = await axios.get(`${API}/issues`);
-        setIssues(res.data || []);
-      } catch {
-        setIssues([]);
-      }
-      setIssuesLoading(false);
-    };
-    loadIssues();
-  }, []);
+        const params = { limit: 100 };
+        if (languages.length === 1) params.language = languages[0];
+        if (difficulties.length === 1) params.difficulty = difficulties[0];
+        if (rarities.length === 1) params.rarity = rarities[0];
 
-  const loadBookmark = async (drawId) => {
+        let all = [];
+        let cursor = null;
+        do {
+          if (cancelled) return;
+          if (cursor) params.cursor = cursor;
+          const res = await api.get('/issues', { params });
+          if (cancelled) return;
+          all = all.concat((res._data || []).map(normalizeIssue));
+          cursor = res._meta?.has_more ? res._meta.next_cursor : null;
+        } while (cursor);
+
+        if (!cancelled) setIssues(all);
+      } catch {
+        if (!cancelled) setIssues([]);
+      }
+      if (!cancelled) setIssuesLoading(false);
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [languages, difficulties, rarities]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [languages, difficulties, rarities, issueQuery]);
+
+  const loadActiveBookmark = async () => {
     try {
-      const res = await axios.get(`${API}/draws/history`, { headers: { Authorization: `Bearer ${token}` } });
-      const bm = res.data.draws.find(d => d.id === drawId && (d.status === 'bookmarked' || d.status === 'pr_submitted'));
-      if (bm) setActiveBookmark({ ...bm, expires_at: user?.active_bookmark?.expires_at });
+      const res = await api.get('/draws/history', {
+        params: { status: 'bookmarked', limit: 1 },
+      });
+      const draws = res._data || [];
+      if (draws.length > 0) {
+        setActiveBookmark(normalizeHistoryDraw(draws[0]));
+      } else {
+        const res2 = await api.get('/draws/history', {
+          params: { status: 'pr_submitted', limit: 1 },
+        });
+        const draws2 = res2._data || [];
+        if (draws2.length > 0) {
+          setActiveBookmark(normalizeHistoryDraw(draws2[0]));
+        } else {
+          setActiveBookmark(null);
+        }
+      }
     } catch { /* ignore */ }
   };
 
   const toggleLang = (lang) => setLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]);
   const toggleDiff = (diff) => setDifficulties(prev => prev.includes(diff) ? prev.filter(d => d !== diff) : [...prev, diff]);
+  const toggleRarity = (r) => setRarities(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
 
   const handleDraw = useCallback(async () => {
     if (!user) { setShowLogin(true); return; }
@@ -81,76 +167,91 @@ export default function Discover() {
     }));
     setDrawState('shuffling');
     setDrawnIssue(null);
+    setCurrentDrawId(null);
+    setXpAwarded(null);
     try {
-      const res = await axios.post(`${API}/draws/draw`, { languages, difficulties }, { headers: { Authorization: `Bearer ${token}` } });
-      setRedrawsRemaining(res.data.redraws_remaining ?? 2);
-      toast.success('Draw complete! +10 XP (2x reward)');
-      setTimeout(() => { setDrawnIssue(res.data); setDrawState('revealed'); }, 1500);
+      const res = await api.post('/draws/', {
+        language: languages[0] || undefined,
+        difficulty: difficulties[0] || undefined,
+      });
+      const data = res._data;
+      const normalized = normalizeDrawResponse(data);
+      const rarity = getRarity(normalized);
+      setRedrawsRemaining(data.remaining_draws ?? 2);
+      setCurrentDrawId(data.draw.id);
+      setXpAwarded(data.xp_awarded || rarity.drawXP);
+      setTimeout(() => { setDrawnIssue(normalized); setDrawState('revealed'); }, 1000);
     } catch (err) {
       setDrawState('idle');
-      toast.error(err.response?.data?.detail || 'Draw failed');
+      toast.error(err._message || 'Draw failed');
     }
-  }, [user, token, languages, difficulties, setShowLogin]);
+  }, [user, languages, difficulties, setShowLogin]);
 
   const handleChooseIssue = async (issueId) => {
     if (!user) { setShowLogin(true); return; }
     setChoosingIssueId(issueId);
     try {
-      const res = await axios.post(
-        `${API}/draws/choose`,
+      const res = await api.post(
+        '/draws/choose',
         { issue_id: issueId },
-        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setDrawnIssue(res.data);
+      const data = res._data;
+      const normalized = normalizeDrawResponse(data);
+      setDrawnIssue(normalized);
+      setCurrentDrawId(data.draw.id);
+      setXpAwarded(0);
       setDrawState('revealed');
-      setRedrawsRemaining(res.data.redraws_remaining ?? redrawsRemaining);
-      toast.success('Issue selected! +5 XP (Draw gives +10 XP)');
+      toast.success('Issue selected! XP awarded on merge.');
       await refreshUser();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Choose issue failed');
+      toast.error(err._message || 'Choose issue failed');
     }
     setChoosingIssueId(null);
   };
 
   const handleBookmark = async () => {
-    if (!drawnIssue) return;
+    if (!currentDrawId) return;
     try {
-      await axios.post(`${API}/draws/${drawnIssue.id}/bookmark`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      await api.put(`/draws/${currentDrawId}/status`, { status: 'bookmarked' });
       toast.success('Issue bookmarked! You have 7 days.');
       await refreshUser();
+      await loadActiveBookmark();
       setDrawState('idle');
       setDrawnIssue(null);
-    } catch (err) { toast.error(err.response?.data?.detail || 'Bookmark failed'); }
+      setCurrentDrawId(null);
+      setXpAwarded(null);
+    } catch (err) { toast.error(err._message || 'Bookmark failed'); }
   };
 
   const handleRelease = async () => {
     if (!activeBookmark) return;
     try {
-      await axios.post(`${API}/draws/${activeBookmark.id}/release`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      await api.put(`/draws/${activeBookmark.id}/status`, { status: 'expired' });
       setActiveBookmark(null);
       toast.success('Bookmark released');
       await refreshUser();
-    } catch (err) { toast.error(err.response?.data?.detail || 'Release failed'); }
+    } catch (err) { toast.error(err._message || 'Release failed'); }
   };
 
   const handleSubmitPR = async () => {
     if (!prUrl.trim() || !prDrawId) return;
     try {
-      await axios.post(`${API}/draws/${prDrawId}/submit-pr`, { pr_url: prUrl }, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('PR submitted! +25 XP');
+      await api.put(`/draws/${prDrawId}/pr`, { pr_url: prUrl });
+      toast.success('PR submitted! XP awarded on merge.');
       setShowPRDialog(false);
       setPrUrl('');
       if (activeBookmark?.id === prDrawId) setActiveBookmark(prev => prev ? { ...prev, status: 'pr_submitted', pr_url: prUrl } : null);
-    } catch (err) { toast.error(err.response?.data?.detail || 'Submit failed'); }
+    } catch (err) { toast.error(err._message || 'Submit failed'); }
   };
 
   const handleVerify = async (drawId) => {
     try {
-      const res = await axios.post(`${API}/draws/${drawId}/verify`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success(`PR merged! +100 XP ${res.data.new_badges?.length ? '+ New badge!' : ''}`);
+      const res = await api.post(`/draws/${drawId}/verify`, {});
+      const data = res._data;
+      toast.success(`PR merged! ${data.new_badges?.length ? '+ New badge!' : ''}`);
       setActiveBookmark(null);
       await refreshUser();
-    } catch (err) { toast.error(err.response?.data?.detail || 'Verification failed'); }
+    } catch (err) { toast.error(err._message || 'Verification failed'); }
   };
 
   const getCountdown = (expiresAt) => {
@@ -160,22 +261,58 @@ export default function Discover() {
     return `${Math.floor(diff / 86400000)}d ${Math.floor((diff % 86400000) / 3600000)}h`;
   };
 
-  const filteredIssues = useMemo(() => {
-    const term = issueQuery.trim().toLowerCase();
+  // Client-side filtering for multi-select + text (server handles single-value filters).
+  const tableData = useMemo(() => {
     return issues.filter((issue) => {
-      const byLang = languages.length === 0 || languages.includes(issue.language);
-      const byDiff = difficulties.length === 0 || difficulties.includes(issue.difficulty);
-      const byText = !term || `${issue.repo} ${issue.title} ${(issue.labels || []).join(' ')}`.toLowerCase().includes(term);
-      return byLang && byDiff && byText;
+      const byLang = languages.length <= 1 || languages.includes(issue.language);
+      const byDiff = difficulties.length <= 1 || difficulties.includes(issue.difficulty);
+      const byRarity = rarities.length <= 1 || rarities.includes(issue.rarity);
+      return byLang && byDiff && byRarity;
     });
-  }, [issues, languages, difficulties, issueQuery]);
+  }, [issues, languages, difficulties, rarities]);
+
+  // Filtered issues: text search applied on top of tableData
+  const filteredIssues = useMemo(() => {
+    let filtered = tableData;
+    if (issueQuery) {
+      const term = issueQuery.toLowerCase();
+      filtered = filtered.filter(issue =>
+        `${issue.repo} ${issue.title} ${(issue.labels || []).join(' ')}`.toLowerCase().includes(term)
+      );
+    }
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      const aVal = a[sortField] ?? 0;
+      const bVal = b[sortField] ?? 0;
+      if (typeof aVal === 'string') {
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+    return filtered;
+  }, [tableData, issueQuery, sortField, sortDir]);
+
+  const totalPages = Math.ceil(filteredIssues.length / pageSize) || 1;
+  const paginatedIssues = filteredIssues.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Generate page numbers to show
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  };
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="discover-page">
-      {/* Ambient glows */}
+      {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(125,211,252,0.1) 0%, transparent 70%)' }} />
 
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
+        {/* Page Header */}
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE }}>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 tracking-tight">
             <span className="text-sky-200 font-mono text-xl">//</span> Discover
@@ -183,216 +320,45 @@ export default function Discover() {
           <p className="text-zinc-300 text-base md:text-lg mb-8">Draw your next contribution from the archive.</p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: EASE, delay: 0.06 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6"
-          data-testid="discover-signal-grid"
-        >
-          <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-draw-budget">
-            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Draw Budget</p>
-            <p className="text-lg font-semibold text-sky-100 mt-1">{redrawsRemaining} random draws left</p>
+        {/* Hero Draw Area — sidebar + draw animation */}
+        <div className="flex gap-6 items-start justify-center mb-16">
+          <InfoSidebar
+            redrawsRemaining={redrawsRemaining}
+            activeBookmark={activeBookmark}
+            onSubmitPR={(drawId) => { setPrDrawId(drawId); setShowPRDialog(true); }}
+            onVerify={(drawId) => handleVerify(drawId)}
+            onRelease={handleRelease}
+            getCountdown={getCountdown}
+          />
+          <div className="flex-1 flex flex-col items-center">
+            <DrawAnimation
+              state={drawState}
+              issue={drawnIssue}
+              onDraw={handleDraw}
+              onBookmark={handleBookmark}
+              onRedraw={() => { setDrawState('idle'); setDrawnIssue(null); setCurrentDrawId(null); setXpAwarded(null); }}
+              xpAwarded={xpAwarded || (drawnIssue ? (RARITY[drawnIssue.rarity || 'common']?.drawXP || 5) : 0)}
+              drawSource={drawnIssue?.draw_source || 'draw'}
+              redrawsRemaining={redrawsRemaining}
+            />
           </div>
-          <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-bookmark-slot">
-            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Bookmark Slot</p>
-            <p className="text-lg font-semibold text-zinc-100 mt-1">{activeBookmark ? 'Occupied' : 'Open'}</p>
-          </div>
-          <div className="obsidian rounded-lg px-4 py-3" data-testid="discover-signal-focus-window">
-            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">Reward Split</p>
-            <p className="text-lg font-semibold text-zinc-100 mt-1">Draw +10 XP | Choose +5 XP</p>
-          </div>
-        </motion.div>
+        </div>
 
-        {/* Active Bookmark */}
-        {activeBookmark && (
-          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, ease: EASE }} className="mb-8" data-testid="active-bookmark">
-            <div className="obsidian inner-glow rounded-xl p-5 border-sky-300/20">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Bookmark className="w-4 h-4 text-sky-200 fill-sky-200" />
-                  <span className="font-mono text-xs text-sky-200 uppercase tracking-wider">Active Bookmark</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
-                  <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  {getCountdown(activeBookmark.expires_at)}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
-                <FolderGit2 className="w-3.5 h-3.5" strokeWidth={1.5} />{activeBookmark.repo}
-              </div>
-              <p className="font-medium text-sm text-zinc-200 mb-3">{activeBookmark.title}</p>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs px-2 py-0.5 rounded bg-sky-300/10 text-sky-100 border border-sky-300/25 font-mono">{activeBookmark.language}</span>
-                <Badge variant="outline" className={`text-xs ${DIFF_COLORS[activeBookmark.difficulty] || ''}`}>{activeBookmark.difficulty}</Badge>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {activeBookmark.status === 'bookmarked' && (
-                  <button className="rune-btn px-4 py-2 rounded-md" data-testid="submit-pr-button"
-                    onClick={() => { setPrDrawId(activeBookmark.id); setShowPRDialog(true); }}>
-                    <Send className="w-3.5 h-3.5 inline mr-1.5" />Submit PR
-                  </button>
-                )}
-                {activeBookmark.status === 'pr_submitted' && (
-                  <button className="px-4 py-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono uppercase tracking-wider shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)] hover:bg-emerald-500/20" style={{ transition: 'background-color 0.2s, box-shadow 0.2s' }} data-testid="verify-pr-button"
-                    onClick={() => handleVerify(activeBookmark.id)}>
-                    <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5" />Verify Merge
-                  </button>
-                )}
-                <a href={activeBookmark.url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-md text-zinc-400 hover:text-white text-xs font-mono uppercase tracking-wider hover:bg-white/5 border border-white/5 hover:border-white/10 inline-flex items-center" style={{ transition: 'color 0.2s, background-color 0.2s, border-color 0.2s' }} data-testid="bookmark-github-link">
-                  <ExternalLink className="w-3.5 h-3.5 mr-1.5" />GitHub
-                </a>
-                <button className="px-4 py-2 rounded-md text-zinc-600 hover:text-red-400 text-xs font-mono uppercase tracking-wider hover:bg-red-500/5" style={{ transition: 'color 0.2s, background-color 0.2s' }} onClick={handleRelease} data-testid="release-bookmark-button">
-                  <X className="w-3.5 h-3.5 inline mr-1" />Release
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Filters */}
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.78, ease: EASE, delay: 0.1 }} className="obsidian rounded-xl p-6 mb-10" data-testid="filter-section">
-          <div className="mb-5">
-            <p className="font-mono text-xs text-zinc-500 uppercase tracking-wider mb-3">Languages</p>
-            <div className="flex flex-wrap gap-2">
-              {LANGUAGES.map(lang => (
-                <button key={lang} onClick={() => toggleLang(lang)} data-testid={`filter-lang-${lang.toLowerCase()}`}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                    languages.includes(lang) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                  }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                  {lang}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="font-mono text-xs text-zinc-500 uppercase tracking-wider mb-3">Difficulty</p>
-            <div className="flex flex-wrap gap-2">
-              {DIFFICULTIES.map(diff => (
-                <button key={diff} onClick={() => toggleDiff(diff)} data-testid={`filter-diff-${diff.toLowerCase()}`}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                    difficulties.includes(diff) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                  }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                  {diff}
-                </button>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card Draw Area */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE, delay: 0.15 }} className="flex flex-col items-center mb-12" data-testid="card-draw-area">
-          {/* Ambient glow ring */}
-          <div className="relative">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full pointer-events-none" style={{ background: drawState === 'shuffling' ? 'radial-gradient(circle, rgba(125,211,252,0.2), transparent 70%)' : 'radial-gradient(circle, rgba(125,211,252,0.08), transparent 70%)', filter: 'blur(30px)', transition: 'background 0.5s' }} />
-
-            <div className="relative w-72 h-96 mb-8 animate-card-breathe">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <motion.div
-                  key={i}
-                  className="absolute inset-0 obsidian rounded-xl flex items-center justify-center cursor-default overflow-hidden"
-                  style={{ zIndex: 5 - i }}
-                  animate={
-                    drawState === 'shuffling' ? {
-                      x: shuffleRef.current[i]?.x || 0,
-                      y: shuffleRef.current[i]?.y || 0,
-                      rotate: shuffleRef.current[i]?.rotate || 0,
-                      opacity: 0.5,
-                    } : drawState === 'revealed' && i === 0 ? {
-                      x: 0, y: 0, rotate: 0, scale: 1.02, opacity: 1,
-                    } : {
-                      x: i * 3, y: -i * 4, rotate: (i - 2) * 2.5, scale: 1 - i * 0.015, opacity: 1 - i * 0.15,
-                    }
-                  }
-                  transition={drawState === 'shuffling'
-                    ? { type: 'spring', stiffness: 105, damping: 18, mass: 1 }
-                    : { type: 'spring', stiffness: 120, damping: 22, mass: 0.95 }}
-                >
-                  {/* Inner glow line on top */}
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-300/35 to-transparent" />
-
-                  {drawState === 'revealed' && i === 0 && drawnIssue ? (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="p-6 w-full h-full flex flex-col">
-                      <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono mb-3">
-                        <FolderGit2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                        <span className="truncate">{drawnIssue.repo}</span>
-                      </div>
-                      <h3 className="font-serif text-lg font-semibold leading-snug mb-auto text-zinc-100">{drawnIssue.title}</h3>
-                      <div className="space-y-3 mt-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs px-2 py-0.5 rounded bg-sky-300/10 text-sky-100 border border-sky-300/20 font-mono">{drawnIssue.language}</span>
-                          <Badge variant="outline" className={`text-xs ${DIFF_COLORS[drawnIssue.difficulty] || ''}`}>{drawnIssue.difficulty}</Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-zinc-500 font-mono">
-                          <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-sky-300/70" strokeWidth={1.5} />{drawnIssue.stars?.toLocaleString()}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {drawnIssue.labels?.map(l => <span key={l} className="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-500 border border-white/5 font-mono">{l}</span>)}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <div className="text-center">
-                      <BookOpen className="w-10 h-10 text-sky-300/25 mx-auto mb-3" strokeWidth={1} />
-                      <p className="font-serif text-sm text-sky-100/35">GitFable</p>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Draw / Action Buttons */}
-          <AnimatePresence mode="wait">
-            {drawState === 'idle' && (
-              <motion.div key="draw" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.55, ease: EASE }} className="flex flex-col items-center gap-4">
-                <button onClick={handleDraw} className="rune-btn px-10 py-3.5 rounded-lg animate-pulse-glow" data-testid="draw-button">
-                  <Shuffle className="w-4 h-4 inline mr-2" />Draw Issue
-                </button>
-                <div className="flex flex-col items-center gap-1 text-xs text-zinc-600 font-mono" data-testid="draw-reward-note">
-                  <span className="text-sky-100/80">Draw gives 2x reward: +10 XP</span>
-                  <span className="flex items-center gap-2">
-                  <Zap className="w-3 h-3 text-sky-300/45" />
-                  {redrawsRemaining} draws remaining today
-                  </span>
-                </div>
-              </motion.div>
-            )}
-            {drawState === 'shuffling' && (
-              <motion.div key="shuffling" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: EASE }} className="text-center">
-                <p className="font-mono text-xs text-sky-200 uppercase tracking-widest animate-pulse">Shuffling the archive...</p>
-              </motion.div>
-            )}
-            {drawState === 'revealed' && drawnIssue && (
-              <motion.div key="actions" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: EASE }} className="flex flex-wrap gap-3 justify-center">
-                <button onClick={handleBookmark} className="rune-btn px-6 py-2.5 rounded-md" data-testid="bookmark-button">
-                  <Bookmark className="w-3.5 h-3.5 inline mr-1.5" />Bookmark
-                </button>
-                <button className="px-6 py-2.5 text-zinc-400 hover:text-white font-mono text-xs uppercase tracking-widest hover:bg-white/5 rounded-md border border-white/5 hover:border-white/10" style={{ transition: 'color 0.2s, background-color 0.2s, border-color 0.2s' }} onClick={() => { setDrawState('idle'); setDrawnIssue(null); }} data-testid="redraw-button">
-                  <RotateCcw className="w-3.5 h-3.5 inline mr-1.5" />Redraw
-                </button>
-                <a href={drawnIssue.url} target="_blank" rel="noopener noreferrer" className="px-6 py-2.5 text-zinc-400 hover:text-white font-mono text-xs uppercase tracking-widest hover:bg-white/5 rounded-md border border-white/5 hover:border-white/10 inline-flex items-center" style={{ transition: 'color 0.2s, background-color 0.2s, border-color 0.2s' }} data-testid="view-github-button">
-                  <ExternalLink className="w-3.5 h-3.5 mr-1.5" />GitHub
-                </a>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
+        {/* Browse Section */}
         <motion.section
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.72, ease: EASE, delay: 0.2 }}
-          className="obsidian rounded-xl p-5 md:p-6"
           data-testid="issues-table-section"
         >
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
             <div>
               <h2 className="text-xl md:text-2xl font-semibold tracking-tight" data-testid="issues-table-title">
-                Choose from all topics
+                Browse Issues
               </h2>
               <p className="text-zinc-400 text-sm" data-testid="issues-table-subtitle">
-                Pick directly from the issue pool (+5 XP) or use Draw for 2x reward (+10 XP).
+                Choose directly — XP on merge. Or <span className="text-sky-300">Draw</span> for 3× rarity-scaled rewards.
+                <span className="text-amber-400/60 ml-1">Legendary issues are draw-exclusive.</span>
               </p>
             </div>
             <div className="relative w-full md:w-[340px]">
@@ -400,82 +366,144 @@ export default function Discover() {
               <Input
                 value={issueQuery}
                 onChange={(e) => setIssueQuery(e.target.value)}
-                placeholder="Filter by repo, title, or label"
+                placeholder="Search by repo, title, or label..."
                 className="pl-10 bg-zinc-900/60 border-white/10"
                 data-testid="issues-table-search-input"
               />
             </div>
           </div>
 
-          <div className="overflow-x-auto" data-testid="issues-table-wrapper">
-            <table className="w-full min-w-[820px]" data-testid="issues-table">
-              <thead>
-                <tr className="border-b border-white/10 text-left">
-                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-repo">Repo</th>
-                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-topic">Topic</th>
-                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-language">Language</th>
-                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-difficulty">Difficulty</th>
-                  <th className="py-2.5 pr-4 text-[11px] font-mono uppercase tracking-widest text-zinc-500" data-testid="issues-table-head-stars">Stars</th>
-                  <th className="py-2.5 text-[11px] font-mono uppercase tracking-widest text-zinc-500 text-right" data-testid="issues-table-head-actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {issuesLoading ? (
-                  <tr data-testid="issues-table-loading-row">
-                    <td className="py-5 text-sm text-zinc-500 font-mono" colSpan={6}>Loading issues...</td>
-                  </tr>
-                ) : filteredIssues.length === 0 ? (
-                  <tr data-testid="issues-table-empty-row">
-                    <td className="py-5 text-sm text-zinc-500 font-mono" colSpan={6}>No issues match your filters.</td>
-                  </tr>
-                ) : (
-                  filteredIssues.map((issue) => (
-                    <tr key={issue.id} className="border-b border-white/[0.05] hover:bg-white/[0.02]" data-testid={`issues-table-row-${issue.id}`}>
-                      <td className="py-3 pr-4 text-xs text-zinc-400 font-mono" data-testid={`issues-table-repo-${issue.id}`}>{issue.repo}</td>
-                      <td className="py-3 pr-4">
-                        <p className="text-sm text-zinc-200 leading-snug" data-testid={`issues-table-title-${issue.id}`}>{issue.title}</p>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5" data-testid={`issues-table-labels-${issue.id}`}>
-                          {(issue.labels || []).slice(0, 2).map((label) => (
-                            <span key={label} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 border border-white/10 text-zinc-500 font-mono">{label}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4 text-xs text-sky-100 font-mono" data-testid={`issues-table-language-${issue.id}`}>{issue.language}</td>
-                      <td className="py-3 pr-4">
-                        <Badge variant="outline" className={`text-xs ${DIFF_COLORS[issue.difficulty] || ''}`} data-testid={`issues-table-difficulty-${issue.id}`}>
-                          {issue.difficulty}
-                        </Badge>
-                      </td>
-                      <td className="py-3 pr-4 text-xs text-zinc-400 font-mono" data-testid={`issues-table-stars-${issue.id}`}>{issue.stars?.toLocaleString?.() || issue.stars}</td>
-                      <td className="py-3 text-right">
-                        <div className="inline-flex gap-2" data-testid={`issues-table-actions-${issue.id}`}>
-                          <a
-                            href={issue.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 rounded-md border border-white/10 text-zinc-300 hover:text-white hover:border-white/20 text-xs font-mono inline-flex items-center"
-                            style={{ transition: 'color 0.2s, border-color 0.2s' }}
-                            data-testid={`issues-table-github-${issue.id}`}
-                          >
-                            <ExternalLink className="w-3 h-3 mr-1" />View
-                          </a>
-                          <button
-                            onClick={() => handleChooseIssue(issue.id)}
-                            className="rune-btn px-3 py-1.5 rounded-md text-[11px]"
-                            data-testid={`issues-table-choose-${issue.id}`}
-                            disabled={choosingIssueId === issue.id}
-                          >
-                            <Crosshair className="w-3 h-3 inline mr-1" />
-                            {choosingIssueId === issue.id ? 'Choosing...' : 'Choose'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {/* Inline filter chips */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {LANGUAGES.map(lang => (
+              <button key={lang} onClick={() => toggleLang(lang)} data-testid={`filter-lang-${lang.toLowerCase()}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
+                  languages.includes(lang) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
+                {lang}
+              </button>
+            ))}
+            <div className="w-px h-6 bg-white/10 self-center mx-1" />
+            {DIFFICULTIES.map(diff => (
+              <button key={diff} onClick={() => toggleDiff(diff)} data-testid={`filter-diff-${diff.toLowerCase()}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
+                  difficulties.includes(diff) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
+                {diff}
+              </button>
+            ))}
+            <div className="w-px h-6 bg-white/10 self-center mx-1" />
+            {RARITIES.map(r => {
+              const Icon = RARITY[r].icon;
+              return (
+                <button key={r} onClick={() => toggleRarity(r)} data-testid={`filter-rarity-${r}`}
+                  className={`px-3 py-1.5 rounded-md text-xs font-mono border inline-flex items-center gap-1.5 ${
+                    rarities.includes(r) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                  }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
+                  {Icon && <Icon className="w-3 h-3" />}
+                  {RARITY[r].label}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Issue card list */}
+          {issuesLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-20 rounded-lg shimmer" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {paginatedIssues.map(issue => (
+                <IssueCardRow key={issue.id} issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
+              ))}
+              {filteredIssues.length === 0 && (
+                <p className="text-center text-zinc-500 py-12 font-mono text-sm">No issues match your filters.</p>
+              )}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!issuesLoading && filteredIssues.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-600 font-mono">{filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}</span>
+                <div className="w-px h-3 bg-white/10" />
+                <select
+                  data-testid="page-size-select"
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                  className="text-xs font-mono bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md px-2 py-1 outline-none focus:border-sky-300/30"
+                >
+                  {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                {getPageNumbers().map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={`min-w-[28px] h-7 rounded-md text-xs font-mono ${
+                      p === currentPage
+                        ? 'bg-sky-300/12 border border-sky-300/35 text-sky-100'
+                        : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-zinc-600">Go to</span>
+                <input
+                  data-testid="page-jump-input"
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  className="w-14 h-7 text-xs font-mono text-center bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md outline-none focus:border-sky-300/30"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = parseInt(e.target.value, 10);
+                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </motion.section>
       </div>
 
@@ -483,7 +511,7 @@ export default function Discover() {
       <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
         <DialogContent className="bg-zinc-950 border-white/10" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
           <DialogHeader>
-            <DialogTitle className="font-serif text-xl">Submit Pull Request</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Submit Pull Request</DialogTitle>
             <DialogDescription id="pr-dialog-description" className="text-zinc-500 text-sm">
               Paste your pull request URL to track and verify merge progress.
             </DialogDescription>
