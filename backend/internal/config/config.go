@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -26,6 +27,11 @@ type Config struct {
 
 	CORSOrigins []string
 	FrontendURL string
+
+	GitHubToken   string
+	SyncInterval  time.Duration
+	StaleInterval time.Duration
+	SyncEnabled   bool
 }
 
 func Load() (*Config, error) {
@@ -48,6 +54,11 @@ func Load() (*Config, error) {
 
 		CORSOrigins: parseCSV(getEnv("CORS_ORIGINS", "")),
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:3000"),
+
+		GitHubToken:   getEnv("GITHUB_TOKEN", ""),
+		SyncInterval:  getEnvDuration("SYNC_INTERVAL", 6*time.Hour),
+		StaleInterval: getEnvDuration("STALE_INTERVAL", 12*time.Hour),
+		SyncEnabled:   getEnvBool("SYNC_ENABLED", true),
 	}
 
 	if cfg.IsProduction() && len(cfg.CORSOrigins) == 0 {
@@ -80,6 +91,15 @@ func getEnvInt(key string, fallback int) int {
 func getEnvBool(key string, fallback bool) bool {
 	if v := os.Getenv(key); v != "" {
 		return strings.ToLower(v) == "true"
+	}
+	return fallback
+}
+
+func getEnvDuration(key string, fallback time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
+		}
 	}
 	return fallback
 }
