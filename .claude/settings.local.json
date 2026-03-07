@@ -36,7 +36,11 @@
       "Bash(docker ps:*)",
       "WebSearch",
       "Bash(node:*)",
-      "Bash(npx craco:*)"
+      "Bash(npx craco:*)",
+      "Bash(make docker-build:*)",
+      "Bash(docker build:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)"
     ]
   }
 }
