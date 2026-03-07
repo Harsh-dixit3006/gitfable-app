@@ -11,9 +11,9 @@ func TestBuildSearchQuery(t *testing.T) {
 		language string
 		want     string
 	}{
-		{"Go", `label:"good first issue" language:Go state:open sort:updated`},
-		{"JavaScript", `label:"good first issue" language:JavaScript state:open sort:updated`},
-		{"C++", `label:"good first issue" language:C++ state:open sort:updated`},
+		{"Go", `is:open is:issue label:"good first issue" language:Go`},
+		{"JavaScript", `is:open is:issue label:"good first issue" language:JavaScript`},
+		{"C++", `is:open is:issue label:"good first issue" language:C++`},
 	}
 
 	for _, tt := range tests {
