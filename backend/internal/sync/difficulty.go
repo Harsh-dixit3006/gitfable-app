@@ -22,6 +22,35 @@ var (
 	LargeRepoMinStars int32 = 50000
 )
 
+// Rarity tier constants.
+const (
+	RarityCommon    = "common"
+	RarityRare      = "rare"
+	RarityEpic      = "epic"
+	RarityLegendary = "legendary"
+)
+
+// Rarity star thresholds. Exported for configurability.
+var (
+	RareMinStars      int32 = 1000
+	EpicMinStars      int32 = 10000
+	LegendaryMinStars int32 = 50000
+)
+
+// ScoreRarity returns a rarity tier based on repository star count.
+func ScoreRarity(repoStars int32) string {
+	switch {
+	case repoStars >= LegendaryMinStars:
+		return RarityLegendary
+	case repoStars >= EpicMinStars:
+		return RarityEpic
+	case repoStars >= RareMinStars:
+		return RarityRare
+	default:
+		return RarityCommon
+	}
+}
+
 // ScoreDifficulty returns a difficulty string ("Beginner", "Intermediate", or
 // "Advanced") based on issue labels and repository star count.
 func ScoreDifficulty(labels []string, repoStars int32) string {

@@ -1,9 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { signInWithPopup, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth, githubProvider } from '@/lib/firebase';
+import { api } from '@/lib/api';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -26,15 +25,15 @@ export function AuthProvider({ children }) {
         // Get Firebase ID token
         const idToken = await fbUser.getIdToken();
         setToken(idToken);
-        
+
         // Try to get user profile from backend
         try {
-          const res = await axios.get(`${API}/auth/me`, { 
-            headers: { Authorization: `Bearer ${idToken}` } 
+          const res = await api.get('/auth/me', {
+            headers: { Authorization: `Bearer ${idToken}` }
           });
-          setUser(res.data);
+          setUser(res._data);
         } catch (err) {
-          if (err.response?.status === 404) {
+          if (err.response?.status === 404 || err.response?.status === 401) {
             // User authenticated with Firebase but not registered in our DB
             setIsRegistering(true);
             setShowLogin(true);
@@ -62,16 +61,16 @@ export function AuthProvider({ children }) {
       const user = result.user;
       const idToken = await user.getIdToken();
       setToken(idToken);
-      
+
       // Try to get existing user profile
       try {
-        const res = await axios.get(`${API}/auth/me`, { 
-          headers: { Authorization: `Bearer ${idToken}` } 
+        const res = await api.get('/auth/me', {
+          headers: { Authorization: `Bearer ${idToken}` }
         });
-        setUser(res.data);
+        setUser(res._data);
         setShowLogin(false);
       } catch (err) {
-        if (err.response?.status === 404) {
+        if (err.response?.status === 404 || err.response?.status === 401) {
           // New user - need to register
           setIsRegistering(true);
         } else {
@@ -81,11 +80,11 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (err) {
       console.error('GitHub sign in error:', err);
-      return { 
-        success: false, 
-        error: err.code === 'auth/popup-closed-by-user' 
-          ? 'Sign in cancelled' 
-          : err.message 
+      return {
+        success: false,
+        error: err.code === 'auth/popup-closed-by-user'
+          ? 'Sign in cancelled'
+          : err.message
       };
     }
   };
@@ -97,37 +96,21 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const res = await axios.post(`${API}/auth/register`, {
-        firebase_uid: firebaseUser.uid,
+      const res = await api.post('/auth/register', {
         username: username,
-        email: firebaseUser.email,
-        display_name: firebaseUser.displayName || username,
-        photo_url: firebaseUser.photoURL,
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+        token: token,
       });
-      
-      setUser(res.data.user);
+
+      setUser(res._data);
       setIsRegistering(false);
       setShowLogin(false);
-      return { success: true, user: res.data.user };
+      return { success: true, user: res._data };
     } catch (err) {
-      return { 
-        success: false, 
-        error: err.response?.data?.detail || 'Registration failed' 
+      return {
+        success: false,
+        error: err._message || 'Registration failed'
       };
     }
-  };
-
-  // Legacy login (for backward compatibility during transition)
-  const legacyLogin = async (username) => {
-    // This is a mock login - in production, you'd remove this
-    const res = await axios.post(`${API}/auth/login`, { username });
-    localStorage.setItem('gitfable_token', res.data.token);
-    setToken(res.data.token);
-    setUser(res.data.user);
-    setShowLogin(false);
-    return res.data;
   };
 
   const logout = async () => {
@@ -140,28 +123,27 @@ export function AuthProvider({ children }) {
   const refreshUser = async () => {
     if (!token) return;
     try {
-      const res = await axios.get(`${API}/auth/me`, { 
-        headers: { Authorization: `Bearer ${token}` } 
+      const res = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      setUser(res.data);
+      setUser(res._data);
     } catch {
       // ignore
     }
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      token, 
-      loading, 
+    <AuthContext.Provider value={{
+      user,
+      token,
+      loading,
       signInWithGithub,
       registerUser,
-      legacyLogin,
-      logout, 
-      showLogin, 
-      setShowLogin, 
-      authHeaders, 
-      refreshUser, 
+      logout,
+      showLogin,
+      setShowLogin,
+      authHeaders,
+      refreshUser,
       setUser,
       isRegistering,
       firebaseUser,

@@ -5,10 +5,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { motion } from 'framer-motion';
-import { Crown, Medal, Flame } from 'lucide-react';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { Crown, Medal } from 'lucide-react';
+import { api } from '@/lib/api';
 
 const PODIUM_CONFIG = [
   { accent: 'sky', border: 'border-sky-300/40', glow: '0 0 30px -10px rgba(125,211,252,0.55)', icon: Crown, color: 'text-sky-200', bgGlow: 'rgba(125,211,252,0.08)' },
@@ -25,8 +23,12 @@ export default function Leaderboard() {
 
   useEffect(() => {
     setLoading(true);
-    axios.get(`${API}/leaderboard?period=${period}`)
-      .then(r => setUsers(r.data.users || []))
+    api.get('/leaderboard', { params: { period, limit: 50 } })
+      .then(r => {
+        // Add rank to each user based on index
+        const ranked = (r._data || []).map((u, i) => ({ ...u, rank: i + 1 }));
+        setUsers(ranked);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [period]);
@@ -112,7 +114,6 @@ export default function Leaderboard() {
                       <TableHead className="text-right font-mono text-xs text-zinc-600">Level</TableHead>
                       <TableHead className="text-right font-mono text-xs text-zinc-600">XP</TableHead>
                       <TableHead className="text-right font-mono text-xs text-zinc-600 hidden sm:table-cell">Contribs</TableHead>
-                      <TableHead className="text-right font-mono text-xs text-zinc-600 hidden sm:table-cell">Streak</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -138,12 +139,6 @@ export default function Leaderboard() {
                         <TableCell className="text-right font-mono text-xs text-sky-100">Lv.{u.level}</TableCell>
                         <TableCell className="text-right font-mono text-xs text-zinc-300">{u.xp?.toLocaleString()}</TableCell>
                         <TableCell className="text-right font-mono text-xs text-zinc-500 hidden sm:table-cell">{u.total_contributions}</TableCell>
-                        <TableCell className="text-right hidden sm:table-cell">
-                          <span className="flex items-center justify-end gap-1 text-xs font-mono">
-                            {u.current_streak > 0 && <Flame className="w-3 h-3 text-sky-200" />}
-                            <span className="text-zinc-400">{u.current_streak}</span>
-                          </span>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

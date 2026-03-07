@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(go mod:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(docker compose:*)",
+      "Bash(go install:*)",
+      "Bash(docker exec:*)",
+      "Bash(sqlc version:*)",
+      "Read(//home/nishantg96/go/bin/**)",
+      "Bash(~/go/bin/sqlc version)",
+      "Bash(~/go/bin/sqlc generate:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(git stash:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(sqlc generate:*)",
+      "Bash(go version:*)",
+      "Bash(git status:*)",
+      "Bash(command -v sqlc)",
+      "Read(//usr/local/bin/**)",
+      "Bash(git:*)",
+      "Bash(gh issue:*)",
+      "Bash(go run:*)",
+      "Bash(kill %1:*)",
+      "WebFetch(domain:www.diceui.com)",
+      "Bash(yarn add:*)",
+      "Bash(python3:*)",
+      "Bash(corepack enable:*)",
+      "Bash(npx:*)",
+      "Bash(docker ps:*)"
+    ]
+  }
+}

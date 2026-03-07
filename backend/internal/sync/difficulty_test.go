@@ -45,3 +45,30 @@ func TestScoreDifficulty(t *testing.T) {
 		})
 	}
 }
+
+func TestScoreRarity(t *testing.T) {
+	tests := []struct {
+		name      string
+		repoStars int32
+		want      string
+	}{
+		{"tiny repo", 100, RarityCommon},
+		{"small repo", 999, RarityCommon},
+		{"borderline rare", 1000, RarityRare},
+		{"mid repo", 5000, RarityRare},
+		{"borderline epic", 10000, RarityEpic},
+		{"popular repo", 30000, RarityEpic},
+		{"borderline legendary", 50000, RarityLegendary},
+		{"mega repo", 200000, RarityLegendary},
+		{"zero stars", 0, RarityCommon},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ScoreRarity(tt.repoStars)
+			if got != tt.want {
+				t.Errorf("ScoreRarity(%d) = %q, want %q", tt.repoStars, got, tt.want)
+			}
+		})
+	}
+}

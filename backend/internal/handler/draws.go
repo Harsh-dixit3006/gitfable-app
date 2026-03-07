@@ -25,24 +25,48 @@ import (
 
 const (
 	maxDrawsPerDay = 3
+	maxDrawRetries = 3
 	defaultLimit   = 20
 	maxLimit       = 100
-	bookmarkXP     = 10
-	drawXP         = 10
-	chooseXP       = 5
+	bookmarkXP     = 5
 	submitPRXP     = 25
-	mergeXP        = 100
 	bookmarkDays   = 7
 )
 
+// Browse — choose is free, XP only on merge.
+var browseMergeXPByRarity = map[string]int{
+	"common": 25, "rare": 50, "epic": 100,
+}
+
+// Draw (3x) — random card draw with rarity surprise.
+var drawXPByRarity = map[string]int{
+	"common": 5, "rare": 15, "epic": 30, "legendary": 50,
+}
+var drawMergeXPByRarity = map[string]int{
+	"common": 75, "rare": 150, "epic": 300, "legendary": 500,
+}
+
+// Weighted draw probabilities (out of 100).
+// 40% Common, 30% Rare, 20% Epic, 10% Legendary.
+var rarityWeights = []struct {
+	rarity string
+	weight int
+}{
+	{"legendary", 10},
+	{"epic", 20},
+	{"rare", 30},
+	{"common", 40},
+}
+
 type DrawHandler struct {
-	pool        *pgxpool.Pool
-	queries     *database.Queries
-	requireAuth func(http.Handler) http.Handler
-	xp          *service.XPService
-	badges      *service.BadgeService
-	streaks     *service.StreakService
-	github      service.GitHubClient
+	pool         *pgxpool.Pool
+	queries      *database.Queries
+	requireAuth  func(http.Handler) http.Handler
+	xp           *service.XPService
+	badges       *service.BadgeService
+	streaks      *service.StreakService
+	github       service.GitHubClient
+	issueChecker *service.IssueChecker
 }
 
 func NewDrawHandler(
@@ -53,15 +77,17 @@ func NewDrawHandler(
 	badges *service.BadgeService,
 	streaks *service.StreakService,
 	github service.GitHubClient,
+	issueChecker *service.IssueChecker,
 ) *DrawHandler {
 	return &DrawHandler{
-		pool:        pool,
-		queries:     queries,
-		requireAuth: requireAuth,
-		xp:          xp,
-		badges:      badges,
-		streaks:     streaks,
-		github:      github,
+		pool:         pool,
+		queries:      queries,
+		requireAuth:  requireAuth,
+		xp:           xp,
+		badges:       badges,
+		streaks:      streaks,
+		github:       github,
+		issueChecker: issueChecker,
 	}
 }
 
@@ -77,7 +103,7 @@ func (h *DrawHandler) Routes() chi.Router {
 	return r
 }
 
-// Draw handles POST / — draw a random issue.
+// Draw handles POST / — draw a random issue using weighted rarity selection.
 func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := ctxutil.UserFromContext(ctx)
@@ -110,37 +136,83 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 	langParam := textFromPtr(req.Language)
 	diffParam := textFromPtr(req.Difficulty)
 
-	// Count matching issues, then pick a random offset.
-	issueCount, err := h.queries.CountFilteredIssuesForUser(ctx, database.CountFilteredIssuesForUserParams{
+	// Get available issue counts per rarity tier.
+	rarityCounts, err := h.queries.CountIssuesByRarityForUser(ctx, database.CountIssuesByRarityForUserParams{
 		UserID:     user.ID,
 		Language:   langParam,
 		Difficulty: diffParam,
 	})
 	if err != nil {
-		slog.Error("count filtered issues", "error", err)
+		slog.Error("count issues by rarity", "error", err)
 		InternalError(w)
 		return
 	}
-	if issueCount == 0 {
+
+	countByRarity := make(map[string]int64)
+	for _, rc := range rarityCounts {
+		countByRarity[rc.Rarity] = rc.Count
+	}
+
+	totalAvailable := int64(0)
+	for _, c := range countByRarity {
+		totalAvailable += c
+	}
+	if totalAvailable == 0 {
 		NotFound(w, "No matching issues available")
 		return
 	}
 
-	randOffset, _ := rand.Int(rand.Reader, big.NewInt(issueCount))
+	// Pick a rarity tier using weighted random selection.
+	// If the chosen tier is empty, cascade to the next lower tier.
+	selectedRarity := pickRarityTier(countByRarity)
 
-	issue, err := h.queries.GetRandomIssueForUser(ctx, database.GetRandomIssueForUserParams{
-		UserID:     user.ID,
-		Offset:     int32(randOffset.Int64()),
-		Language:   langParam,
-		Difficulty: diffParam,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			NotFound(w, "No matching issues available")
+	// Try up to maxDrawRetries times to find a fresh issue of this rarity.
+	var issue database.Issue
+	for attempt := range maxDrawRetries {
+		tierCount := countByRarity[selectedRarity]
+		if tierCount == 0 {
+			break
+		}
+
+		randOffset, _ := rand.Int(rand.Reader, big.NewInt(tierCount))
+
+		candidate, err := h.queries.GetRandomIssueByRarityForUser(ctx, database.GetRandomIssueByRarityForUserParams{
+			Rarity:     selectedRarity,
+			UserID:     user.ID,
+			Offset:     int32(randOffset.Int64()),
+			Language:   langParam,
+			Difficulty: diffParam,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				break
+			}
+			slog.Error("get random issue by rarity", "error", err)
+			InternalError(w)
 			return
 		}
-		slog.Error("get random issue", "error", err)
-		InternalError(w)
+
+		// Freshness check.
+		open, err := h.issueChecker.IsOpen(ctx, candidate.RepoOwner, candidate.RepoName, candidate.GithubNumber)
+		if err != nil {
+			slog.Warn("issue freshness check failed, proceeding anyway", "error", err, "url", candidate.Url)
+			issue = candidate
+			break
+		}
+		if open {
+			issue = candidate
+			break
+		}
+
+		slog.Info("draw-time freshness: marking issue closed", "url", candidate.Url, "attempt", attempt+1)
+		if err := h.queries.MarkIssueClosed(ctx, candidate.ID); err != nil {
+			slog.Error("mark issue closed", "error", err)
+		}
+		countByRarity[selectedRarity]--
+	}
+
+	if issue.ID == 0 {
+		NotFound(w, "No fresh issues available — please try again shortly")
 		return
 	}
 
@@ -155,8 +227,12 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Award XP (best effort).
-	_, _, err = h.xp.AwardXP(ctx, user.ID, drawXP)
+	// Award rarity-based XP.
+	xpReward := drawXPByRarity[issue.Rarity]
+	if xpReward == 0 {
+		xpReward = drawXPByRarity["common"]
+	}
+	_, _, err = h.xp.AwardXP(ctx, user.ID, xpReward)
 	if err != nil {
 		slog.Error("award draw xp", "error", err)
 	}
@@ -166,7 +242,53 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		"draw":            drawToResponse(draw),
 		"issue":           issueToResponse(issue),
 		"remaining_draws": remaining,
+		"xp_awarded":      xpReward,
 	})
+}
+
+// pickRarityTier selects a rarity tier using weighted random, cascading
+// to the next available tier if the selected one has no issues.
+func pickRarityTier(countByRarity map[string]int64) string {
+	// Roll 1-100.
+	roll, _ := rand.Int(rand.Reader, big.NewInt(100))
+	n := int(roll.Int64())
+
+	cumulative := 0
+	selected := "common"
+	for _, rw := range rarityWeights {
+		cumulative += rw.weight
+		if n < cumulative {
+			selected = rw.rarity
+			break
+		}
+	}
+
+	// If selected tier is empty, cascade downward.
+	if countByRarity[selected] > 0 {
+		return selected
+	}
+
+	// Cascade order: legendary -> epic -> rare -> common.
+	cascade := []string{"legendary", "epic", "rare", "common"}
+	startIdx := 0
+	for i, r := range cascade {
+		if r == selected {
+			startIdx = i
+			break
+		}
+	}
+	for i := startIdx; i < len(cascade); i++ {
+		if countByRarity[cascade[i]] > 0 {
+			return cascade[i]
+		}
+	}
+	// If nothing below, try above.
+	for i := startIdx - 1; i >= 0; i-- {
+		if countByRarity[cascade[i]] > 0 {
+			return cascade[i]
+		}
+	}
+	return "common"
 }
 
 // Choose handles POST /choose — choose a specific issue.
@@ -235,15 +357,10 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Award XP (best effort).
-	_, _, err = h.xp.AwardXP(ctx, user.ID, chooseXP)
-	if err != nil {
-		slog.Error("award choose xp", "error", err)
-	}
-
 	Created(w, map[string]any{
-		"draw":  drawToResponse(draw),
-		"issue": issueToResponse(issue),
+		"draw":       drawToResponse(draw),
+		"issue":      issueToResponse(issue),
+		"xp_awarded": 0,
 	})
 }
 
@@ -497,6 +614,17 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		slog.Error("get issue for merge", "error", err)
 		InternalError(w)
 		return
+	}
+
+	// Compute merge XP based on issue rarity and draw source.
+	// Drawn issues get 3x, browsed/chosen issues get 1x.
+	mergeXPMap := drawMergeXPByRarity
+	if draw.Source == "choose" {
+		mergeXPMap = browseMergeXPByRarity
+	}
+	mergeXP := mergeXPMap[issue.Rarity]
+	if mergeXP == 0 {
+		mergeXP = mergeXPMap["common"]
 	}
 
 	tx, err := h.pool.Begin(ctx)
@@ -770,6 +898,7 @@ func issueToResponse(i database.Issue) map[string]any {
 		"title":      i.Title,
 		"url":        i.Url,
 		"repo_stars": i.RepoStars,
+		"rarity":     i.Rarity,
 		"labels":     i.Labels,
 		"state":      string(i.State),
 	}

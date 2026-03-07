@@ -240,6 +240,7 @@ type Issue struct {
 	Url             string             `json:"url"`
 	Language        pgtype.Text        `json:"language"`
 	Difficulty      pgtype.Text        `json:"difficulty"`
+	Rarity          string             `json:"rarity"`
 	RepoStars       int32              `json:"repo_stars"`
 	RepoPushedAt    pgtype.Timestamptz `json:"repo_pushed_at"`
 	GithubCreatedAt pgtype.Timestamptz `json:"github_created_at"`

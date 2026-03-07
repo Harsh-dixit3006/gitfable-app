@@ -4,9 +4,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion } from 'framer-motion';
 import { Star, Flame, Trophy, GitPullRequest, Calendar, FolderGit2, BookOpen, Files, Library, BookCopy, MoonStar, FastForward, PenTool, Globe, Search, Bookmark as BookmarkIcon } from 'lucide-react';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { api } from '@/lib/api';
 
 const BADGE_ICONS = {
   'Prologue': BookOpen, 'Short Story': Files, 'The Epic': Library,
@@ -19,13 +17,24 @@ export default function Profile() {
   const { username } = useParams();
   const [profile, setProfile] = useState(null);
   const [merges, setMerges] = useState([]);
+  const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios.get(`${API}/profile/${username}`)
-      .then(r => { setProfile(r.data.user); setMerges(r.data.recent_merges || []); })
-      .catch(err => setError(err.response?.data?.detail || 'User not found'))
+    api.get(`/users/${username}`)
+      .then(r => {
+        const d = r._data;
+        setProfile(d.user);
+        setMerges((d.recent_draws || []).map(draw => ({
+          id: draw.id,
+          repo: `${draw.repo_owner || ''}/${draw.repo_name || ''}`,
+          language: draw.language,
+          xp_awarded: draw.xp_awarded,
+        })));
+        setBadges(d.badges || []);
+      })
+      .catch(err => setError(err._message || 'User not found'))
       .finally(() => setLoading(false));
   }, [username]);
 
@@ -42,7 +51,7 @@ export default function Profile() {
   );
 
   const u = profile;
-  const earned = new Set((u.badges || []).map(b => b.name));
+  const earned = new Set((badges || []).map(b => b.name));
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="profile-page">
@@ -67,7 +76,7 @@ export default function Profile() {
                 </div>
                 <p className="text-zinc-500 text-sm font-mono mb-2">@{u.username}</p>
                 <div className="flex items-center gap-4 text-xs font-mono text-zinc-600">
-                  <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />Joined {new Date(u.joined_at).toLocaleDateString()}</span>
+                  <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />Joined {new Date(u.created_at).toLocaleDateString()}</span>
                   <span className="text-sky-100 font-bold">{u.xp} XP</span>
                 </div>
               </div>
@@ -135,7 +144,7 @@ export default function Profile() {
                           <FolderGit2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                           <span className="truncate">{m.repo}</span>
                         </div>
-                        <p className="text-sm font-medium text-zinc-300 truncate">{m.title}</p>
+                        <p className="text-sm font-medium text-zinc-300 truncate">{m.language}</p>
                       </div>
                       <span className="text-xs px-2.5 py-1 rounded-md font-mono status-merged shrink-0">Merged</span>
                     </div>
