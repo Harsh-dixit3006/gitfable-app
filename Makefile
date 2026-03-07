@@ -13,7 +13,7 @@ install-backend: ## Install backend Go dependencies
 	cd backend && go mod download
 
 install-frontend: ## Install frontend Node dependencies
-	cd frontend && yarn install
+	cd frontend && npm install
 
 # ─── Development ─────────────────────────────────────────────────────
 
@@ -26,12 +26,12 @@ dev-backend: ## Start backend dev server (port 8001)
 	@command -v air >/dev/null 2>&1 && (cd backend && air) || (cd backend && go run ./cmd/server)
 
 dev-frontend: ## Start frontend dev server (port 3000)
-	cd frontend && yarn start
+	cd frontend && npm start
 
 # ─── Build ───────────────────────────────────────────────────────────
 
 build: build-backend ## Build frontend and backend for production
-	cd frontend && yarn build
+	cd frontend && npm run build
 
 build-backend: ## Build backend Go binary
 	cd backend && go build -o bin/server ./cmd/server

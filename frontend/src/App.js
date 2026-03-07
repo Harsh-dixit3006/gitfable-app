@@ -10,6 +10,7 @@ import Leaderboard from "@/pages/Leaderboard";
 import History from "@/pages/History";
 import Profile from "@/pages/Profile";
 
+
 function App() {
   return (
     <BrowserRouter>
@@ -25,6 +26,7 @@ function App() {
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/history" element={<History />} />
             <Route path="/u/:username" element={<Profile />} />
+
           </Routes>
         </div>
         <Toaster
