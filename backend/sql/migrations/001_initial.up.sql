@@ -36,6 +36,7 @@ CREATE TABLE issues (
     id BIGSERIAL PRIMARY KEY,
     public_id UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     github_id BIGINT NOT NULL UNIQUE,
+    github_number INTEGER NOT NULL DEFAULT 0,
     repo_owner VARCHAR(255) NOT NULL,
     repo_name VARCHAR(255) NOT NULL,
     title TEXT NOT NULL,
@@ -43,8 +44,11 @@ CREATE TABLE issues (
     language VARCHAR(50),
     difficulty VARCHAR(20),
     repo_stars INTEGER NOT NULL DEFAULT 0,
+    repo_pushed_at TIMESTAMPTZ,
+    github_created_at TIMESTAMPTZ,
     labels TEXT[] NOT NULL DEFAULT '{}',
     state issue_state NOT NULL DEFAULT 'open',
+    last_synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -80,6 +84,7 @@ CREATE INDEX idx_draws_user_status ON draws(user_id, status);
 CREATE INDEX idx_draws_user_created ON draws(user_id, created_at DESC);
 CREATE INDEX idx_draws_merged_at ON draws(merged_at DESC) WHERE merged_at IS NOT NULL;
 CREATE INDEX idx_draws_pr_url ON draws(pr_url) WHERE pr_url IS NOT NULL;
+CREATE INDEX idx_draws_user_issue ON draws(user_id, issue_id);
 
 -- Badges
 CREATE TABLE badges (
