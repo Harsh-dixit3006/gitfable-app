@@ -10,11 +10,11 @@ Gamified web app that matches developers with open-source "good first issues" th
 
 ```bash
 # Install all dependencies
-make install              # go mod download (backend) + yarn install (frontend)
+make install              # go mod download (backend) + npm install (frontend)
 
 # Development servers (run in separate terminals)
 make dev-backend          # Go server on :8001 (air hot-reload or go run)
-make dev-frontend         # React on :3000 (craco start)
+make dev-frontend         # React on :3000 (npm start via craco)
 
 # Docker (starts postgres, redis, backend, frontend)
 make docker-up            # docker compose up -d
@@ -39,6 +39,10 @@ make lint                 # golangci-lint (backend) + ESLint (frontend)
 
 # Build
 make build-backend        # go build -o bin/server ./cmd/server
+
+# Issue sync (fetches GitHub issues into DB)
+make sync-issues          # one-time sync via cmd/sync
+make build-sync           # build sync CLI binary
 ```
 
 ## Architecture
@@ -53,6 +57,7 @@ make build-backend        # go build -o bin/server ./cmd/server
 
 ### Backend structure (`backend/`)
 - `cmd/server/main.go` - Entry point, wires all dependencies, Chi router setup, graceful shutdown
+- `cmd/sync/main.go` - CLI tool to sync GitHub issues into the database
 - `internal/handler/` - HTTP handlers: auth, draws, users, public, webhooks, health
 - `internal/service/` - Business logic: xp, badges, streaks, github (PR verification)
 - `internal/middleware/` - Request ID, security headers, rate limiting, auth, logging, request size
@@ -84,7 +89,7 @@ make build-backend        # go build -o bin/server ./cmd/server
 
 ## Environment
 
-Backend `.env` requires: `DATABASE_URL` (postgresql:// format, no asyncpg), Firebase credentials (`FIREBASE_SERVICE_ACCOUNT_PATH` or individual `FIREBASE_*` vars), `CORS_ORIGINS`. See `backend/.env.example`.
+Backend `.env` requires: `DATABASE_URL` (postgresql:// format, no asyncpg), Firebase credentials (`FIREBASE_SERVICE_ACCOUNT_PATH` or individual `FIREBASE_*` vars), `CORS_ORIGINS`. See `backend/.env.example`. **Note:** The Go backend uses `os.Getenv` only — it does not auto-load `.env` files. Set env vars explicitly or use `docker compose` which wires them.
 
 Frontend `.env` requires: `REACT_APP_BACKEND_URL`, `REACT_APP_FIREBASE_*` config vars. See `frontend/.env.example`.
 

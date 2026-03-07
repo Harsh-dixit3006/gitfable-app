@@ -8,9 +8,10 @@ module.exports = {
   theme: {
         extend: {
 		fontFamily: {
+				display: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
 				serif: ['Satoshi', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
 				sans: ['Satoshi', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-				mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace'],
+				mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace'],
 			},
                 borderRadius: {
                         lg: 'var(--radius)',

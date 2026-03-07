@@ -1,5 +1,5 @@
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -85,7 +85,7 @@
 }
 
 code {
-    font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
+    font-family: 'Geist Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
 }
 
 html {
