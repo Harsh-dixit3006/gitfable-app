@@ -4,11 +4,11 @@ FROM node:20-alpine AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy package file
-COPY package.json ./
+# Copy package files
+COPY package.json package-lock.json ./
 
-# Install dependencies (will create yarn.lock if it doesn't exist)
-RUN yarn install
+# Install dependencies
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -32,7 +32,7 @@ ENV REACT_APP_FIREBASE_MESSAGING_SENDER_ID=$REACT_APP_FIREBASE_MESSAGING_SENDER_
 ENV REACT_APP_FIREBASE_APP_ID=$REACT_APP_FIREBASE_APP_ID
 
 # Build the app
-RUN yarn build
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine

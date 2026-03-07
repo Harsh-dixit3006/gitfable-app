@@ -35,7 +35,8 @@
       "Bash(npx:*)",
       "Bash(docker ps:*)",
       "WebSearch",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx craco:*)"
     ]
   }
 }

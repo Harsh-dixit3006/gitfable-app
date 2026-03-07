@@ -59,7 +59,7 @@ function normalizeHistoryDraw(draw) {
 }
 
 export default function Discover() {
-  const { user, token, setShowLogin, refreshUser } = useAuth();
+  const { user, setShowLogin, refreshUser } = useAuth();
   const [languages, setLanguages] = useState([]);
   const [difficulties, setDifficulties] = useState([]);
   const [rarities, setRarities] = useState([]);
@@ -87,11 +87,11 @@ export default function Discover() {
   const [sortDir, setSortDir] = useState('desc');
 
   useEffect(() => {
-    if (token) {
+    if (user) {
       loadActiveBookmark();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [user]);
 
   const loadIdRef = useRef(0);
 
@@ -137,7 +137,6 @@ export default function Discover() {
   const loadActiveBookmark = async () => {
     try {
       const res = await api.get('/draws/history', {
-        headers: { Authorization: `Bearer ${token}` },
         params: { status: 'bookmarked', limit: 1 },
       });
       const draws = res._data || [];
@@ -145,7 +144,6 @@ export default function Discover() {
         setActiveBookmark(normalizeHistoryDraw(draws[0]));
       } else {
         const res2 = await api.get('/draws/history', {
-          headers: { Authorization: `Bearer ${token}` },
           params: { status: 'pr_submitted', limit: 1 },
         });
         const draws2 = res2._data || [];
@@ -175,7 +173,7 @@ export default function Discover() {
       const res = await api.post('/draws/', {
         language: languages[0] || undefined,
         difficulty: difficulties[0] || undefined,
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      });
       const data = res._data;
       const normalized = normalizeDrawResponse(data);
       const rarity = getRarity(normalized);
@@ -187,7 +185,7 @@ export default function Discover() {
       setDrawState('idle');
       toast.error(err._message || 'Draw failed');
     }
-  }, [user, token, languages, difficulties, setShowLogin]);
+  }, [user, languages, difficulties, setShowLogin]);
 
   const handleChooseIssue = async (issueId) => {
     if (!user) { setShowLogin(true); return; }
@@ -196,7 +194,6 @@ export default function Discover() {
       const res = await api.post(
         '/draws/choose',
         { issue_id: issueId },
-        { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = res._data;
       const normalized = normalizeDrawResponse(data);
@@ -215,7 +212,7 @@ export default function Discover() {
   const handleBookmark = async () => {
     if (!currentDrawId) return;
     try {
-      await api.put(`/draws/${currentDrawId}/status`, { status: 'bookmarked' }, { headers: { Authorization: `Bearer ${token}` } });
+      await api.put(`/draws/${currentDrawId}/status`, { status: 'bookmarked' });
       toast.success('Issue bookmarked! You have 7 days.');
       await refreshUser();
       await loadActiveBookmark();
@@ -229,7 +226,7 @@ export default function Discover() {
   const handleRelease = async () => {
     if (!activeBookmark) return;
     try {
-      await api.put(`/draws/${activeBookmark.id}/status`, { status: 'expired' }, { headers: { Authorization: `Bearer ${token}` } });
+      await api.put(`/draws/${activeBookmark.id}/status`, { status: 'expired' });
       setActiveBookmark(null);
       toast.success('Bookmark released');
       await refreshUser();
@@ -239,7 +236,7 @@ export default function Discover() {
   const handleSubmitPR = async () => {
     if (!prUrl.trim() || !prDrawId) return;
     try {
-      await api.put(`/draws/${prDrawId}/pr`, { pr_url: prUrl }, { headers: { Authorization: `Bearer ${token}` } });
+      await api.put(`/draws/${prDrawId}/pr`, { pr_url: prUrl });
       toast.success('PR submitted! XP awarded on merge.');
       setShowPRDialog(false);
       setPrUrl('');
@@ -249,7 +246,7 @@ export default function Discover() {
 
   const handleVerify = async (drawId) => {
     try {
-      const res = await api.post(`/draws/${drawId}/verify`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.post(`/draws/${drawId}/verify`, {});
       const data = res._data;
       toast.success(`PR merged! ${data.new_badges?.length ? '+ New badge!' : ''}`);
       setActiveBookmark(null);
