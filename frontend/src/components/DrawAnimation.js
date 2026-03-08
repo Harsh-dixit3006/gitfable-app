@@ -1,13 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import {
   Bookmark, ExternalLink, Star, FolderGit2,
   Gem, Crown, Sparkles, Zap,
   BookOpen, RotateCcw, Shuffle,
 } from 'lucide-react';
-
-// ─── Shared Constants ──────────────────────────────────────────
 
 export const RARITY = {
   common:    { label: 'Common',    icon: null,     color: 'zinc',   accent: 'rgba(161,161,170,', drawXP: 5,  mergeXP: 75,  browseMergeXP: 25 },
@@ -33,7 +31,53 @@ export function RarityBadge({ rarity }) {
   );
 }
 
-// ─── DrawAnimation Component ─────────────────────────────────
+function SparkBurst({ color, count = 16 }) {
+  const sparks = useRef(
+    Array.from({ length: count }, () => ({
+      x: (Math.random() - 0.5) * 200,
+      y: (Math.random() - 0.5) * 200 - 40,
+      size: 2 + Math.random() * 4,
+      delay: Math.random() * 0.3,
+    }))
+  );
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30 overflow-visible">
+      {sparks.current.map((s, i) => (
+        <div
+          key={i}
+          className="spark"
+          style={{
+            left: '50%',
+            top: '50%',
+            width: s.size,
+            height: s.size,
+            background: color,
+            boxShadow: `0 0 6px 2px ${color}`,
+            '--spark-x': `${s.x}px`,
+            '--spark-y': `${s.y}px`,
+            '--spark-delay': `${s.delay}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RadialBurst({ color }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 overflow-hidden">
+      <div
+        className="radial-burst rounded-full"
+        style={{
+          width: 120,
+          height: 120,
+          background: `radial-gradient(circle, ${color}, transparent 70%)`,
+        }}
+      />
+    </div>
+  );
+}
 
 export default function DrawAnimation({
   state,
@@ -49,11 +93,13 @@ export default function DrawAnimation({
   const r = RARITY[rarity];
   const Icon = r.icon;
 
-  // FIFA-style phases: idle -> flares -> drop -> infoFlash -> flip -> settle
   const [phase, setPhase] = useState('idle');
   const [flashIndex, setFlashIndex] = useState(-1);
+  const [showBurst, setShowBurst] = useState(false);
+  const [shaking, setShaking] = useState(false);
   const timers = useRef([]);
   const flameOffsets = useRef([]);
+  const containerRef = useRef(null);
 
   const FLARE = {
     common:    { color: 'rgba(161,161,170,', intensity: 0.3, flames: 4 },
@@ -68,26 +114,27 @@ export default function DrawAnimation({
 
   useEffect(() => {
     clearTimers();
+    setShowBurst(false);
+    setShaking(false);
     if (state === 'shuffling') {
-      setPhase('idle'); // stay on idle card during shuffling wait
+      setPhase('idle');
     } else if (state === 'revealed') {
-      // Pre-generate flame positions spread across bottom
       flameOffsets.current = Array.from({ length: f.flames }, (_, i) => ({
         x: ((i + 0.5) / f.flames) * 100,
         delay: i * 0.05,
         height: 70 + Math.random() * 50,
       }));
-      // Flares shoot up
       setPhase('flares');
-      // Card drops from top (face-down) — give flares time to rise
       timers.current.push(setTimeout(() => setPhase('drop'), 700));
-      // Info flashes — each gets 400ms to breathe
       timers.current.push(setTimeout(() => { setPhase('infoFlash'); setFlashIndex(0); }, 1400));
       timers.current.push(setTimeout(() => setFlashIndex(1), 1800));
       timers.current.push(setTimeout(() => setFlashIndex(2), 2200));
-      // Card flips to reveal
-      timers.current.push(setTimeout(() => setPhase('flip'), 2700));
-      // Settle
+      timers.current.push(setTimeout(() => {
+        setPhase('flip');
+        setShaking(true);
+        setShowBurst(true);
+        setTimeout(() => setShaking(false), 500);
+      }, 2700));
       timers.current.push(setTimeout(() => setPhase('settle'), 3400));
     } else {
       setPhase('idle');
@@ -100,21 +147,26 @@ export default function DrawAnimation({
   const showFlares = phase === 'flares' || phase === 'drop' || phase === 'infoFlash' || phase === 'flip';
   const showCard = phase === 'drop' || phase === 'infoFlash' || phase === 'flip' || phase === 'settle';
 
-  // Info flash items (adapted from FIFA's flag/league/club)
   const flashItems = issue ? [
     { label: issue.language, sub: 'Language' },
     { label: r.label, sub: 'Rarity' },
     { label: issue.repo, sub: 'Repository' },
   ] : [];
 
-  // Merge XP depends on draw source
   const mergeXP = drawSource === 'choose' ? r.browseMergeXP : r.mergeXP;
+  const burstColor = `${r.accent}0.7)`;
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative w-80 h-[440px] mb-8">
+    <div className="flex flex-col items-center" ref={containerRef}>
+      <div className={`relative w-80 h-[440px] mb-8 ${shaking ? 'screen-shake' : ''}`}>
 
-        {/* ── Spotlight Beams ── */}
+        {showBurst && (
+          <>
+            <RadialBurst color={burstColor} />
+            <SparkBurst color={burstColor} count={rarity === 'legendary' ? 24 : rarity === 'epic' ? 18 : 12} />
+          </>
+        )}
+
         {showFlares && (
           <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden rounded-xl">
             <motion.div
@@ -123,7 +175,6 @@ export default function DrawAnimation({
               animate={{ opacity: phase === 'flip' ? 0 : 1 }}
               transition={{ duration: 0.5 }}
             />
-            {/* Left beam */}
             <motion.div
               className="absolute bottom-0 left-0"
               style={{
@@ -145,7 +196,6 @@ export default function DrawAnimation({
                 scaleY: { duration: 0.4 },
               }}
             />
-            {/* Right beam */}
             <motion.div
               className="absolute bottom-0 right-0"
               style={{
@@ -167,7 +217,6 @@ export default function DrawAnimation({
                 scaleY: { duration: 0.4 },
               }}
             />
-            {/* Center convergence glow */}
             <motion.div
               className="absolute bottom-0 left-1/2 -translate-x-1/2"
               style={{
@@ -184,7 +233,6 @@ export default function DrawAnimation({
                 opacity: phase === 'flip' ? { duration: 0.5 } : undefined,
               }}
             />
-            {/* Lens flare at convergence */}
             <motion.div
               className="absolute left-1/2 -translate-x-1/2 rounded-full"
               style={{
@@ -203,10 +251,8 @@ export default function DrawAnimation({
           </div>
         )}
 
-        {/* ── Info Flash — rapid text flashes (FIFA flag/league/club style) ── */}
         {phase === 'infoFlash' && (
           <>
-            {/* Blur backdrop over the card */}
             <motion.div
               className="absolute inset-0 z-[5] rounded-xl"
               style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.4)' }}
@@ -235,9 +281,7 @@ export default function DrawAnimation({
           </>
         )}
 
-        {/* ── The Card ── */}
         <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 5 }}>
-          {/* Idle card */}
           {phase === 'idle' && (
             <div
               className="w-80 h-[440px] rounded-lg flex items-center justify-center overflow-hidden"
@@ -251,7 +295,6 @@ export default function DrawAnimation({
             </div>
           )}
 
-          {/* Card drop (face-down) + flip to reveal */}
           {showCard && issue && (
             <motion.div
               className="w-80 h-[440px] rounded-lg overflow-hidden absolute"
@@ -261,7 +304,7 @@ export default function DrawAnimation({
                   ? `1px solid ${r.accent}0.35)`
                   : '1px solid rgba(255,255,255,0.08)',
                 boxShadow: phase === 'settle'
-                  ? `0 0 30px -8px ${r.accent}0.3)`
+                  ? `0 0 40px -8px ${r.accent}0.4), 0 0 80px -16px ${r.accent}0.2)`
                   : '0 8px 30px rgba(0, 0, 0, 0.5)',
                 perspective: 800,
               }}
@@ -270,23 +313,21 @@ export default function DrawAnimation({
                 phase === 'drop' || phase === 'infoFlash'
                   ? { y: 0, rotateX: 0, scale: 1, opacity: 1 }
                   : phase === 'flip'
-                  ? { y: 0, rotateX: 0, scale: [1, 1.08, 1.03], opacity: 1 }
-                  : { y: 0, rotateX: 0, scale: 1.03, opacity: 1 }
+                  ? { y: 0, rotateX: 0, scale: [1, 1.12, 1.04], opacity: 1 }
+                  : { y: 0, rotateX: 0, scale: 1.04, opacity: 1 }
               }
               transition={
                 phase === 'drop' || phase === 'infoFlash'
                   ? { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
                   : phase === 'flip'
-                  ? { scale: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }
+                  ? { scale: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
                   : { duration: 0.3 }
               }
             >
-              {/* Top rarity line */}
               {(phase === 'flip' || phase === 'settle') && (
                 <div className={`absolute top-0 left-0 right-0 h-px rarity-line-${rarity}`} />
               )}
 
-              {/* Face-down state: card back (hidden during infoFlash — only flash text shows) */}
               {phase === 'drop' && (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="absolute inset-3 rounded-md border border-white/[0.04]" />
@@ -300,21 +341,18 @@ export default function DrawAnimation({
                 <div className="w-full h-full" />
               )}
 
-              {/* Face-up: revealed content */}
               {(phase === 'flip' || phase === 'settle') && (
                 <>
-                  {/* Flash overlay on flip */}
                   {phase === 'flip' && (
                     <motion.div
                       className="absolute inset-0 pointer-events-none z-20"
-                      style={{ background: `${r.accent}0.25)` }}
+                      style={{ background: `${r.accent}0.3)` }}
                       initial={{ opacity: 1 }}
                       animate={{ opacity: 0 }}
-                      transition={{ duration: 0.6 }}
+                      transition={{ duration: 0.7 }}
                     />
                   )}
 
-                  {/* Shimmer sweep */}
                   <div
                     className="absolute inset-0 pointer-events-none shimmer-sweep z-10"
                     style={{
@@ -323,7 +361,21 @@ export default function DrawAnimation({
                     }}
                   />
 
-                  {/* Content with staggered reveal */}
+                  {phase === 'settle' && (
+                    <motion.div
+                      className="absolute inset-0 pointer-events-none z-10"
+                      animate={{
+                        background: [
+                          `radial-gradient(circle at 20% 20%, ${r.accent}0.06), transparent 50%)`,
+                          `radial-gradient(circle at 80% 80%, ${r.accent}0.06), transparent 50%)`,
+                          `radial-gradient(circle at 20% 80%, ${r.accent}0.06), transparent 50%)`,
+                          `radial-gradient(circle at 80% 20%, ${r.accent}0.06), transparent 50%)`,
+                        ],
+                      }}
+                      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                    />
+                  )}
+
                   <div className="p-6 w-full h-full flex flex-col items-center justify-center relative z-10">
                     <motion.div
                       className="flex items-center gap-2 text-xs text-zinc-500 font-mono mb-3"
@@ -370,30 +422,51 @@ export default function DrawAnimation({
         </div>
       </div>
 
-      {/* ── Draw Controls ── */}
       <div className="flex flex-col items-center gap-3">
         {state === 'idle' && (
           <>
-            <button
-              data-testid="draw-button"
-              onClick={onDraw}
-              className="rune-btn px-8 py-3 rounded-lg animate-pulse-glow"
-            >
-              <Shuffle className="w-4 h-4 inline mr-2" />Draw
-            </button>
+            <div className="relative">
+              <div className="absolute -inset-3 rounded-xl border border-sky-300/20 energy-ring pointer-events-none" />
+              <div className="absolute -inset-6 pointer-events-none">
+                <div
+                  className="w-full h-full energy-ring-rotate"
+                  style={{
+                    background: 'conic-gradient(from 0deg, transparent, rgba(125,211,252,0.15), transparent, rgba(125,211,252,0.1), transparent)',
+                    borderRadius: '12px',
+                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    maskComposite: 'xor',
+                    WebkitMaskComposite: 'xor',
+                    padding: '2px',
+                  }}
+                />
+              </div>
+              <button
+                data-testid="draw-button"
+                onClick={onDraw}
+                className="rune-btn px-8 py-3 rounded-lg animate-pulse-glow relative z-10"
+              >
+                <Shuffle className="w-4 h-4 inline mr-2" />Draw
+              </button>
+            </div>
             {redrawsRemaining != null && (
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600">
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600 mt-2">
                 {redrawsRemaining} draw{redrawsRemaining !== 1 ? 's' : ''} remaining
               </p>
             )}
           </>
         )}
         {state === 'shuffling' && (
-          <p className="font-mono text-xs text-sky-200 uppercase tracking-widest animate-pulse">Drawing...</p>
+          <div className="flex flex-col items-center gap-3">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+              className="w-8 h-8 rounded-full border-2 border-sky-300/30 border-t-sky-300"
+            />
+            <p className="font-mono text-xs text-sky-200 uppercase tracking-widest animate-pulse">Drawing...</p>
+          </div>
         )}
         {state === 'revealed' && (
           <div className="flex flex-col items-center gap-3">
-            {/* XP capsule */}
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -405,48 +478,77 @@ export default function DrawAnimation({
                 boxShadow: `0 0 20px -6px ${r.accent}0.3)`,
               }}
             >
-              {Icon && <Icon className="w-5 h-5" style={{ color: `${r.accent}0.8)` }} />}
+              {Icon && (
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <Icon className="w-5 h-5" style={{ color: `${r.accent}0.8)` }} />
+                </motion.div>
+              )}
               <div className="flex flex-col">
-                <span className="text-sm font-semibold font-mono" style={{ color: `${r.accent}0.9)` }}>
+                <motion.span
+                  className="text-sm font-semibold font-mono"
+                  style={{ color: `${r.accent}0.9)` }}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.3, 1] }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
                   +{xpAwarded != null ? xpAwarded : r.drawXP} XP
-                </span>
+                </motion.span>
                 <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Draw reward</span>
               </div>
               <div className="w-px h-8 bg-white/10" />
               <div className="flex flex-col">
-                <span className="text-sm font-semibold font-mono" style={{ color: `${r.accent}0.9)` }}>
+                <motion.span
+                  className="text-sm font-semibold font-mono"
+                  style={{ color: `${r.accent}0.9)` }}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.3, 1] }}
+                  transition={{ duration: 0.5, delay: 0.4 }}
+                >
                   +{mergeXP} XP
-                </span>
+                </motion.span>
                 <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">On merge</span>
               </div>
             </motion.div>
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-3">
-              <button
+            <motion.div
+              className="flex items-center gap-3"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <motion.button
                 data-testid="bookmark-button"
                 onClick={onBookmark}
-                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-sky-200 font-mono uppercase tracking-wider transition-colors"
+                whileHover={{ scale: 1.08, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-sky-200 font-mono uppercase tracking-wider transition-colors px-3 py-2 rounded-lg hover:bg-sky-300/5 border border-transparent hover:border-sky-300/20"
               >
                 <Bookmark className="w-3.5 h-3.5" />Bookmark
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 data-testid="redraw-button"
                 onClick={onRedraw}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
+                whileHover={{ scale: 1.08, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors px-3 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/10"
               >
                 <RotateCcw className="w-3 h-3" />Redraw
-              </button>
-              <a
+              </motion.button>
+              <motion.a
                 data-testid="view-github-button"
                 href={issue?.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
+                whileHover={{ scale: 1.08, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors px-3 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/10"
               >
                 <ExternalLink className="w-3 h-3" />GitHub
-              </a>
-            </div>
+              </motion.a>
+            </motion.div>
           </div>
         )}
       </div>

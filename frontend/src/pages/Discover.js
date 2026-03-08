@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Zap, ListFilter as Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -20,7 +20,6 @@ function getRarity(issue) {
   return RARITY[issue?.rarity] || RARITY.common;
 }
 
-// Normalize issue from Go backend shape to flat UI shape
 function normalizeIssue(issue) {
   return {
     ...issue,
@@ -29,7 +28,6 @@ function normalizeIssue(issue) {
   };
 }
 
-// Normalize draw+issue response from draw/choose endpoints
 function normalizeDrawResponse(data) {
   const issue = normalizeIssue(data.issue);
   return {
@@ -42,7 +40,6 @@ function normalizeDrawResponse(data) {
   };
 }
 
-// Normalize a history draw row (has nested issue)
 function normalizeHistoryDraw(draw) {
   const issue = draw.issue || {};
   return {
@@ -58,7 +55,6 @@ function normalizeHistoryDraw(draw) {
   };
 }
 
-// Floating orbs animation component
 function FloatingOrb({ delay = 0, duration = 20, color = 'rgba(125,211,252,0.15)', size = 300 }) {
   return (
     <motion.div
@@ -84,6 +80,143 @@ function FloatingOrb({ delay = 0, duration = 20, color = 'rgba(125,211,252,0.15)
   );
 }
 
+function AuroraBands() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div
+        className="aurora-band absolute -top-20 left-0 right-0 h-[300px] opacity-40"
+        style={{
+          background: 'linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(14,165,233,0.04) 30%, transparent 60%)',
+          filter: 'blur(60px)',
+          '--aurora-dur': '18s',
+          '--aurora-delay': '0s',
+        }}
+      />
+      <div
+        className="aurora-band absolute -top-10 left-0 right-0 h-[250px] opacity-30"
+        style={{
+          background: 'linear-gradient(160deg, transparent 20%, rgba(34,211,238,0.06) 50%, rgba(56,189,248,0.03) 80%, transparent 100%)',
+          filter: 'blur(50px)',
+          '--aurora-dur': '24s',
+          '--aurora-delay': '-6s',
+        }}
+      />
+      <div
+        className="aurora-band absolute top-0 left-0 right-0 h-[200px] opacity-25"
+        style={{
+          background: 'linear-gradient(180deg, rgba(125,211,252,0.05) 0%, transparent 100%)',
+          filter: 'blur(40px)',
+          '--aurora-dur': '15s',
+          '--aurora-delay': '-3s',
+        }}
+      />
+    </div>
+  );
+}
+
+function ParticleMotes() {
+  const motes = useMemo(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      bottom: `${-10 - Math.random() * 20}%`,
+      size: 1.5 + Math.random() * 3,
+      dur: 10 + Math.random() * 15,
+      delay: Math.random() * 12,
+      driftX: (Math.random() - 0.5) * 60,
+      color: [
+        'rgba(125,211,252,0.6)',
+        'rgba(56,189,248,0.5)',
+        'rgba(14,165,233,0.4)',
+        'rgba(186,230,253,0.5)',
+      ][Math.floor(Math.random() * 4)],
+    })),
+  []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      {motes.map((m) => (
+        <div
+          key={m.id}
+          className="mote"
+          style={{
+            left: m.left,
+            bottom: m.bottom,
+            width: m.size,
+            height: m.size,
+            background: m.color,
+            boxShadow: `0 0 ${m.size * 2}px ${m.size}px ${m.color}`,
+            '--mote-dur': `${m.dur}s`,
+            '--mote-delay': `${m.delay}s`,
+            '--drift-x': `${m.driftX}px`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function GlitchText({ children, className = '' }) {
+  const [glitching, setGlitching] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGlitching(true);
+      setTimeout(() => setGlitching(false), 200);
+    }, 4000 + Math.random() * 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className={`relative inline-block ${className}`}>
+      {children}
+      {glitching && (
+        <>
+          <span
+            className="absolute inset-0"
+            style={{
+              animation: 'glitch-1 0.2s ease-in-out',
+              color: 'rgba(125,211,252,0.7)',
+            }}
+            aria-hidden
+          >{children}</span>
+          <span
+            className="absolute inset-0"
+            style={{
+              animation: 'glitch-2 0.2s ease-in-out',
+              color: 'rgba(56,189,248,0.5)',
+            }}
+            aria-hidden
+          >{children}</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+function AnimatedCounter({ value, duration = 1.5 }) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    let start = 0;
+    const end = value;
+    if (end === 0) { setDisplay(0); return; }
+    const startTime = performance.now();
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / (duration * 1000), 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(eased * end));
+      if (progress < 1) ref.current = requestAnimationFrame(animate);
+    };
+    ref.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(ref.current);
+  }, [value, duration]);
+
+  return <>{display.toLocaleString()}</>;
+}
+
 export default function Discover() {
   const { user, setShowLogin, refreshUser } = useAuth();
   const [languages, setLanguages] = useState([]);
@@ -105,13 +238,24 @@ export default function Discover() {
   const [showFilters, setShowFilters] = useState(false);
   const shuffleRef = useRef([]);
 
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Sort state
   const [sortField, setSortField] = useState('stars');
   const [sortDir, setSortDir] = useState('desc');
+
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const handleGlobalMouseMove = useCallback((e) => {
+    mouseX.set(e.clientX);
+    mouseY.set(e.clientY);
+  }, [mouseX, mouseY]);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [handleGlobalMouseMove]);
 
   useEffect(() => {
     if (user) {
@@ -156,7 +300,6 @@ export default function Discover() {
     return () => { cancelled = true; };
   }, [languages, difficulties, rarities]);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [languages, difficulties, rarities, issueQuery]);
@@ -288,7 +431,6 @@ export default function Discover() {
     return `${Math.floor(diff / 86400000)}d ${Math.floor((diff % 86400000) / 3600000)}h`;
   };
 
-  // Client-side filtering for multi-select + text (server handles single-value filters).
   const tableData = useMemo(() => {
     return issues.filter((issue) => {
       const byLang = languages.length <= 1 || languages.includes(issue.language);
@@ -298,7 +440,6 @@ export default function Discover() {
     });
   }, [issues, languages, difficulties, rarities]);
 
-  // Filtered issues: text search applied on top of tableData
   const filteredIssues = useMemo(() => {
     let filtered = tableData;
     if (issueQuery) {
@@ -307,7 +448,6 @@ export default function Discover() {
         `${issue.repo} ${issue.title} ${(issue.labels || []).join(' ')}`.toLowerCase().includes(term)
       );
     }
-    // Sort
     filtered = [...filtered].sort((a, b) => {
       const aVal = a[sortField] ?? 0;
       const bVal = b[sortField] ?? 0;
@@ -322,7 +462,6 @@ export default function Discover() {
   const totalPages = Math.ceil(filteredIssues.length / pageSize) || 1;
   const paginatedIssues = filteredIssues.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Generate page numbers to show
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -337,25 +476,23 @@ export default function Discover() {
 
   return (
     <div className="relative min-h-screen overflow-hidden" data-testid="discover-page">
-      {/* Animated background with floating orbs */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950" />
         <FloatingOrb delay={0} duration={25} color="rgba(125,211,252,0.08)" size={400} />
-        <FloatingOrb delay={3} duration={30} color="rgba(168,85,247,0.06)" size={350} />
-        <FloatingOrb delay={6} duration={28} color="rgba(251,191,36,0.05)" size={300} />
+        <FloatingOrb delay={3} duration={30} color="rgba(56,189,248,0.05)" size={350} />
+        <FloatingOrb delay={6} duration={28} color="rgba(14,165,233,0.04)" size={300} />
       </div>
 
-      {/* Grid overlay */}
+      <AuroraBands />
+
       <div className="fixed inset-0 -z-10 opacity-20">
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
-          backgroundSize: '64px 64px',
-        }} />
+        <div className="absolute inset-0 grid-bg-animated" />
       </div>
+
+      <ParticleMotes />
 
       <div className="relative pt-24 pb-20">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-          {/* Hero Section */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -368,7 +505,12 @@ export default function Discover() {
               transition={{ delay: 0.2, duration: 0.6 }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sky-300/5 border border-sky-300/20 mb-6"
             >
-              <Sparkles className="w-4 h-4 text-sky-300" />
+              <motion.div
+                animate={{ rotate: [0, 180, 360] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+              >
+                <Sparkles className="w-4 h-4 text-sky-300" />
+              </motion.div>
               <span className="text-sm font-mono text-sky-200 tracking-wider">DISCOVER YOUR NEXT QUEST</span>
             </motion.div>
 
@@ -379,7 +521,7 @@ export default function Discover() {
               className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
             >
               <span className="bg-gradient-to-br from-white via-sky-100 to-zinc-400 bg-clip-text text-transparent">
-                Draw Your Destiny
+                <GlitchText>Draw Your Destiny</GlitchText>
               </span>
             </motion.h1>
 
@@ -393,9 +535,15 @@ export default function Discover() {
               <br />
               Each draw is a new adventure waiting to unfold.
             </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, scaleX: 0 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+              className="mt-8 mx-auto w-48 h-px bg-gradient-to-r from-transparent via-sky-300/30 to-transparent"
+            />
           </motion.div>
 
-          {/* Main Draw Area */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -425,7 +573,6 @@ export default function Discover() {
             </div>
           </motion.div>
 
-          {/* Browse Section Divider */}
           <motion.div
             initial={{ opacity: 0, scaleX: 0 }}
             animate={{ opacity: 1, scaleX: 1 }}
@@ -436,20 +583,22 @@ export default function Discover() {
               <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             </div>
             <div className="relative flex justify-center">
-              <div className="px-6 py-2 rounded-full bg-zinc-950/90 border border-white/10 backdrop-blur-sm">
+              <motion.div
+                className="px-6 py-2 rounded-full bg-zinc-950/90 border border-white/10 backdrop-blur-sm"
+                whileHover={{ scale: 1.05, borderColor: 'rgba(125,211,252,0.3)' }}
+                transition={{ type: 'spring', stiffness: 300 }}
+              >
                 <span className="text-sm font-mono text-zinc-500 uppercase tracking-wider">Browse Collection</span>
-              </div>
+              </motion.div>
             </div>
           </motion.div>
 
-          {/* Browse Section */}
           <motion.section
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6, ease: EASE }}
             data-testid="issues-table-section"
           >
-            {/* Search and Filter Header */}
             <div className="flex flex-col gap-6 mb-8">
               <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                 <div>
@@ -457,7 +606,7 @@ export default function Discover() {
                     All Issues
                   </h2>
                   <p className="text-sm text-zinc-500" data-testid="issues-table-subtitle">
-                    {filteredIssues.length.toLocaleString()} issues available
+                    <AnimatedCounter value={filteredIssues.length} duration={0.8} /> issues available
                   </p>
                 </div>
 
@@ -474,8 +623,8 @@ export default function Discover() {
                   </div>
 
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.05, y: -1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setShowFilters(!showFilters)}
                     className={`relative px-4 py-3 rounded-xl border backdrop-blur-sm transition-all ${
                       showFilters || activeFilterCount > 0
@@ -484,23 +633,30 @@ export default function Discover() {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Filter className="w-4 h-4" />
+                      <motion.div
+                        animate={showFilters ? { rotate: 180 } : { rotate: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Filter className="w-4 h-4" />
+                      </motion.div>
                       <span className="font-mono text-sm hidden sm:inline">Filters</span>
                     </div>
-                    {activeFilterCount > 0 && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-sky-400 text-zinc-950 text-xs font-bold flex items-center justify-center"
-                      >
-                        {activeFilterCount}
-                      </motion.div>
-                    )}
+                    <AnimatePresence>
+                      {activeFilterCount > 0 && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-sky-400 text-zinc-950 text-xs font-bold flex items-center justify-center"
+                        >
+                          {activeFilterCount}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.button>
                 </div>
               </div>
 
-              {/* Filter Panel */}
               <AnimatePresence>
                 {showFilters && (
                   <motion.div
@@ -516,33 +672,37 @@ export default function Discover() {
                           <Filter className="w-4 h-4 text-zinc-500" />
                           <span className="text-sm font-mono text-zinc-400 uppercase tracking-wider">Active Filters</span>
                         </div>
-                        {activeFilterCount > 0 && (
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                              setLanguages([]);
-                              setDifficulties([]);
-                              setRarities([]);
-                            }}
-                            className="text-xs font-mono text-red-400/80 hover:text-red-400 flex items-center gap-1.5"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            Clear all
-                          </motion.button>
-                        )}
+                        <AnimatePresence>
+                          {activeFilterCount > 0 && (
+                            <motion.button
+                              initial={{ opacity: 0, x: 10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 10 }}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => {
+                                setLanguages([]);
+                                setDifficulties([]);
+                                setRarities([]);
+                              }}
+                              className="text-xs font-mono text-red-400/80 hover:text-red-400 flex items-center gap-1.5"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Clear all
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
                       </div>
 
                       <div className="space-y-4">
-                        {/* Languages */}
                         <div>
                           <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Languages</label>
                           <div className="flex flex-wrap gap-2">
                             {LANGUAGES.map((lang) => (
                               <motion.button
                                 key={lang}
-                                whileHover={{ scale: 1.05, y: -1 }}
-                                whileTap={{ scale: 0.98 }}
+                                whileHover={{ scale: 1.08, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => toggleLang(lang)}
                                 data-testid={`filter-lang-${lang.toLowerCase()}`}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
@@ -557,15 +717,14 @@ export default function Discover() {
                           </div>
                         </div>
 
-                        {/* Difficulties */}
                         <div>
                           <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Difficulty</label>
                           <div className="flex flex-wrap gap-2">
                             {DIFFICULTIES.map((diff) => (
                               <motion.button
                                 key={diff}
-                                whileHover={{ scale: 1.05, y: -1 }}
-                                whileTap={{ scale: 0.98 }}
+                                whileHover={{ scale: 1.08, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => toggleDiff(diff)}
                                 data-testid={`filter-diff-${diff.toLowerCase()}`}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
@@ -580,7 +739,6 @@ export default function Discover() {
                           </div>
                         </div>
 
-                        {/* Rarities */}
                         <div>
                           <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Rarity</label>
                           <div className="flex flex-wrap gap-2">
@@ -590,8 +748,8 @@ export default function Discover() {
                               return (
                                 <motion.button
                                   key={r}
-                                  whileHover={{ scale: 1.05, y: -1 }}
-                                  whileTap={{ scale: 0.98 }}
+                                  whileHover={{ scale: 1.08, y: -2 }}
+                                  whileTap={{ scale: 0.95 }}
                                   onClick={() => toggleRarity(r)}
                                   data-testid={`filter-rarity-${r}`}
                                   className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm inline-flex items-center gap-1.5 transition-all`}
@@ -620,7 +778,6 @@ export default function Discover() {
               </AnimatePresence>
             </div>
 
-            {/* Issues Grid */}
             {issuesLoading ? (
               <div className="grid gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -628,7 +785,7 @@ export default function Discover() {
                     key={i}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05, duration: 0.4 }}
+                    transition={{ delay: i * 0.08, duration: 0.5 }}
                     className="h-28 rounded-2xl shimmer"
                   />
                 ))}
@@ -643,8 +800,8 @@ export default function Discover() {
                         layout
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ delay: idx * 0.02, duration: 0.3, ease: EASE }}
+                        exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                        transition={{ delay: idx * 0.03, duration: 0.35, ease: EASE }}
                       >
                         <IssueCardRow issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
                       </motion.div>
@@ -660,6 +817,7 @@ export default function Discover() {
                       <motion.div
                         animate={{
                           rotate: [0, 5, -5, 0],
+                          y: [0, -8, 0],
                         }}
                         transition={{
                           duration: 3,
@@ -676,7 +834,6 @@ export default function Discover() {
                   )}
                 </div>
 
-                {/* Pagination */}
                 {filteredIssues.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -686,7 +843,7 @@ export default function Discover() {
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-zinc-400 font-mono">
-                        {filteredIssues.length.toLocaleString()} issue{filteredIssues.length !== 1 ? 's' : ''}
+                        <AnimatedCounter value={filteredIssues.length} duration={0.5} /> issue{filteredIssues.length !== 1 ? 's' : ''}
                       </span>
                       <div className="w-px h-4 bg-white/10" />
                       <select
@@ -696,15 +853,13 @@ export default function Discover() {
                         className="text-sm font-mono bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg px-3 py-1.5 outline-none focus:border-sky-300/40 transition-colors"
                       >
                         {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
-                        )
-                        }
                       </select>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => setCurrentPage(1)}
                         disabled={currentPage === 1}
                         className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
@@ -712,8 +867,8 @@ export default function Discover() {
                         <ChevronsLeft className="w-4 h-4" />
                       </motion.button>
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
                         className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
@@ -725,8 +880,8 @@ export default function Discover() {
                         {getPageNumbers().map(p => (
                           <motion.button
                             key={p}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            whileHover={{ scale: 1.1, y: -1 }}
+                            whileTap={{ scale: 0.9 }}
                             onClick={() => setCurrentPage(p)}
                             className={`min-w-[36px] h-9 rounded-lg text-sm font-mono transition-all ${
                               p === currentPage
@@ -740,8 +895,8 @@ export default function Discover() {
                       </div>
 
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
                         className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
@@ -749,8 +904,8 @@ export default function Discover() {
                         <ChevronRight className="w-4 h-4" />
                       </motion.button>
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => setCurrentPage(totalPages)}
                         disabled={currentPage === totalPages}
                         className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
@@ -785,7 +940,6 @@ export default function Discover() {
         </div>
       </div>
 
-      {/* PR Dialog */}
       <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
         <DialogContent className="bg-zinc-950 border-white/10 backdrop-blur-xl" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
           <DialogHeader>
@@ -803,7 +957,7 @@ export default function Discover() {
               data-testid="pr-url-input"
             />
             <motion.button
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.02, y: -1 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleSubmitPR}
               className="rune-btn w-full py-3 rounded-xl text-center font-semibold"

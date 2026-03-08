@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Star, Crosshair, Code as Code2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -27,19 +28,40 @@ const RARITY_ACCENT = {
 export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
   const r = RARITY[issue.rarity] || RARITY.common;
   const isChoosing = choosingIssueId === issue.id;
+  const cardRef = useRef(null);
+
+  const handleMouseMove = useCallback((e) => {
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateX = ((y - centerY) / centerY) * -3;
+    const rotateY = ((x - centerX) / centerX) * 4;
+    card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.01)`;
+    card.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
+    card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    card.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)';
+  }, []);
 
   return (
-    <motion.div
+    <div
+      ref={cardRef}
       data-testid="issue-card-row"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className={`group relative overflow-hidden rounded-xl border bg-gradient-to-br from-zinc-950/80 to-zinc-900/40 backdrop-blur-sm transition-all duration-300 ${RARITY_BORDER[issue.rarity]} ${RARITY_GLOW[issue.rarity]}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={`tilt-card group relative overflow-hidden rounded-xl border bg-gradient-to-br from-zinc-950/80 to-zinc-900/40 backdrop-blur-sm ${RARITY_BORDER[issue.rarity]} ${RARITY_GLOW[issue.rarity]}`}
       style={{
         borderColor: 'rgba(255,255,255,0.06)',
       }}
     >
-      {/* Animated gradient overlay */}
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
         style={{
@@ -47,15 +69,14 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
         }}
       />
 
-      {/* Top edge glow */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-      {/* Content wrapper */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
       <div className="relative flex items-center gap-4 px-5 py-4">
-        {/* Rarity indicator */}
         <div className="flex-shrink-0">
           <motion.div
-            whileHover={{ scale: 1.1 }}
+            whileHover={{ scale: 1.15, rotate: 5 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
             className="relative"
           >
@@ -69,17 +90,15 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
             >
               <Code2 className="w-4 h-4" style={{ color: `${r.accent}0.9)` }} />
             </div>
-            {/* Pulse ring on hover */}
             <div
               className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               style={{
-                boxShadow: `0 0 0 2px ${r.accent}0.3)`,
+                boxShadow: `0 0 0 2px ${r.accent}0.3), 0 0 12px 2px ${r.accent}0.15)`,
               }}
             />
           </motion.div>
         </div>
 
-        {/* Main content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[11px] text-zinc-500 font-mono truncate group-hover:text-zinc-400 transition-colors">
@@ -94,7 +113,7 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
             {(issue.labels || []).slice(0, 3).map((label) => (
               <motion.span
                 key={label}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.08, y: -1 }}
                 className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-900/80 border border-white/[0.08] text-zinc-400 font-mono truncate max-w-[120px] hover:border-white/20 hover:text-zinc-300 transition-colors"
               >
                 {label}
@@ -103,7 +122,6 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
           </div>
         </div>
 
-        {/* Right side metadata */}
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="hidden lg:flex items-center gap-3">
             <span className="text-xs px-2.5 py-1 rounded-md bg-sky-300/[0.08] text-sky-200 border border-sky-300/20 font-mono">
@@ -129,16 +147,16 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
               href={issue.url}
               target="_blank"
               rel="noopener noreferrer"
-              whileHover={{ scale: 1.05, y: -1 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.1, y: -2 }}
+              whileTap={{ scale: 0.95 }}
               className="flex items-center justify-center w-9 h-9 rounded-lg border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 hover:border-white/20 transition-all duration-200"
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </motion.a>
             <motion.button
               data-testid="issue-choose-button"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
               className="rune-btn px-4 py-2 rounded-lg text-[11px] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isChoosing}
               onClick={() => onChoose(issue.id)}
@@ -149,6 +167,6 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
