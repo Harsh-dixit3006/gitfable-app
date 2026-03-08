@@ -69,3 +69,4 @@ backend/server
 
 # Creds
 creds/
+.env
