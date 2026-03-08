@@ -10,7 +10,229 @@
 
 **Design doc:** `docs/plans/2026-03-08-theme-system-design.md`
 
+**Commit policy:** Do not commit any theme-system changes unless the user explicitly asks for a commit.
+
 ---
+
+## Progress Checkpoint
+
+Completed or effectively done already:
+
+- `frontend/src/lib/theme.js` exists and exports `colors`, `accent`, `RARITY`, `DIFF_COLORS`, `statusColors`, and `rgba()`.
+- `frontend/src/App.css` has the theme CSS variables and updated rarity/status utility classes.
+- `frontend/src/pages/Discover.js` already imports the theme system.
+- `frontend/src/components/DrawAnimation.js` already re-exports `RARITY` and `DIFF_COLORS` from `theme.js`.
+
+In progress right now:
+
+- `frontend/src/pages/Dashboard.js`
+- `frontend/src/pages/History.js`
+- `frontend/src/pages/Leaderboard.js`
+- `frontend/src/pages/Profile.js`
+- `frontend/src/pages/Landing.js`
+- `frontend/src/components/Navbar.js`
+- `frontend/src/components/InfoSidebar.js`
+- `frontend/src/components/IssueCardRow.js`
+
+Primary remaining cleanup:
+
+- Remove leftover hardcoded `sky-*`, `amber-*`, and raw accent `rgba(...)` values from the files above.
+- Finish the UI migration inside `frontend/src/components/DrawAnimation.js`; the data constants moved already, but the component chrome still uses old color literals.
+- Run a verification sweep so the plan can confidently move from "partial migration" to "theme system complete".
+
+---
+
+## Revised Execution Order
+
+The original Task 1-4 work is already in place. Continue from the remaining refactor in this order so the biggest hotspots are handled first:
+
+1. `frontend/src/components/DrawAnimation.js`
+2. `frontend/src/pages/Landing.js`
+3. `frontend/src/components/InfoSidebar.js`
+4. `frontend/src/components/IssueCardRow.js`
+5. `frontend/src/components/Navbar.js` and `frontend/src/pages/Leaderboard.js`
+6. Verification pass on `frontend/src/pages/Dashboard.js`, `frontend/src/pages/History.js`, and `frontend/src/pages/Profile.js`
+
+---
+
+### Task 5: Finish DrawAnimation.js UI migration
+
+**Files:**
+- Modify: `frontend/src/components/DrawAnimation.js`
+
+**Step 1: Import the remaining theme helpers**
+
+Change the theme import to include `colors` and `accent` alongside `RARITY` and `DIFF_COLORS`.
+
+**Step 2: Remove the remaining shared accent literals**
+
+Replace the remaining page-accent usages so the component stops hand-rolling the same palette:
+
+- Idle card top rule `via-sky-300/20` -> theme-backed accent styling
+- Idle/loading text and icon classes using `sky-*` -> `accent.text`, `accent.textMuted`, or a new small helper in `theme.js` if needed
+- Language pill `bg-sky-300/10 text-sky-100 border-sky-300/20` -> shared accent classes
+- Energy ring border and conic gradient `rgba(125,211,252,...)` -> `colors.accent.rgb`
+- Bookmark CTA hover styles using `sky-*` -> shared accent classes
+
+**Step 3: Collapse duplicate rarity flare data where practical**
+
+Keep rarity-specific behavior, but avoid duplicating canonical colors if the value can be derived from `RARITY[rarity].rgb` or another semantic theme export.
+
+**Step 4: Verify this file no longer contains shared accent literals**
+
+Run:
+
+```bash
+rg -n "sky-[0-9]|rgba\(125,211,252|rgba\(251,191,36" frontend/src/components/DrawAnimation.js
+```
+
+Expected: only rarity-specific canonical values that are intentionally defined, or no results.
+
+---
+
+### Task 6: Finish Landing.js migration
+
+**Files:**
+- Modify: `frontend/src/pages/Landing.js`
+
+**Step 1: Replace the remaining hardcoded amber utility classes**
+
+Clean up the leftover `bg-amber-*`, `text-amber-*`, `border-amber-*`, and `via-amber-*` classes that still appear in hero chips, stat dividers, section labels, CTA chrome, and activity feed highlights.
+
+**Step 2: Replace raw accent gradients and borders**
+
+Convert the remaining literal accent gradients and `rgba(251,191,36,...)` / `rgba(245,158,11,...)` values to template literals using `colors.accent.rgb`, or route them through reusable accent helpers when class-based styling is enough.
+
+**Step 3: Keep semantic exceptions explicit**
+
+If a value remains literal because it represents a unique one-off art direction rather than the shared accent language, leave a note in the code review or plan update instead of silently mixing approaches.
+
+**Step 4: Verify Landing.js**
+
+Run:
+
+```bash
+rg -n "sky-[0-9]|amber-[0-9]|rgba\(125,211,252|rgba\(251,191,36|rgba\(245,158,11|rgba\(217,119,6|rgba\(252,211,77|rgba\(253,230,138" frontend/src/pages/Landing.js
+```
+
+Expected: no leftover shared accent literals, or only consciously retained art-direction values.
+
+---
+
+### Task 7: Finish the shared component cleanup
+
+**Files:**
+- Modify: `frontend/src/components/InfoSidebar.js`
+- Modify: `frontend/src/components/IssueCardRow.js`
+- Modify: `frontend/src/components/Navbar.js`
+
+**Step 1: InfoSidebar.js**
+
+- Replace the decorative bottom glow `bg-amber-300/[0.03]` usage with theme-backed accent styling.
+- Decide whether the purple reward-card glow is intentional rarity flavor or should become theme-driven shared accent styling. If it stays purple, document that it is purposeful rarity chrome rather than accidental leftover palette usage.
+
+**Step 2: IssueCardRow.js**
+
+- Keep rarity-specific maps if they remain the clearest expression.
+- Prefer deriving map values from `RARITY` or theme color helpers when possible, especially the legendary accent and hover glow strings.
+
+**Step 3: Navbar.js**
+
+- Replace the remaining `focus:ring-amber-300/20` usage with a theme-backed helper or a CSS variable-driven equivalent.
+- Check active-nav and login-dialog states for any remaining ad-hoc accent styling.
+
+**Step 4: Verify the shared components**
+
+Run:
+
+```bash
+rg -n "sky-[0-9]|amber-[0-9]|rgba\(125,211,252|rgba\(251,191,36" frontend/src/components/InfoSidebar.js frontend/src/components/IssueCardRow.js frontend/src/components/Navbar.js
+```
+
+Expected: only intentional rarity-specific values remain.
+
+---
+
+### Task 8: Finish the remaining page pass
+
+**Files:**
+- Modify: `frontend/src/pages/Leaderboard.js`
+- Verify: `frontend/src/pages/Dashboard.js`
+- Verify: `frontend/src/pages/History.js`
+- Verify: `frontend/src/pages/Profile.js`
+
+**Step 1: Leaderboard.js**
+
+- Replace the remaining literal amber selected-row/pinned-row classes with theme-backed accent styling.
+- Keep podium silver/bronze distinctions as explicit non-accent semantic variants.
+
+**Step 2: Dashboard.js / History.js / Profile.js**
+
+- Review for any remaining hardcoded shared accent values.
+- If only theme imports remain and no leftover literals are present, treat these files as complete.
+
+**Step 3: Verify the remaining pages**
+
+Run:
+
+```bash
+rg -n "sky-[0-9]|amber-[0-9]|rgba\(125,211,252|rgba\(251,191,36" frontend/src/pages/Dashboard.js frontend/src/pages/History.js frontend/src/pages/Leaderboard.js frontend/src/pages/Profile.js
+```
+
+Expected: only acceptable semantic variants remain.
+
+---
+
+### Task 9: Final verification sweep
+
+**Files:**
+- Verify: `frontend/src/pages/**/*.js`
+- Verify: `frontend/src/components/**/*.js`
+
+**Step 1: Search for leftover shared accent literals**
+
+Run:
+
+```bash
+rg -n "sky-[0-9]|amber-[0-9]|rgba\(125,211,252|rgba\(251,191,36|rgba\(245,158,11|rgba\(217,119,6|rgba\(252,211,77|rgba\(253,230,138" frontend/src/pages frontend/src/components
+```
+
+Expected: either no results, or only results that are intentionally retained in rarity-specific or semantic helper definitions.
+
+**Step 2: Run the frontend test/build safety net**
+
+Run:
+
+```bash
+cd frontend && npm test -- --watchAll=false
+```
+
+Then run:
+
+```bash
+cd frontend && npm run build
+```
+
+Expected: both commands succeed.
+
+**Step 3: Visual verification**
+
+Visit: Landing, Discover, Dashboard, Leaderboard, History, Profile.
+
+Check:
+
+- Shared accent feels consistent across all pages
+- Rarity treatments still differ correctly
+- DrawAnimation still looks intentional after the cleanup
+- Focus, hover, and selected states still read clearly
+
+**Step 4: Update the plan checkpoint**
+
+Once verification passes, update this document and the design doc to note that the theme-system migration is complete.
+
+---
+
+## Completed Foundation Tasks (Already Done)
 
 ### Task 1: Create src/lib/theme.js
 

@@ -3,32 +3,13 @@ import { motion } from 'framer-motion';
 import { ExternalLink, Star, Crosshair, Code as Code2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
-
-const RARITY_BORDER = {
-  common: 'group-hover:border-zinc-500/30',
-  rare: 'group-hover:border-blue-400/40',
-  epic: 'group-hover:border-purple-500/40',
-  legendary: 'group-hover:border-amber-400/50',
-};
-
-const RARITY_GLOW = {
-  common: 'group-hover:shadow-[0_4px_20px_-4px_rgba(161,161,170,0.1)]',
-  rare: 'group-hover:shadow-[0_4px_24px_-4px_rgba(96,165,250,0.2)]',
-  epic: 'group-hover:shadow-[0_4px_28px_-4px_rgba(168,85,247,0.25)]',
-  legendary: 'group-hover:shadow-[0_6px_32px_-4px_rgba(251,191,36,0.3)]',
-};
-
-const RARITY_ACCENT = {
-  common: 'rgba(161,161,170,0.5)',
-  rare: 'rgba(96,165,250,0.6)',
-  epic: 'rgba(168,85,247,0.6)',
-  legendary: 'rgba(251,191,36,0.7)',
-};
+import { colors, accent } from '@/lib/theme';
 
 export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
   const r = RARITY[issue.rarity] || RARITY.common;
   const isChoosing = choosingIssueId === issue.id;
   const cardRef = useRef(null);
+  const rarityAccent = `rgba(${r.rgb},0.6)`;
 
   const handleMouseMove = useCallback((e) => {
     const card = cardRef.current;
@@ -41,14 +22,18 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
     const rotateX = ((y - centerY) / centerY) * -3;
     const rotateY = ((x - centerX) / centerX) * 4;
     card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.01)`;
+    card.style.borderColor = `rgba(${r.rgb},${issue.rarity === 'common' ? 0.3 : issue.rarity === 'legendary' ? 0.5 : 0.4})`;
+    card.style.boxShadow = `0 6px 32px -4px rgba(${r.rgb},${issue.rarity === 'common' ? 0.1 : issue.rarity === 'legendary' ? 0.3 : issue.rarity === 'epic' ? 0.25 : 0.2})`;
     card.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
     card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
-  }, []);
+  }, [issue.rarity, r.rgb]);
 
   const handleMouseLeave = useCallback(() => {
     const card = cardRef.current;
     if (!card) return;
     card.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)';
+    card.style.borderColor = 'rgba(255,255,255,0.06)';
+    card.style.boxShadow = '0 0 0 rgba(255,255,255,0)';
   }, []);
 
   return (
@@ -57,15 +42,16 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
       data-testid="issue-card-row"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`tilt-card group relative overflow-hidden rounded-xl border bg-gradient-to-br from-zinc-950/80 to-zinc-900/40 backdrop-blur-sm ${RARITY_BORDER[issue.rarity]} ${RARITY_GLOW[issue.rarity]}`}
+      className="tilt-card group relative overflow-hidden rounded-xl border bg-gradient-to-br from-zinc-950/80 to-zinc-900/40 backdrop-blur-sm"
       style={{
         borderColor: 'rgba(255,255,255,0.06)',
+        boxShadow: `0 0 0 rgba(${r.rgb},0), 0 0 0 rgba(${r.rgb},0)`,
       }}
     >
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
         style={{
-          background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${RARITY_ACCENT[issue.rarity]}, transparent 40%)`,
+          background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${rarityAccent}, transparent 40%)`,
         }}
       />
 
@@ -124,7 +110,7 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
 
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="hidden lg:flex items-center gap-3">
-            <span className="text-xs px-2.5 py-1 rounded-md bg-sky-300/[0.08] text-sky-200 border border-sky-300/20 font-mono">
+            <span className={`text-xs px-2.5 py-1 rounded-md ${accent.bgSubtle} ${accent.text} border ${accent.borderFaint} font-mono`}>
               {issue.language}
             </span>
             <Badge
@@ -136,7 +122,7 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
           </div>
 
           <div className="flex items-center gap-1.5 min-w-[60px] justify-end">
-            <Star className="w-3.5 h-3.5 text-sky-300/60" strokeWidth={1.5} fill="rgba(125,211,252,0.1)" />
+            <Star className={`w-3.5 h-3.5 ${accent.textMuted}`} strokeWidth={1.5} fill={`rgba(${colors.accent.rgb},0.1)`} />
             <span className="text-xs text-zinc-400 font-mono tabular-nums">
               {issue.stars >= 1000 ? `${(issue.stars / 1000).toFixed(1)}k` : issue.stars}
             </span>

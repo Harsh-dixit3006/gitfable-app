@@ -8,6 +8,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { accent } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import {
   Table,
@@ -37,9 +38,9 @@ function DataTableColumnHeader({ column, label, className }) {
     >
       {label}
       {sorted === "asc" ? (
-        <ArrowUp className="w-3 h-3 text-sky-300" />
+        <ArrowUp className={cn("w-3 h-3", accent.textBright)} />
       ) : sorted === "desc" ? (
-        <ArrowDown className="w-3 h-3 text-sky-300" />
+        <ArrowDown className={cn("w-3 h-3", accent.textBright)} />
       ) : (
         <ArrowUpDown className="w-3 h-3 opacity-40" />
       )}
@@ -75,7 +76,7 @@ function DataTablePagination({ table }) {
           <select
             value={pageSize}
             onChange={(e) => table.setPageSize(Number(e.target.value))}
-            className="bg-zinc-900 border border-white/10 rounded-md text-xs text-zinc-300 font-mono px-2 py-1 focus:outline-none focus:border-sky-300/40"
+            className={cn("bg-zinc-900 border border-white/10 rounded-md text-xs text-zinc-300 font-mono px-2 py-1 focus:outline-none", accent.focusBorder)}
             data-testid="page-size-select"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
@@ -96,7 +97,7 @@ function DataTablePagination({ table }) {
             value={jumpValue}
             onChange={(e) => setJumpValue(e.target.value.replace(/\D/g, ''))}
             placeholder={String(pageIndex + 1)}
-            className="w-12 bg-zinc-900 border border-white/10 rounded-md text-xs text-zinc-300 font-mono px-2 py-1 text-center focus:outline-none focus:border-sky-300/40"
+            className={cn("w-12 bg-zinc-900 border border-white/10 rounded-md text-xs text-zinc-300 font-mono px-2 py-1 text-center focus:outline-none", accent.focusBorder)}
             data-testid="page-jump-input"
           />
           <span className="text-xs text-zinc-600 font-mono">/ {pageCount}</span>
@@ -130,12 +131,12 @@ function DataTablePagination({ table }) {
                 <button
                   key={page}
                   onClick={() => table.setPageIndex(page)}
-                  className={cn(
-                    "min-w-[28px] h-7 rounded-md text-xs font-mono transition-colors",
-                    page === pageIndex
-                      ? "bg-sky-300/12 border border-sky-300/35 text-sky-100"
-                      : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-                  )}
+                    className={cn(
+                      "min-w-[28px] h-7 rounded-md text-xs font-mono transition-colors",
+                      page === pageIndex
+                        ? `${accent.bgSubtle} border ${accent.borderBright} ${accent.text}`
+                        : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
+                    )}
                 >
                   {page + 1}
                 </button>
