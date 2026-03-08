@@ -3,22 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import {
   Bookmark, ExternalLink, Star, FolderGit2,
-  Gem, Crown, Sparkles, Zap,
-  BookOpen, RotateCcw, Shuffle,
+  Zap, BookOpen, RotateCcw, Shuffle,
 } from 'lucide-react';
+import { RARITY, DIFF_COLORS } from '@/lib/theme';
 
-export const RARITY = {
-  common:    { label: 'Common',    icon: null,     color: 'zinc',   accent: 'rgba(161,161,170,', drawXP: 5,  mergeXP: 75,  browseMergeXP: 25 },
-  rare:      { label: 'Rare',      icon: Gem,      color: 'blue',   accent: 'rgba(96,165,250,',  drawXP: 15, mergeXP: 150, browseMergeXP: 50 },
-  epic:      { label: 'Epic',      icon: Sparkles, color: 'purple', accent: 'rgba(168,85,247,',  drawXP: 30, mergeXP: 300, browseMergeXP: 100 },
-  legendary: { label: 'Legendary', icon: Crown,    color: 'amber',  accent: 'rgba(251,191,36,',  drawXP: 50, mergeXP: 500, browseMergeXP: 0 },
-};
-
-export const DIFF_COLORS = {
-  Beginner: 'bg-sky-300/10 text-sky-200 border-sky-300/20',
-  Intermediate: 'bg-slate-300/10 text-slate-200 border-slate-300/20',
-  Advanced: 'bg-red-500/10 text-red-400 border-red-500/20',
-};
+export { RARITY, DIFF_COLORS };
 
 export function RarityBadge({ rarity }) {
   const r = RARITY[rarity] || RARITY.common;
