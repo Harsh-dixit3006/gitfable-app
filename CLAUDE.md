@@ -12,11 +12,15 @@ Gamified web app that matches developers with open-source "good first issues" th
 # Install all dependencies
 make install              # go mod download (backend) + npm install (frontend)
 
-# Development servers (run in separate terminals)
+# Development (one command)
+make dev                  # starts postgres+redis in Docker, backend+frontend in tmux split
+make dev-stop             # stops everything (tmux + Docker)
+
+# Development (manual, separate terminals)
 make dev-backend          # Go server on :8001 (air hot-reload or go run)
 make dev-frontend         # React on :3000 (npm start via craco)
 
-# Docker (starts postgres, redis, backend, frontend)
+# Docker (full stack in containers)
 make docker-up            # docker compose -f docker/docker-compose.yml up -d
 make docker-down          # stop all services
 make docker-logs          # tail all service logs

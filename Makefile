@@ -1,4 +1,4 @@
-.PHONY: help install install-backend install-frontend dev dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
+.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
 
 # Default target
 help: ## Show this help
@@ -17,10 +17,12 @@ install-frontend: ## Install frontend Node dependencies
 
 # ─── Development ─────────────────────────────────────────────────────
 
-dev: ## Start both backend and frontend (requires two terminals)
-	@echo "Run in separate terminals:"
-	@echo "  make dev-backend"
-	@echo "  make dev-frontend"
+dev: ## Start infra (Docker) + backend & frontend (tmux split)
+	@scripts/dev.sh
+
+dev-stop: ## Stop all dev services (tmux + Docker)
+	@tmux kill-session -t gitfable 2>/dev/null || true
+	@docker compose -f docker/docker-compose.yml down
 
 dev-backend: ## Start backend dev server (port 8001)
 	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
