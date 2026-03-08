@@ -17,7 +17,7 @@ make dev-backend          # Go server on :8001 (air hot-reload or go run)
 make dev-frontend         # React on :3000 (npm start via craco)
 
 # Docker (starts postgres, redis, backend, frontend)
-make docker-up            # docker compose up -d
+make docker-up            # docker compose -f docker/docker-compose.yml up -d
 make docker-down          # stop all services
 make docker-logs          # tail all service logs
 
@@ -93,4 +93,4 @@ Backend `.env` requires: `DATABASE_URL` (postgresql:// format, no asyncpg), Fire
 
 Frontend `.env` requires: `REACT_APP_BACKEND_URL`, `REACT_APP_FIREBASE_*` config vars. See `frontend/.env.example`.
 
-Docker compose provides postgres (5432), redis (6379), and wires `DATABASE_URL` + `REDIS_URL` automatically.
+Docker compose files live under `docker/`. Dev: `docker/docker-compose.yml`. Prod: `docker/docker-compose.prod.yml`. They provide postgres (5432), redis (6379), and wire `DATABASE_URL` + `REDIS_URL` automatically.
