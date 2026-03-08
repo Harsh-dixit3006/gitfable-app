@@ -346,6 +346,14 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	open, err := h.issueChecker.IsOpen(ctx, issue.RepoOwner, issue.RepoName, issue.GithubNumber)
+	if err != nil {
+		slog.Warn("choose-time freshness check failed, proceeding anyway", "error", err, "url", issue.Url)
+	} else if !open {
+		BadRequest(w, ErrCodeBadRequest, "Issue is no longer available")
+		return
+	}
+
 	draw, err := h.queries.CreateDraw(ctx, database.CreateDrawParams{
 		UserID:  user.ID,
 		IssueID: issue.ID,
@@ -389,7 +397,7 @@ func (h *DrawHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	draw, err := h.queries.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
 		PublicID: drawPublicID,
-		UserID:  user.ID,
+		UserID:   user.ID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -504,7 +512,7 @@ func (h *DrawHandler) SubmitPR(w http.ResponseWriter, r *http.Request) {
 
 	draw, err := h.queries.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
 		PublicID: drawPublicID,
-		UserID:  user.ID,
+		UserID:   user.ID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -563,7 +571,7 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 
 	draw, err := h.queries.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
 		PublicID: drawPublicID,
-		UserID:  user.ID,
+		UserID:   user.ID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
