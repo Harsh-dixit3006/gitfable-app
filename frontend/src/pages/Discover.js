@@ -307,22 +307,41 @@ export default function Discover() {
   };
 
   return (
-    <div className="pt-20 pb-16 relative" data-testid="discover-page">
-      {/* Ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(251,191,36,0.08) 0%, transparent 70%)' }} />
+    <div className="pt-20 pb-16 relative min-h-screen" data-testid="discover-page">
+      {/* Enhanced ambient glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(125,211,252,0.06) 0%, rgba(251,191,36,0.04) 40%, transparent 70%)' }} />
 
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         {/* Page Header */}
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE }}>
-          <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-4">Discover</span>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
-            Draw your next contribution.
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.85, ease: EASE }}
+          className="mb-12"
+        >
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="font-mono text-[10px] text-sky-300/60 uppercase tracking-[0.3em] block mb-4"
+          >
+            Discover
+          </motion.span>
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold mb-4 tracking-tight bg-gradient-to-br from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent" style={{ letterSpacing: '-0.06em' }}>
+            Draw your next contribution
           </h1>
-          <p className="text-zinc-500 text-base md:text-lg mb-8">Find the issue that was meant for you.</p>
+          <p className="text-zinc-400 text-base md:text-lg max-w-2xl">
+            Find the perfect issue through our gamified draw system or browse the complete collection
+          </p>
         </motion.div>
 
         {/* Hero Draw Area — sidebar + draw animation */}
-        <div className="flex gap-6 items-start justify-center mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
+          className="flex gap-8 items-start justify-center mb-20"
+        >
           <InfoSidebar
             redrawsRemaining={redrawsRemaining}
             activeBookmark={activeBookmark}
@@ -331,7 +350,7 @@ export default function Discover() {
             onRelease={handleRelease}
             getCountdown={getCountdown}
           />
-          <div className="flex-1 flex flex-col items-center">
+          <div className="flex-1 flex flex-col items-center max-w-2xl">
             <DrawAnimation
               state={drawState}
               issue={drawnIssue}
@@ -343,85 +362,164 @@ export default function Discover() {
               redrawsRemaining={redrawsRemaining}
             />
           </div>
-        </div>
+        </motion.div>
 
         {/* Browse Section */}
         <motion.section
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.72, ease: EASE, delay: 0.2 }}
+          transition={{ duration: 0.72, ease: EASE, delay: 0.25 }}
           data-testid="issues-table-section"
         >
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
-            <div>
-              <h2 className="font-display text-xl md:text-2xl font-semibold tracking-tight" style={{ letterSpacing: '-0.05em' }} data-testid="issues-table-title">
-                Browse Issues
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-6">
+            <div className="space-y-2">
+              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent" style={{ letterSpacing: '-0.05em' }} data-testid="issues-table-title">
+                Browse All Issues
               </h2>
-              <p className="text-zinc-500 text-sm" data-testid="issues-table-subtitle">
-                Choose directly — XP on merge. Or <span className="text-amber-400">Draw</span> for 3× rarity-scaled rewards.
-                <span className="text-amber-400/60 ml-1">Legendary issues are draw-exclusive.</span>
+              <p className="text-zinc-400 text-sm max-w-2xl" data-testid="issues-table-subtitle">
+                Choose directly for standard XP, or <span className="text-sky-300 font-medium">Draw</span> for triple rewards.
+                <span className="text-zinc-500 ml-1">Legendary issues are draw-exclusive.</span>
               </p>
             </div>
-            <div className="relative w-full md:w-[340px]">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="relative w-full md:w-[380px]"
+            >
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
               <Input
                 value={issueQuery}
                 onChange={(e) => setIssueQuery(e.target.value)}
-                placeholder="Search by repo, title, or label..."
-                className="pl-10 bg-zinc-900/60 border-white/10"
+                placeholder="Search repos, titles, or labels..."
+                className="pl-11 py-2.5 bg-zinc-900/60 border-white/[0.08] rounded-lg hover:border-white/15 focus:border-sky-300/40 transition-colors"
                 data-testid="issues-table-search-input"
               />
-            </div>
+            </motion.div>
           </div>
 
           {/* Inline filter chips */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {LANGUAGES.map(lang => (
-              <button key={lang} onClick={() => toggleLang(lang)} data-testid={`filter-lang-${lang.toLowerCase()}`}
-                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  languages.includes(lang) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="flex flex-wrap gap-2 mb-6"
+          >
+            {/* Language filters */}
+            {LANGUAGES.map((lang, idx) => (
+              <motion.button
+                key={lang}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: idx * 0.02, duration: 0.3 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => toggleLang(lang)}
+                data-testid={`filter-lang-${lang.toLowerCase()}`}
+                className={`px-3.5 py-2 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all duration-200 ${
+                  languages.includes(lang)
+                    ? 'bg-sky-300/10 border-sky-300/40 text-sky-200 shadow-[0_0_16px_-6px_rgba(125,211,252,0.5)]'
+                    : 'bg-zinc-900/40 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15 hover:bg-zinc-900/60'
+                }`}
+              >
                 {lang}
-              </button>
+              </motion.button>
             ))}
-            <div className="w-px h-6 bg-white/10 self-center mx-1" />
-            {DIFFICULTIES.map(diff => (
-              <button key={diff} onClick={() => toggleDiff(diff)} data-testid={`filter-diff-${diff.toLowerCase()}`}
-                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  difficulties.includes(diff) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
+
+            <div className="w-px h-6 bg-gradient-to-b from-transparent via-white/10 to-transparent self-center mx-1" />
+
+            {/* Difficulty filters */}
+            {DIFFICULTIES.map((diff, idx) => (
+              <motion.button
+                key={diff}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: (LANGUAGES.length + idx) * 0.02, duration: 0.3 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => toggleDiff(diff)}
+                data-testid={`filter-diff-${diff.toLowerCase()}`}
+                className={`px-3.5 py-2 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all duration-200 ${
+                  difficulties.includes(diff)
+                    ? 'bg-sky-300/10 border-sky-300/40 text-sky-200 shadow-[0_0_16px_-6px_rgba(125,211,252,0.5)]'
+                    : 'bg-zinc-900/40 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15 hover:bg-zinc-900/60'
+                }`}
+              >
                 {diff}
-              </button>
+              </motion.button>
             ))}
-            <div className="w-px h-6 bg-white/10 self-center mx-1" />
-            {RARITIES.map(r => {
+
+            <div className="w-px h-6 bg-gradient-to-b from-transparent via-white/10 to-transparent self-center mx-1" />
+
+            {/* Rarity filters */}
+            {RARITIES.map((r, idx) => {
               const Icon = RARITY[r].icon;
+              const rarityData = RARITY[r];
               return (
-                <button key={r} onClick={() => toggleRarity(r)} data-testid={`filter-rarity-${r}`}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono border inline-flex items-center gap-1.5 ${
-                    rarities.includes(r) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                  }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                  {Icon && <Icon className="w-3 h-3" />}
-                  {RARITY[r].label}
-                </button>
+                <motion.button
+                  key={r}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: (LANGUAGES.length + DIFFICULTIES.length + idx) * 0.02, duration: 0.3 }}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => toggleRarity(r)}
+                  data-testid={`filter-rarity-${r}`}
+                  className={`px-3.5 py-2 rounded-lg text-xs font-mono border backdrop-blur-sm inline-flex items-center gap-1.5 transition-all duration-200 ${
+                    rarities.includes(r)
+                      ? `border-${rarityData.color}-300/40 text-${rarityData.color}-200 shadow-[0_0_16px_-6px_${rarityData.accent}0.5)]`
+                      : 'bg-zinc-900/40 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15 hover:bg-zinc-900/60'
+                  }`}
+                  style={rarities.includes(r) ? {
+                    background: `${rarityData.accent}0.08)`,
+                    borderColor: `${rarityData.accent}0.4)`,
+                    color: `${rarityData.accent}0.95)`,
+                  } : {}}
+                >
+                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                  {rarityData.label}
+                </motion.button>
               );
             })}
-          </div>
+          </motion.div>
 
           {/* Issue card list */}
           {issuesLoading ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-lg shimmer" />
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="h-24 rounded-xl shimmer"
+                />
               ))}
             </div>
           ) : (
-            <div className="space-y-2">
-              {paginatedIssues.map(issue => (
-                <IssueCardRow key={issue.id} issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
+            <div className="space-y-3">
+              {paginatedIssues.map((issue, idx) => (
+                <motion.div
+                  key={issue.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.03, duration: 0.3 }}
+                >
+                  <IssueCardRow issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
+                </motion.div>
               ))}
               {filteredIssues.length === 0 && (
-                <p className="text-center text-zinc-500 py-12 font-mono text-sm">No issues match your filters.</p>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col items-center justify-center py-20 px-6"
+                >
+                  <div className="w-16 h-16 rounded-full bg-zinc-900/60 border border-white/[0.06] flex items-center justify-center mb-4">
+                    <Search className="w-7 h-7 text-zinc-600" />
+                  </div>
+                  <p className="text-zinc-400 font-medium text-base mb-1">No issues found</p>
+                  <p className="text-zinc-600 text-sm">Try adjusting your filters or search query</p>
+                </motion.div>
               )}
             </div>
           )}
