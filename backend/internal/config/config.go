@@ -20,8 +20,9 @@ type Config struct {
 	FirebasePrivateKey      string
 	FirebaseClientEmail     string
 
-	RedisURL         string
-	RateLimitEnabled bool
+	RedisURL              string
+	RateLimitEnabled      bool
+	DefaultDailyDrawLimit int
 
 	GitHubWebhookSecret string
 
@@ -47,8 +48,9 @@ func Load() (*Config, error) {
 		FirebasePrivateKey:      strings.ReplaceAll(getEnv("FIREBASE_PRIVATE_KEY", ""), "\\n", "\n"),
 		FirebaseClientEmail:     getEnv("FIREBASE_CLIENT_EMAIL", ""),
 
-		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
-		RateLimitEnabled: getEnvBool("RATE_LIMIT_ENABLED", true),
+		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379"),
+		RateLimitEnabled:      getEnvBool("RATE_LIMIT_ENABLED", true),
+		DefaultDailyDrawLimit: getEnvInt("DEFAULT_DAILY_DRAW_LIMIT", 3),
 
 		GitHubWebhookSecret: getEnv("GITHUB_WEBHOOK_SECRET", ""),
 

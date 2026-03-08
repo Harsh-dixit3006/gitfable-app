@@ -271,6 +271,7 @@ type User struct {
 	Status               UserStatus         `json:"status"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DailyDrawLimit       pgtype.Int4        `json:"daily_draw_limit"`
 }
 
 type UserBadge struct {

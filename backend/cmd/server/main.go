@@ -119,10 +119,11 @@ func main() {
 	}
 
 	authHandler := &handler.AuthHandler{
-		Queries:        queries,
-		FB:             fbClient,
-		RequireAuth:    authMiddleware.RequireAuth,
-		UserFromContext: ctxutil.UserFromContext,
+		Queries:               queries,
+		FB:                    fbClient,
+		RequireAuth:           authMiddleware.RequireAuth,
+		UserFromContext:       ctxutil.UserFromContext,
+		DefaultDailyDrawLimit: cfg.DefaultDailyDrawLimit,
 	}
 
 	drawHandler := handler.NewDrawHandler(
@@ -134,11 +135,13 @@ func main() {
 		streakService,
 		githubClient,
 		issueChecker,
+		cfg.DefaultDailyDrawLimit,
 	)
 
 	usersHandler := &handler.UsersHandler{
-		Queries:     queries,
-		RequireAuth: authMiddleware.RequireAuth,
+		Queries:               queries,
+		RequireAuth:           authMiddleware.RequireAuth,
+		DefaultDailyDrawLimit: cfg.DefaultDailyDrawLimit,
 	}
 
 	publicHandler := &handler.PublicHandler{

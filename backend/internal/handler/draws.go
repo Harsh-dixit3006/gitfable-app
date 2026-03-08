@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	maxDrawsPerDay = 3
 	maxDrawRetries = 3
 	defaultLimit   = 20
 	maxLimit       = 100
@@ -59,14 +58,15 @@ var rarityWeights = []struct {
 }
 
 type DrawHandler struct {
-	pool         *pgxpool.Pool
-	queries      *database.Queries
-	requireAuth  func(http.Handler) http.Handler
-	xp           *service.XPService
-	badges       *service.BadgeService
-	streaks      *service.StreakService
-	github       service.GitHubClient
-	issueChecker *service.IssueChecker
+	pool                  *pgxpool.Pool
+	queries               *database.Queries
+	requireAuth           func(http.Handler) http.Handler
+	xp                    *service.XPService
+	badges                *service.BadgeService
+	streaks               *service.StreakService
+	github                service.GitHubClient
+	issueChecker          *service.IssueChecker
+	defaultDailyDrawLimit int
 }
 
 func NewDrawHandler(
@@ -78,17 +78,34 @@ func NewDrawHandler(
 	streaks *service.StreakService,
 	github service.GitHubClient,
 	issueChecker *service.IssueChecker,
+	defaultDailyDrawLimit int,
 ) *DrawHandler {
 	return &DrawHandler{
-		pool:         pool,
-		queries:      queries,
-		requireAuth:  requireAuth,
-		xp:           xp,
-		badges:       badges,
-		streaks:      streaks,
-		github:       github,
-		issueChecker: issueChecker,
+		pool:                  pool,
+		queries:               queries,
+		requireAuth:           requireAuth,
+		xp:                    xp,
+		badges:                badges,
+		streaks:               streaks,
+		github:                github,
+		issueChecker:          issueChecker,
+		defaultDailyDrawLimit: defaultDailyDrawLimit,
 	}
+}
+
+func effectiveDailyDrawLimit(user database.User, fallback int) int {
+	if user.DailyDrawLimit.Valid && user.DailyDrawLimit.Int32 > 0 {
+		return int(user.DailyDrawLimit.Int32)
+	}
+	return fallback
+}
+
+func remainingDraws(limit, used int) int {
+	remaining := limit - used
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
 }
 
 func (h *DrawHandler) Routes() chi.Router {
@@ -112,6 +129,8 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dailyDrawLimit := effectiveDailyDrawLimit(*user, h.defaultDailyDrawLimit)
+
 	// Check daily draw limit.
 	count, err := h.queries.CountDrawsToday(ctx, user.ID)
 	if err != nil {
@@ -119,8 +138,8 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		InternalError(w)
 		return
 	}
-	if count >= maxDrawsPerDay {
-		BadRequest(w, ErrCodeDrawLimitReached, "Daily draw limit reached (3 per day)")
+	if count >= int64(dailyDrawLimit) {
+		BadRequest(w, ErrCodeDrawLimitReached, fmt.Sprintf("Daily draw limit reached (%d per day)", dailyDrawLimit))
 		return
 	}
 
@@ -237,12 +256,13 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		slog.Error("award draw xp", "error", err)
 	}
 
-	remaining := maxDrawsPerDay - int(count) - 1
+	remaining := remainingDraws(dailyDrawLimit, int(count)+1)
 	Created(w, map[string]any{
-		"draw":            drawToResponse(draw),
-		"issue":           issueToResponse(issue),
-		"remaining_draws": remaining,
-		"xp_awarded":      xpReward,
+		"draw":              drawToResponse(draw),
+		"issue":             issueToResponse(issue),
+		"remaining_draws":   remaining,
+		"max_draws_per_day": dailyDrawLimit,
+		"xp_awarded":        xpReward,
 	})
 }
 
@@ -300,6 +320,8 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dailyDrawLimit := effectiveDailyDrawLimit(*user, h.defaultDailyDrawLimit)
+
 	// Check daily draw limit (shared with Draw).
 	count, err := h.queries.CountDrawsToday(ctx, user.ID)
 	if err != nil {
@@ -307,8 +329,8 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		InternalError(w)
 		return
 	}
-	if count >= maxDrawsPerDay {
-		BadRequest(w, ErrCodeDrawLimitReached, "Daily draw limit reached (3 per day)")
+	if count >= int64(dailyDrawLimit) {
+		BadRequest(w, ErrCodeDrawLimitReached, fmt.Sprintf("Daily draw limit reached (%d per day)", dailyDrawLimit))
 		return
 	}
 
@@ -366,9 +388,11 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Created(w, map[string]any{
-		"draw":       drawToResponse(draw),
-		"issue":      issueToResponse(issue),
-		"xp_awarded": 0,
+		"draw":              drawToResponse(draw),
+		"issue":             issueToResponse(issue),
+		"remaining_draws":   remainingDraws(dailyDrawLimit, int(count)+1),
+		"max_draws_per_day": dailyDrawLimit,
+		"xp_awarded":        0,
 	})
 }
 
