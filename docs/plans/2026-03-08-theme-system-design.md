@@ -4,6 +4,18 @@
 
 Centralize all color semantics into a single `src/lib/theme.js` file plus CSS custom properties, replacing hardcoded Tailwind classes and rgba values scattered across ~10+ files.
 
+## Current Checkpoint
+
+- Foundation is in place: `frontend/src/lib/theme.js` exists, `frontend/src/App.css` now exposes the theme CSS variables, and `frontend/src/pages/Discover.js` is already migrated to import the theme helpers.
+- The broader page/component migration is partially complete. `frontend/src/pages/Dashboard.js`, `frontend/src/pages/History.js`, `frontend/src/pages/Leaderboard.js`, `frontend/src/pages/Profile.js`, `frontend/src/pages/Landing.js`, `frontend/src/components/Navbar.js`, `frontend/src/components/InfoSidebar.js`, and `frontend/src/components/IssueCardRow.js` all import the centralized theme now, but several still keep leftover hardcoded `amber-*`, `sky-*`, or raw `rgba(...)` values.
+- `frontend/src/components/DrawAnimation.js` has already moved `RARITY` and `DIFF_COLORS` into `theme.js`, but the component UI still contains several old `sky-*` and literal accent values. It remains one of the main cleanup hotspots.
+
+## Scope Clarification
+
+- The goal is not to eliminate all literal color tokens everywhere. `frontend/src/lib/theme.js` is allowed to contain Tailwind class presets and canonical RGB values.
+- The real boundary is semantic ownership: page/component code should consume `theme.js` exports or CSS variables instead of hand-rolling palette decisions inline.
+- Rarity-specific styling that is intrinsically tied to rarity semantics can stay in rarity maps, but shared page accent styling should route through `accent`, `colors`, `RARITY`, `DIFF_COLORS`, or `statusColors`.
+
 ## File Structure
 
 ```
@@ -120,6 +132,15 @@ Existing App.css utility classes (.rarity-*, .status-*, .rune-btn, glow classes)
 3. Update DrawAnimation.js to re-export RARITY and DIFF_COLORS from theme.js (backwards-compatible)
 4. Migrate each page one at a time (Discover, Dashboard, Leaderboard, History, Profile, Landing)
 5. Migrate shared components (Navbar, InfoSidebar, IssueCardRow)
+
+## Remaining Hotspots
+
+1. `frontend/src/components/DrawAnimation.js` - still uses `sky-*` classes and hardcoded accent rgba strings in the idle, loading, CTA, and reveal UI.
+2. `frontend/src/pages/Landing.js` - imports the theme, but still has the largest concentration of raw amber tokens and literal gradients.
+3. `frontend/src/components/InfoSidebar.js` - mostly migrated, but still has direct amber and purple utility usage for decorative glows and reward chrome.
+4. `frontend/src/components/IssueCardRow.js` - uses theme imports for shared accent styling, but still has local rarity border/glow maps with hardcoded values.
+5. `frontend/src/pages/Leaderboard.js` and `frontend/src/components/Navbar.js` - mostly done, with a few remaining amber utility classes in selected states.
+6. `frontend/src/pages/Dashboard.js`, `frontend/src/pages/History.js`, and `frontend/src/pages/Profile.js` - appear largely migrated and mainly need final verification rather than structural rework.
 
 ## What Stays the Same
 

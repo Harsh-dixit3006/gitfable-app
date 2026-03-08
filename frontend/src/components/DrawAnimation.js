@@ -5,7 +5,7 @@ import {
   Bookmark, ExternalLink, Star, FolderGit2,
   Zap, BookOpen, RotateCcw, Shuffle,
 } from 'lucide-react';
-import { RARITY, DIFF_COLORS } from '@/lib/theme';
+import { colors, accent, RARITY, DIFF_COLORS } from '@/lib/theme';
 
 export { RARITY, DIFF_COLORS };
 
@@ -91,10 +91,10 @@ export default function DrawAnimation({
   const containerRef = useRef(null);
 
   const FLARE = {
-    common:    { color: 'rgba(161,161,170,', intensity: 0.3, flames: 4 },
-    rare:      { color: 'rgba(96,165,250,',  intensity: 0.5, flames: 5 },
-    epic:      { color: 'rgba(168,85,247,',  intensity: 0.7, flames: 6 },
-    legendary: { color: 'rgba(251,191,36,',  intensity: 0.9, flames: 6 },
+    common:    { color: `rgba(${colors.common.rgb},`,    intensity: 0.3, flames: 4 },
+    rare:      { color: `rgba(${colors.rare.rgb},`,      intensity: 0.5, flames: 5 },
+    epic:      { color: `rgba(${colors.epic.rgb},`,      intensity: 0.7, flames: 6 },
+    legendary: { color: `rgba(${colors.legendary.rgb},`, intensity: 0.9, flames: 6 },
   };
 
   const f = FLARE[rarity] || FLARE.common;
@@ -272,17 +272,17 @@ export default function DrawAnimation({
 
         <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 5 }}>
           {phase === 'idle' && (
-            <div
-              className="w-80 h-[440px] rounded-lg flex items-center justify-center overflow-hidden"
-              style={{ background: 'rgba(9,9,11,0.85)', border: '1px solid rgba(255,255,255,0.08)' }}
-            >
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-300/20 to-transparent" />
-              <div className="text-center">
-                <BookOpen className="w-10 h-10 text-sky-300/25 mx-auto mb-3" strokeWidth={1} />
-                <p className="text-sm text-sky-100/35 font-[Satoshi]">GitFable</p>
+              <div
+                className="w-80 h-[440px] rounded-lg flex items-center justify-center overflow-hidden"
+                style={{ background: 'rgba(9,9,11,0.85)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, rgba(${colors.accent.rgb},0.2), transparent)` }} />
+                <div className="text-center">
+                  <BookOpen className="w-10 h-10 mx-auto mb-3" strokeWidth={1} style={{ color: `rgba(${colors.accent.rgb},0.25)` }} />
+                  <p className={`text-sm ${accent.textGhost} font-[Satoshi]`}>GitFable</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {showCard && issue && (
             <motion.div
@@ -317,15 +317,15 @@ export default function DrawAnimation({
                 <div className={`absolute top-0 left-0 right-0 h-px rarity-line-${rarity}`} />
               )}
 
-              {phase === 'drop' && (
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="absolute inset-3 rounded-md border border-white/[0.04]" />
-                  <div className="text-center">
-                    <BookOpen className="w-8 h-8 text-sky-300/20 mx-auto mb-2" strokeWidth={1} />
-                    <p className="font-mono text-[10px] text-sky-200/30 uppercase tracking-[0.2em]">GitFable</p>
-                  </div>
-                </div>
-              )}
+                  {phase === 'drop' && (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="absolute inset-3 rounded-md border border-white/[0.04]" />
+                      <div className="text-center">
+                        <BookOpen className="w-8 h-8 mx-auto mb-2" strokeWidth={1} style={{ color: `rgba(${colors.accent.rgb},0.2)` }} />
+                        <p className="font-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: `rgba(${colors.accent.rgb},0.3)` }}>GitFable</p>
+                      </div>
+                    </div>
+                  )}
               {phase === 'infoFlash' && (
                 <div className="w-full h-full" />
               )}
@@ -394,13 +394,13 @@ export default function DrawAnimation({
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.35, delay: 0.2 }}
-                    >
+                      >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-0.5 rounded bg-sky-300/10 text-sky-100 border border-sky-300/20 font-mono">{issue.language}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded border font-mono ${accent.bgSubtle} ${accent.text} ${accent.borderFaint}`}>{issue.language}</span>
                         <Badge variant="outline" className={`text-xs ${DIFF_COLORS[issue.difficulty] || ''}`}>{issue.difficulty}</Badge>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-zinc-500 font-mono">
-                        <Star className="w-3.5 h-3.5 text-sky-300/70" strokeWidth={1.5} />{issue.stars?.toLocaleString()}
+                        <Star className={`w-3.5 h-3.5 ${accent.textSoft}`} strokeWidth={1.5} />{issue.stars?.toLocaleString()}
                       </div>
                     </motion.div>
                   </div>
@@ -415,12 +415,12 @@ export default function DrawAnimation({
         {state === 'idle' && (
           <>
             <div className="relative">
-              <div className="absolute -inset-3 rounded-xl border border-sky-300/20 energy-ring pointer-events-none" />
+              <div className="absolute -inset-3 rounded-xl border energy-ring pointer-events-none" style={{ borderColor: `rgba(${colors.accent.rgb},0.2)` }} />
               <div className="absolute -inset-6 pointer-events-none">
                 <div
                   className="w-full h-full energy-ring-rotate"
                   style={{
-                    background: 'conic-gradient(from 0deg, transparent, rgba(125,211,252,0.15), transparent, rgba(125,211,252,0.1), transparent)',
+                    background: `conic-gradient(from 0deg, transparent, rgba(${colors.accent.rgb},0.15), transparent, rgba(${colors.accent.rgb},0.1), transparent)`,
                     borderRadius: '12px',
                     mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
                     maskComposite: 'xor',
@@ -449,9 +449,10 @@ export default function DrawAnimation({
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-              className="w-8 h-8 rounded-full border-2 border-sky-300/30 border-t-sky-300"
+              className="w-8 h-8 rounded-full border-2"
+              style={{ borderColor: `rgba(${colors.accent.rgb},0.3)`, borderTopColor: `rgba(${colors.accent.rgb},1)` }}
             />
-            <p className="font-mono text-xs text-sky-200 uppercase tracking-widest animate-pulse">Drawing...</p>
+            <p className={`font-mono text-xs ${accent.text} uppercase tracking-widest animate-pulse`}>Drawing...</p>
           </div>
         )}
         {state === 'revealed' && (
@@ -509,12 +510,12 @@ export default function DrawAnimation({
               transition={{ delay: 0.5 }}
             >
               <motion.button
-                data-testid="bookmark-button"
-                onClick={onBookmark}
-                whileHover={{ scale: 1.08, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-sky-200 font-mono uppercase tracking-wider transition-colors px-3 py-2 rounded-lg hover:bg-sky-300/5 border border-transparent hover:border-sky-300/20"
-              >
+                    data-testid="bookmark-button"
+                    onClick={onBookmark}
+                    whileHover={{ scale: 1.08, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`flex items-center gap-1.5 text-xs text-zinc-400 ${accent.bookmarkHover} font-mono uppercase tracking-wider transition-colors px-3 py-2 rounded-lg border border-transparent`}
+                  >
                 <Bookmark className="w-3.5 h-3.5" />Bookmark
               </motion.button>
               <motion.button

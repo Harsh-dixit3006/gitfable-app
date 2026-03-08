@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { motion } from 'framer-motion';
 import { Star, Flame, Trophy, GitPullRequest, Calendar, FolderGit2, BookOpen, Files, Library, BookCopy, MoonStar, FastForward, PenTool, Globe, Search, Bookmark as BookmarkIcon } from 'lucide-react';
 import { api } from '@/lib/api';
+import { colors, accent } from '@/lib/theme';
 
 const BADGE_ICONS = {
   'Prologue': BookOpen, 'Short Story': Files, 'The Epic': Library,
@@ -55,7 +56,7 @@ export default function Profile() {
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="profile-page">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] pointer-events-none" style={{ background: 'radial-gradient(ellipse, rgba(125,211,252,0.08) 0%, transparent 70%)' }} />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] pointer-events-none" style={{ background: `radial-gradient(ellipse, rgba(${colors.accent.rgb},0.08) 0%, transparent 70%)` }} />
 
       <div className="max-w-4xl mx-auto px-6 sm:px-8 lg:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -63,8 +64,8 @@ export default function Profile() {
           <div className="obsidian inner-glow rounded-xl p-8 mb-8" data-testid="profile-header">
             <div className="flex items-center gap-6">
               <div className="relative">
-                <div className="absolute -inset-2 rounded-full bg-sky-300/20 blur-lg" />
-                <Avatar className="relative w-20 h-20 border-2 border-sky-300/30">
+                <div className={`absolute -inset-2 rounded-full ${accent.avatarGlow} blur-lg`} />
+                <Avatar className={`relative w-20 h-20 border-2 ${accent.borderBright}`}>
                   <AvatarImage src={u.avatar_url} />
                   <AvatarFallback className="text-2xl font-serif bg-zinc-900">{u.username?.[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
@@ -72,12 +73,12 @@ export default function Profile() {
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <h1 className="text-2xl sm:text-3xl font-bold font-serif">{u.display_name || u.username}</h1>
-                  <span className="text-xs font-mono text-sky-100 bg-sky-300/10 px-2 py-0.5 rounded border border-sky-300/20 font-bold">Lv.{u.level}</span>
+                  <span className={`text-xs font-mono ${accent.text} ${accent.bgSubtle} px-2 py-0.5 rounded border ${accent.borderFaint} font-bold`}>Lv.{u.level}</span>
                 </div>
                 <p className="text-zinc-500 text-sm font-mono mb-2">@{u.username}</p>
                 <div className="flex items-center gap-4 text-xs font-mono text-zinc-600">
                   <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />Joined {new Date(u.created_at).toLocaleDateString()}</span>
-                  <span className="text-sky-100 font-bold">{u.xp} XP</span>
+                  <span className={`${accent.text} font-bold`}>{u.xp} XP</span>
                 </div>
               </div>
             </div>
@@ -86,10 +87,10 @@ export default function Profile() {
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-testid="profile-stats">
             {[
-              { label: 'Contributions', value: u.total_contributions, icon: GitPullRequest, color: 'text-sky-200', border: 'border-sky-300/20' },
+              { label: 'Contributions', value: u.total_contributions, icon: GitPullRequest, color: accent.text, border: accent.borderFaint },
               { label: 'Current Streak', value: u.current_streak, icon: Flame, color: 'text-zinc-200', border: 'border-white/10' },
               { label: 'Longest Streak', value: u.longest_streak, icon: Trophy, color: 'text-zinc-100', border: 'border-white/10' },
-              { label: 'Level', value: u.level, icon: Star, color: 'text-sky-100', border: 'border-sky-300/20' },
+              { label: 'Level', value: u.level, icon: Star, color: accent.text, border: accent.borderFaint },
             ].map(({ label, value, icon: Icon, color, border }) => (
               <div key={label} className={`obsidian rounded-xl p-5 ${border}`}>
                 <Icon className={`w-4 h-4 ${color} mb-2`} strokeWidth={1.5} />
@@ -102,7 +103,7 @@ export default function Profile() {
           {/* Badges */}
           <div className="obsidian inner-glow rounded-xl p-6 mb-8" data-testid="profile-badges">
             <h3 className="font-serif text-lg font-semibold mb-4">
-              <span className="text-sky-200 font-mono text-sm">//</span> Badges
+              <span className={`${accent.text} font-mono text-sm`}>//</span> Badges
             </h3>
             <TooltipProvider>
               <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
@@ -113,9 +114,9 @@ export default function Profile() {
                       <TooltipTrigger asChild>
                         <motion.div whileHover={{ scale: 1.08, y: -2 }}
                           className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border cursor-default ${
-                            isEarned ? 'border-sky-300/30 bg-sky-300/10 shadow-[0_0_15px_-7px_rgba(125,211,252,0.6)]' : 'border-white/5 bg-zinc-900/30 opacity-35'
+                            isEarned ? `${accent.borderBright} ${accent.bgSubtle} ${accent.glow}` : 'border-white/5 bg-zinc-900/30 opacity-35'
                           }`}>
-                          <Icon className={`w-6 h-6 ${isEarned ? 'text-sky-100' : 'text-zinc-700'}`} strokeWidth={1.5} />
+                          <Icon className={`w-6 h-6 ${isEarned ? accent.text : 'text-zinc-700'}`} strokeWidth={1.5} />
                           <span className="text-[10px] text-center leading-tight font-mono">{name}</span>
                         </motion.div>
                       </TooltipTrigger>
@@ -130,7 +131,7 @@ export default function Profile() {
           {/* Recent Merges */}
           <div className="obsidian inner-glow rounded-xl p-6" data-testid="recent-merges">
             <h3 className="font-serif text-lg font-semibold mb-4">
-              <span className="text-sky-200 font-mono text-sm">//</span> Recent Chapters
+              <span className={`${accent.text} font-mono text-sm`}>//</span> Recent Chapters
             </h3>
             {merges.length === 0 ? (
               <p className="text-sm text-zinc-600 font-mono">No merged PRs yet.</p>

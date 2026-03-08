@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Bookmark, ExternalLink, Clock, X, Send, CircleCheck as CheckCircle2, Zap, Sparkles } from 'lucide-react';
 import { RarityBadge, RARITY } from '@/components/DrawAnimation';
+import { colors, accent } from '@/lib/theme';
 
 export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmitPR, onVerify, onRelease, getCountdown }) {
   return (
@@ -17,18 +18,18 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
         className="obsidian rounded-xl p-5 relative overflow-hidden group"
       >
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-300/20 to-transparent" />
+        <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${accent.divider} to-transparent`} />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <Zap className="w-3.5 h-3.5 text-sky-300/60" />
+            <Zap className={`w-3.5 h-3.5 ${accent.textMuted}`} />
             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Draw Budget</p>
           </div>
           <div className="flex items-baseline gap-2">
-            <p className="text-2xl font-bold text-sky-100">{redrawsRemaining}</p>
+            <p className={`text-2xl font-bold ${accent.text}`}>{redrawsRemaining}</p>
             <p className="text-xs text-zinc-500 font-mono">remaining</p>
           </div>
         </div>
-        <div className="absolute bottom-0 right-0 w-20 h-20 bg-sky-300/[0.03] rounded-full blur-xl group-hover:bg-sky-300/[0.06] transition-colors duration-500" />
+        <div className="absolute bottom-0 right-0 w-20 h-20 rounded-full blur-xl transition-colors duration-500" style={{ background: `rgba(${colors.accent.rgb},0.03)` }} />
       </motion.div>
 
       {/* Bookmark Card */}
@@ -37,10 +38,10 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
         className="obsidian rounded-xl p-5 relative overflow-hidden group"
       >
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-300/20 to-transparent" />
+        <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${accent.divider} to-transparent`} />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3">
-            <Bookmark className="w-3.5 h-3.5 text-amber-300/60" />
+            <Bookmark className={`w-3.5 h-3.5 ${accent.textMuted}`} />
             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Active Bookmark</p>
           </div>
 
