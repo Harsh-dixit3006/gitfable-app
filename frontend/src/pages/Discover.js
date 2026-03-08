@@ -3,8 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { motion } from 'framer-motion';
-import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Zap, Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import DrawAnimation, { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
@@ -58,6 +58,32 @@ function normalizeHistoryDraw(draw) {
   };
 }
 
+// Floating orbs animation component
+function FloatingOrb({ delay = 0, duration = 20, color = 'rgba(125,211,252,0.15)', size = 300 }) {
+  return (
+    <motion.div
+      className="absolute rounded-full blur-3xl pointer-events-none"
+      style={{
+        width: size,
+        height: size,
+        background: `radial-gradient(circle, ${color}, transparent 70%)`,
+      }}
+      animate={{
+        x: [0, 100, -50, 0],
+        y: [0, -80, 100, 0],
+        scale: [1, 1.1, 0.9, 1],
+        opacity: [0.3, 0.5, 0.3, 0.3],
+      }}
+      transition={{
+        duration,
+        delay,
+        repeat: Infinity,
+        ease: "easeInOut",
+      }}
+    />
+  );
+}
+
 export default function Discover() {
   const { user, setShowLogin, refreshUser } = useAuth();
   const [languages, setLanguages] = useState([]);
@@ -76,6 +102,7 @@ export default function Discover() {
   const [issueQuery, setIssueQuery] = useState('');
   const [choosingIssueId, setChoosingIssueId] = useState(null);
   const [xpAwarded, setXpAwarded] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
   const shuffleRef = useRef([]);
 
   // Pagination state
@@ -306,323 +333,482 @@ export default function Discover() {
     return pages;
   };
 
+  const activeFilterCount = languages.length + difficulties.length + rarities.length;
+
   return (
-    <div className="pt-20 pb-16 relative min-h-screen" data-testid="discover-page">
-      {/* Enhanced ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(125,211,252,0.06) 0%, rgba(251,191,36,0.04) 40%, transparent 70%)' }} />
+    <div className="relative min-h-screen overflow-hidden" data-testid="discover-page">
+      {/* Animated background with floating orbs */}
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950" />
+        <FloatingOrb delay={0} duration={25} color="rgba(125,211,252,0.08)" size={400} />
+        <FloatingOrb delay={3} duration={30} color="rgba(168,85,247,0.06)" size={350} />
+        <FloatingOrb delay={6} duration={28} color="rgba(251,191,36,0.05)" size={300} />
+      </div>
 
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        {/* Page Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.85, ease: EASE }}
-          className="mb-12"
-        >
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="font-mono text-[10px] text-sky-300/60 uppercase tracking-[0.3em] block mb-4"
-          >
-            Discover
-          </motion.span>
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold mb-4 tracking-tight bg-gradient-to-br from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent" style={{ letterSpacing: '-0.06em' }}>
-            Draw your next contribution
-          </h1>
-          <p className="text-zinc-400 text-base md:text-lg max-w-2xl">
-            Find the perfect issue through our gamified draw system or browse the complete collection
-          </p>
-        </motion.div>
+      {/* Grid overlay */}
+      <div className="fixed inset-0 -z-10 opacity-20">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+          backgroundSize: '64px 64px',
+        }} />
+      </div>
 
-        {/* Hero Draw Area — sidebar + draw animation */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
-          className="flex gap-8 items-start justify-center mb-20"
-        >
-          <InfoSidebar
-            redrawsRemaining={redrawsRemaining}
-            activeBookmark={activeBookmark}
-            onSubmitPR={(drawId) => { setPrDrawId(drawId); setShowPRDialog(true); }}
-            onVerify={(drawId) => handleVerify(drawId)}
-            onRelease={handleRelease}
-            getCountdown={getCountdown}
-          />
-          <div className="flex-1 flex flex-col items-center max-w-2xl">
-            <DrawAnimation
-              state={drawState}
-              issue={drawnIssue}
-              onDraw={handleDraw}
-              onBookmark={handleBookmark}
-              onRedraw={() => { setDrawState('idle'); setDrawnIssue(null); setCurrentDrawId(null); setXpAwarded(null); }}
-              xpAwarded={xpAwarded || (drawnIssue ? (RARITY[drawnIssue.rarity || 'common']?.drawXP || 5) : 0)}
-              drawSource={drawnIssue?.draw_source || 'draw'}
-              redrawsRemaining={redrawsRemaining}
-            />
-          </div>
-        </motion.div>
-
-        {/* Browse Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.72, ease: EASE, delay: 0.25 }}
-          data-testid="issues-table-section"
-        >
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-6">
-            <div className="space-y-2">
-              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent" style={{ letterSpacing: '-0.05em' }} data-testid="issues-table-title">
-                Browse All Issues
-              </h2>
-              <p className="text-zinc-400 text-sm max-w-2xl" data-testid="issues-table-subtitle">
-                Choose directly for standard XP, or <span className="text-sky-300 font-medium">Draw</span> for triple rewards.
-                <span className="text-zinc-500 ml-1">Legendary issues are draw-exclusive.</span>
-              </p>
-            </div>
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="relative w-full md:w-[380px]"
-            >
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <Input
-                value={issueQuery}
-                onChange={(e) => setIssueQuery(e.target.value)}
-                placeholder="Search repos, titles, or labels..."
-                className="pl-11 py-2.5 bg-zinc-900/60 border-white/[0.08] rounded-lg hover:border-white/15 focus:border-sky-300/40 transition-colors"
-                data-testid="issues-table-search-input"
-              />
-            </motion.div>
-          </div>
-
-          {/* Inline filter chips */}
+      <div className="relative pt-24 pb-20">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+          {/* Hero Section */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex flex-wrap gap-2 mb-6"
+            transition={{ duration: 0.8, ease: EASE }}
+            className="text-center mb-16"
           >
-            {/* Language filters */}
-            {LANGUAGES.map((lang, idx) => (
-              <motion.button
-                key={lang}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.02, duration: 0.3 }}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => toggleLang(lang)}
-                data-testid={`filter-lang-${lang.toLowerCase()}`}
-                className={`px-3.5 py-2 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all duration-200 ${
-                  languages.includes(lang)
-                    ? 'bg-sky-300/10 border-sky-300/40 text-sky-200 shadow-[0_0_16px_-6px_rgba(125,211,252,0.5)]'
-                    : 'bg-zinc-900/40 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15 hover:bg-zinc-900/60'
-                }`}
-              >
-                {lang}
-              </motion.button>
-            ))}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sky-300/5 border border-sky-300/20 mb-6"
+            >
+              <Sparkles className="w-4 h-4 text-sky-300" />
+              <span className="text-sm font-mono text-sky-200 tracking-wider">DISCOVER YOUR NEXT QUEST</span>
+            </motion.div>
 
-            <div className="w-px h-6 bg-gradient-to-b from-transparent via-white/10 to-transparent self-center mx-1" />
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+              className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
+            >
+              <span className="bg-gradient-to-br from-white via-sky-100 to-zinc-400 bg-clip-text text-transparent">
+                Draw Your Destiny
+              </span>
+            </motion.h1>
 
-            {/* Difficulty filters */}
-            {DIFFICULTIES.map((diff, idx) => (
-              <motion.button
-                key={diff}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: (LANGUAGES.length + idx) * 0.02, duration: 0.3 }}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => toggleDiff(diff)}
-                data-testid={`filter-diff-${diff.toLowerCase()}`}
-                className={`px-3.5 py-2 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all duration-200 ${
-                  difficulties.includes(diff)
-                    ? 'bg-sky-300/10 border-sky-300/40 text-sky-200 shadow-[0_0_16px_-6px_rgba(125,211,252,0.5)]'
-                    : 'bg-zinc-900/40 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15 hover:bg-zinc-900/60'
-                }`}
-              >
-                {diff}
-              </motion.button>
-            ))}
-
-            <div className="w-px h-6 bg-gradient-to-b from-transparent via-white/10 to-transparent self-center mx-1" />
-
-            {/* Rarity filters */}
-            {RARITIES.map((r, idx) => {
-              const Icon = RARITY[r].icon;
-              const rarityData = RARITY[r];
-              return (
-                <motion.button
-                  key={r}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: (LANGUAGES.length + DIFFICULTIES.length + idx) * 0.02, duration: 0.3 }}
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => toggleRarity(r)}
-                  data-testid={`filter-rarity-${r}`}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-mono border backdrop-blur-sm inline-flex items-center gap-1.5 transition-all duration-200 ${
-                    rarities.includes(r)
-                      ? `border-${rarityData.color}-300/40 text-${rarityData.color}-200 shadow-[0_0_16px_-6px_${rarityData.accent}0.5)]`
-                      : 'bg-zinc-900/40 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15 hover:bg-zinc-900/60'
-                  }`}
-                  style={rarities.includes(r) ? {
-                    background: `${rarityData.accent}0.08)`,
-                    borderColor: `${rarityData.accent}0.4)`,
-                    color: `${rarityData.accent}0.95)`,
-                  } : {}}
-                >
-                  {Icon && <Icon className="w-3.5 h-3.5" />}
-                  {rarityData.label}
-                </motion.button>
-              );
-            })}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
+              className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed"
+            >
+              Experience the thrill of discovering perfect open-source issues through our gamified system.
+              <br />
+              Each draw is a new adventure waiting to unfold.
+            </motion.p>
           </motion.div>
 
-          {/* Issue card list */}
-          {issuesLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="h-24 rounded-xl shimmer"
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {paginatedIssues.map((issue, idx) => (
-                <motion.div
-                  key={issue.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.03, duration: 0.3 }}
-                >
-                  <IssueCardRow issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
-                </motion.div>
-              ))}
-              {filteredIssues.length === 0 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center justify-center py-20 px-6"
-                >
-                  <div className="w-16 h-16 rounded-full bg-zinc-900/60 border border-white/[0.06] flex items-center justify-center mb-4">
-                    <Search className="w-7 h-7 text-zinc-600" />
-                  </div>
-                  <p className="text-zinc-400 font-medium text-base mb-1">No issues found</p>
-                  <p className="text-zinc-600 text-sm">Try adjusting your filters or search query</p>
-                </motion.div>
-              )}
-            </div>
-          )}
+          {/* Main Draw Area */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.7, ease: EASE }}
+            className="flex flex-col lg:flex-row gap-8 items-start justify-center mb-24"
+          >
+            <InfoSidebar
+              redrawsRemaining={redrawsRemaining}
+              activeBookmark={activeBookmark}
+              onSubmitPR={(drawId) => { setPrDrawId(drawId); setShowPRDialog(true); }}
+              onVerify={(drawId) => handleVerify(drawId)}
+              onRelease={handleRelease}
+              getCountdown={getCountdown}
+            />
 
-          {/* Pagination */}
-          {!issuesLoading && filteredIssues.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-zinc-600 font-mono">{filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}</span>
-                <div className="w-px h-3 bg-white/10" />
-                <select
-                  data-testid="page-size-select"
-                  value={pageSize}
-                  onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                  className="text-xs font-mono bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md px-2 py-1 outline-none focus:border-amber-400/30"
-                >
-                  {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
-                  )
-                  }
-                </select>
+            <div className="flex-1 w-full max-w-2xl">
+              <DrawAnimation
+                state={drawState}
+                issue={drawnIssue}
+                onDraw={handleDraw}
+                onBookmark={handleBookmark}
+                onRedraw={() => { setDrawState('idle'); setDrawnIssue(null); setCurrentDrawId(null); setXpAwarded(null); }}
+                xpAwarded={xpAwarded || (drawnIssue ? (RARITY[drawnIssue.rarity || 'common']?.drawXP || 5) : 0)}
+                drawSource={drawnIssue?.draw_source || 'draw'}
+                redrawsRemaining={redrawsRemaining}
+              />
+            </div>
+          </motion.div>
+
+          {/* Browse Section Divider */}
+          <motion.div
+            initial={{ opacity: 0, scaleX: 0 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+            className="relative mb-16"
+          >
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            </div>
+            <div className="relative flex justify-center">
+              <div className="px-6 py-2 rounded-full bg-zinc-950/90 border border-white/10 backdrop-blur-sm">
+                <span className="text-sm font-mono text-zinc-500 uppercase tracking-wider">Browse Collection</span>
               </div>
+            </div>
+          </motion.div>
 
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronsLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                {getPageNumbers().map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setCurrentPage(p)}
-                    className={`min-w-[28px] h-7 rounded-md text-xs font-mono ${
-                      p === currentPage
-                        ? 'bg-amber-400/10 border border-amber-400/30 text-amber-200'
-                        : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
+          {/* Browse Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.6, ease: EASE }}
+            data-testid="issues-table-section"
+          >
+            {/* Search and Filter Header */}
+            <div className="flex flex-col gap-6 mb-8">
+              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2 bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent" data-testid="issues-table-title">
+                    All Issues
+                  </h2>
+                  <p className="text-sm text-zinc-500" data-testid="issues-table-subtitle">
+                    {filteredIssues.length.toLocaleString()} issues available
+                  </p>
+                </div>
+
+                <div className="flex gap-3 w-full md:w-auto">
+                  <div className="relative flex-1 md:w-80">
+                    <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Input
+                      value={issueQuery}
+                      onChange={(e) => setIssueQuery(e.target.value)}
+                      placeholder="Search issues..."
+                      className="pl-11 pr-4 py-3 bg-zinc-900/40 border-white/[0.08] rounded-xl hover:border-white/15 focus:border-sky-300/40 transition-all backdrop-blur-sm"
+                      data-testid="issues-table-search-input"
+                    />
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`relative px-4 py-3 rounded-xl border backdrop-blur-sm transition-all ${
+                      showFilters || activeFilterCount > 0
+                        ? 'bg-sky-300/10 border-sky-300/40 text-sky-200'
+                        : 'bg-zinc-900/40 border-white/[0.08] text-zinc-400 hover:border-white/15'
                     }`}
                   >
-                    {p}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronsRight className="w-3.5 h-3.5" />
-                </button>
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4" />
+                      <span className="font-mono text-sm hidden sm:inline">Filters</span>
+                    </div>
+                    {activeFilterCount > 0 && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-sky-400 text-zinc-950 text-xs font-bold flex items-center justify-center"
+                      >
+                        {activeFilterCount}
+                      </motion.div>
+                    )}
+                  </motion.button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-zinc-600">Go to</span>
-                <input
-                  data-testid="page-jump-input"
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  className="w-14 h-7 text-xs font-mono text-center bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md outline-none focus:border-amber-400/30"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const val = parseInt(e.target.value, 10);
-                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
-                      e.target.value = '';
-                    }
-                  }}
-                />
-              </div>
+              {/* Filter Panel */}
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: EASE }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-6 rounded-xl bg-zinc-900/40 border border-white/[0.08] backdrop-blur-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Filter className="w-4 h-4 text-zinc-500" />
+                          <span className="text-sm font-mono text-zinc-400 uppercase tracking-wider">Active Filters</span>
+                        </div>
+                        {activeFilterCount > 0 && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              setLanguages([]);
+                              setDifficulties([]);
+                              setRarities([]);
+                            }}
+                            className="text-xs font-mono text-red-400/80 hover:text-red-400 flex items-center gap-1.5"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Clear all
+                          </motion.button>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Languages */}
+                        <div>
+                          <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Languages</label>
+                          <div className="flex flex-wrap gap-2">
+                            {LANGUAGES.map((lang) => (
+                              <motion.button
+                                key={lang}
+                                whileHover={{ scale: 1.05, y: -1 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => toggleLang(lang)}
+                                data-testid={`filter-lang-${lang.toLowerCase()}`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
+                                  languages.includes(lang)
+                                    ? 'bg-sky-300/10 border-sky-300/40 text-sky-200 shadow-[0_0_12px_-4px_rgba(125,211,252,0.4)]'
+                                    : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
+                                }`}
+                              >
+                                {lang}
+                              </motion.button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Difficulties */}
+                        <div>
+                          <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Difficulty</label>
+                          <div className="flex flex-wrap gap-2">
+                            {DIFFICULTIES.map((diff) => (
+                              <motion.button
+                                key={diff}
+                                whileHover={{ scale: 1.05, y: -1 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => toggleDiff(diff)}
+                                data-testid={`filter-diff-${diff.toLowerCase()}`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
+                                  difficulties.includes(diff)
+                                    ? 'bg-sky-300/10 border-sky-300/40 text-sky-200 shadow-[0_0_12px_-4px_rgba(125,211,252,0.4)]'
+                                    : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
+                                }`}
+                              >
+                                {diff}
+                              </motion.button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Rarities */}
+                        <div>
+                          <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Rarity</label>
+                          <div className="flex flex-wrap gap-2">
+                            {RARITIES.map((r) => {
+                              const Icon = RARITY[r].icon;
+                              const rarityData = RARITY[r];
+                              return (
+                                <motion.button
+                                  key={r}
+                                  whileHover={{ scale: 1.05, y: -1 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => toggleRarity(r)}
+                                  data-testid={`filter-rarity-${r}`}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm inline-flex items-center gap-1.5 transition-all`}
+                                  style={rarities.includes(r) ? {
+                                    background: `${rarityData.accent}0.08)`,
+                                    borderColor: `${rarityData.accent}0.4)`,
+                                    color: `${rarityData.accent}0.95)`,
+                                    boxShadow: `0 0 12px -4px ${rarityData.accent}0.4)`,
+                                  } : {
+                                    background: 'rgba(24,24,27,0.6)',
+                                    borderColor: 'rgba(255,255,255,0.06)',
+                                    color: 'rgb(161,161,170)',
+                                  }}
+                                >
+                                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                                  {rarityData.label}
+                                </motion.button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          )}
-        </motion.section>
+
+            {/* Issues Grid */}
+            {issuesLoading ? (
+              <div className="grid gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.4 }}
+                    className="h-28 rounded-2xl shimmer"
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4">
+                  <AnimatePresence mode="popLayout">
+                    {paginatedIssues.map((issue, idx) => (
+                      <motion.div
+                        key={issue.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ delay: idx * 0.02, duration: 0.3, ease: EASE }}
+                      >
+                        <IssueCardRow issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+
+                  {filteredIssues.length === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col items-center justify-center py-24 px-6"
+                    >
+                      <motion.div
+                        animate={{
+                          rotate: [0, 5, -5, 0],
+                        }}
+                        transition={{
+                          duration: 3,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className="w-20 h-20 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/[0.06] flex items-center justify-center mb-6"
+                      >
+                        <Search className="w-9 h-9 text-zinc-600" />
+                      </motion.div>
+                      <p className="text-xl font-semibold text-zinc-300 mb-2">No issues found</p>
+                      <p className="text-zinc-500 text-center max-w-md">Try adjusting your search or filters to discover more open-source opportunities</p>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Pagination */}
+                {filteredIssues.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex flex-wrap items-center justify-between gap-4 mt-8 p-4 rounded-xl bg-zinc-900/40 border border-white/[0.06] backdrop-blur-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-zinc-400 font-mono">
+                        {filteredIssues.length.toLocaleString()} issue{filteredIssues.length !== 1 ? 's' : ''}
+                      </span>
+                      <div className="w-px h-4 bg-white/10" />
+                      <select
+                        data-testid="page-size-select"
+                        value={pageSize}
+                        onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        className="text-sm font-mono bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg px-3 py-1.5 outline-none focus:border-sky-300/40 transition-colors"
+                      >
+                        {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </motion.button>
+
+                      <div className="flex items-center gap-1">
+                        {getPageNumbers().map(p => (
+                          <motion.button
+                            key={p}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setCurrentPage(p)}
+                            className={`min-w-[36px] h-9 rounded-lg text-sm font-mono transition-all ${
+                              p === currentPage
+                                ? 'bg-sky-300/10 border border-sky-300/30 text-sky-200 shadow-[0_0_12px_-4px_rgba(125,211,252,0.4)]'
+                                : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
+                            }`}
+                          >
+                            {p}
+                          </motion.button>
+                        ))}
+                      </div>
+
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-zinc-500">Jump to</span>
+                      <input
+                        data-testid="page-jump-input"
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        placeholder={currentPage.toString()}
+                        className="w-16 h-9 text-sm font-mono text-center bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg outline-none focus:border-sky-300/40 transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = parseInt(e.target.value, 10);
+                            if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            )}
+          </motion.section>
+        </div>
       </div>
 
       {/* PR Dialog */}
       <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
-        <DialogContent className="bg-zinc-950 border-white/10" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
+        <DialogContent className="bg-zinc-950 border-white/10 backdrop-blur-xl" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Submit Pull Request</DialogTitle>
-            <DialogDescription id="pr-dialog-description" className="text-zinc-500 text-sm">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">Submit Pull Request</DialogTitle>
+            <DialogDescription id="pr-dialog-description" className="text-zinc-400 text-sm mt-2">
               Paste your pull request URL to track and verify merge progress.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <Input placeholder="https://github.com/.../pull/123" value={prUrl} onChange={e => setPrUrl(e.target.value)}
-              className="bg-zinc-900 border-white/10 font-mono text-sm" data-testid="pr-url-input" />
-            <button onClick={handleSubmitPR} className="rune-btn w-full py-3 rounded-lg text-center" data-testid="pr-submit-confirm">
+          <div className="space-y-4 mt-4">
+            <Input
+              placeholder="https://github.com/.../pull/123"
+              value={prUrl}
+              onChange={e => setPrUrl(e.target.value)}
+              className="bg-zinc-900/60 border-white/10 font-mono text-sm py-3 rounded-xl focus:border-sky-300/40 transition-colors"
+              data-testid="pr-url-input"
+            />
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSubmitPR}
+              className="rune-btn w-full py-3 rounded-xl text-center font-semibold"
+              data-testid="pr-submit-confirm"
+            >
               Submit PR
-            </button>
+            </motion.button>
           </div>
         </DialogContent>
       </Dialog>
