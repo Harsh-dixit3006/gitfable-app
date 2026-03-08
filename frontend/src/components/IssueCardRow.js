@@ -2,14 +2,18 @@ import { useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Star, Crosshair, Code as Code2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
-import { colors, accent } from '@/lib/theme';
+import { RARITY, RarityBadge } from '@/components/DrawAnimation';
+
+const BROWSE_DIFF_COLORS = {
+  Beginner: 'bg-zinc-800/80 text-zinc-200 border-zinc-700/70',
+  Intermediate: 'bg-slate-300/10 text-slate-200 border-slate-300/20',
+  Advanced: 'bg-red-500/10 text-red-400 border-red-500/20',
+};
 
 export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
   const r = RARITY[issue.rarity] || RARITY.common;
   const isChoosing = choosingIssueId === issue.id;
   const cardRef = useRef(null);
-  const rarityAccent = `rgba(${r.rgb},0.6)`;
 
   const handleMouseMove = useCallback((e) => {
     const card = cardRef.current;
@@ -24,8 +28,6 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
     card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.01)`;
     card.style.borderColor = `rgba(${r.rgb},${issue.rarity === 'common' ? 0.3 : issue.rarity === 'legendary' ? 0.5 : 0.4})`;
     card.style.boxShadow = `0 6px 32px -4px rgba(${r.rgb},${issue.rarity === 'common' ? 0.1 : issue.rarity === 'legendary' ? 0.3 : issue.rarity === 'epic' ? 0.25 : 0.2})`;
-    card.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
-    card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
   }, [issue.rarity, r.rgb]);
 
   const handleMouseLeave = useCallback(() => {
@@ -48,13 +50,6 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
         boxShadow: `0 0 0 rgba(${r.rgb},0), 0 0 0 rgba(${r.rgb},0)`,
       }}
     >
-      <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-        style={{
-          background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${rarityAccent}, transparent 40%)`,
-        }}
-      />
-
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -109,24 +104,24 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
         </div>
 
         <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="hidden lg:flex items-center gap-3">
-            <span className={`text-xs px-2.5 py-1 rounded-md ${accent.bgSubtle} ${accent.text} border ${accent.borderFaint} font-mono`}>
-              {issue.language}
-            </span>
-            <Badge
-              variant="outline"
-              className={`text-xs ${DIFF_COLORS[issue.difficulty] || ''}`}
-            >
-              {issue.difficulty}
-            </Badge>
-          </div>
+            <div className="hidden lg:flex items-center gap-3">
+              <span className="text-xs px-2.5 py-1 rounded-md bg-zinc-900/80 text-zinc-200 border border-white/[0.08] font-mono">
+                {issue.language}
+              </span>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${BROWSE_DIFF_COLORS[issue.difficulty] || BROWSE_DIFF_COLORS.Beginner}`}
+                  >
+                {issue.difficulty}
+              </Badge>
+            </div>
 
-          <div className="flex items-center gap-1.5 min-w-[60px] justify-end">
-            <Star className={`w-3.5 h-3.5 ${accent.textMuted}`} strokeWidth={1.5} fill={`rgba(${colors.accent.rgb},0.1)`} />
-            <span className="text-xs text-zinc-400 font-mono tabular-nums">
-              {issue.stars >= 1000 ? `${(issue.stars / 1000).toFixed(1)}k` : issue.stars}
-            </span>
-          </div>
+              <div className="flex items-center gap-1.5 min-w-[60px] justify-end">
+                <Star className="w-3.5 h-3.5 text-zinc-500" strokeWidth={1.5} fill="rgba(255,255,255,0.03)" />
+                <span className="text-xs text-zinc-400 font-mono tabular-nums">
+                  {issue.stars >= 1000 ? `${(issue.stars / 1000).toFixed(1)}k` : issue.stars}
+                </span>
+              </div>
 
           <div className="flex gap-2">
             <motion.a
@@ -139,14 +134,14 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </motion.a>
-            <motion.button
-              data-testid="issue-choose-button"
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              className="rune-btn px-4 py-2 rounded-lg text-[11px] flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isChoosing}
-              onClick={() => onChoose(issue.id)}
-            >
+                <motion.button
+                  data-testid="issue-choose-button"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 rounded-lg text-[11px] flex items-center gap-1.5 border border-white/12 bg-zinc-950/85 text-zinc-100 hover:bg-white/[0.04] hover:border-white/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-mono uppercase tracking-[0.16em]"
+                  disabled={isChoosing}
+                  onClick={() => onChoose(issue.id)}
+                >
               <Crosshair className="w-3.5 h-3.5" />
               {isChoosing ? 'Choosing...' : 'Choose'}
             </motion.button>
