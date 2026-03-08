@@ -87,28 +87,28 @@ env: ## Create .env files from examples
 # ─── Docker ──────────────────────────────────────────────────────────
 
 docker-build: ## Build all Docker images
-	docker compose build
+	docker compose -f docker/docker-compose.yml build
 
 docker-up: ## Start all services with Docker Compose
-	docker compose up -d
+	docker compose -f docker/docker-compose.yml up -d
 
 docker-down: ## Stop all Docker services
-	docker compose down
+	docker compose -f docker/docker-compose.yml down
 
 docker-logs: ## View logs from all services
-	docker compose logs -f
+	docker compose -f docker/docker-compose.yml logs -f
 
 docker-backend-logs: ## View backend logs only
-	docker compose logs -f backend
+	docker compose -f docker/docker-compose.yml logs -f backend
 
 docker-frontend-logs: ## View frontend logs only
-	docker compose logs -f frontend
+	docker compose -f docker/docker-compose.yml logs -f frontend
 
 docker-clean: ## Remove all containers, volumes, and images
-	docker compose down -v --rmi all
+	docker compose -f docker/docker-compose.yml down -v --rmi all
 
 docker-prod-build: ## Build production images
-	docker compose -f docker-compose.prod.yml build
+	docker compose -f docker/docker-compose.prod.yml build
 
 docker-prod-up: ## Start production services
-	docker compose -f docker-compose.prod.yml up -d
+	docker compose -f docker/docker-compose.prod.yml up -d
