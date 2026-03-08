@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { motion } from 'framer-motion';
@@ -18,13 +17,12 @@ const PODIUM_CONFIG = [
 export default function Leaderboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [period, setPeriod] = useState('all-time');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    api.get('/leaderboard', { params: { period, limit: 50 } })
+    api.get('/leaderboard', { params: { limit: 50 } })
       .then(r => {
         // Add rank to each user based on index
         const ranked = (r._data || []).map((u, i) => ({ ...u, rank: i + 1 }));
@@ -32,10 +30,10 @@ export default function Leaderboard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [period]);
+  }, []);
 
   const top3 = users.slice(0, 3);
-  const rest = users.slice(3);
+  const tableUsers = users.length >= 3 ? users.slice(3) : users;
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="leaderboard-page">
@@ -47,18 +45,8 @@ export default function Leaderboard() {
           <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
             The most prolific authors.
           </h1>
-          <p className="text-zinc-500 text-base md:text-lg mb-8">Open-source legends, ranked by contribution.</p>
-
-          <Tabs value={period} onValueChange={setPeriod} className="mb-10">
-            <TabsList className="bg-zinc-950/80 border border-white/5 p-1">
-              {['weekly', 'monthly', 'all-time'].map(p => (
-                <TabsTrigger key={p} value={p} data-testid={`tab-${p}`}
-                  className={`data-[state=active]:${accent.bg} data-[state=active]:${accent.text} data-[state=active]:${accent.border} data-[state=active]:shadow-[0_0_14px_-8px_rgba(${colors.accent.rgb},0.6)] font-mono text-xs uppercase tracking-wider border border-transparent rounded-md px-4 py-2`}>
-                  {p === 'all-time' ? 'All Time' : p.charAt(0).toUpperCase() + p.slice(1)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <p className="text-zinc-500 text-base md:text-lg mb-2">Open-source legends, ranked by contribution.</p>
+          <p className={`font-mono text-[11px] ${accent.textMuted} uppercase tracking-[0.22em] mb-10`}>All-time leaderboard</p>
 
           {loading ? (
             <div className="grid gap-4">{[1,2,3].map(i => <div key={i} className="h-24 rounded-xl shimmer" />)}</div>
@@ -119,7 +107,7 @@ export default function Leaderboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rest.map((u) => (
+                        {tableUsers.map((u) => (
                       <TableRow
                         key={u.username}
                         className="border-white/[0.03] cursor-pointer hover:bg-white/[0.02]"
