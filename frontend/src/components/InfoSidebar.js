@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bookmark, ExternalLink, Clock, X, Send, CheckCircle2, Zap, Sparkles } from 'lucide-react';
+import { Bookmark, ExternalLink, Clock, X, Send, CircleCheck as CheckCircle2, Zap, Sparkles } from 'lucide-react';
 import { RarityBadge, RARITY } from '@/components/DrawAnimation';
 
 export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmitPR, onVerify, onRelease, getCountdown }) {
