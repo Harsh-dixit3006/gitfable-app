@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ExternalLink, Star, Crosshair, Code2 } from 'lucide-react';
+import { ExternalLink, Star, Crosshair, Code as Code2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
 
