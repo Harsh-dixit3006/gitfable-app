@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: gitfable-postgres
@@ -21,7 +18,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: gitfable-redis
@@ -36,10 +32,9 @@ services:
       timeout: 3s
       retries: 5
 
-  # Backend API
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: gitfable-backend
     restart: unless-stopped
@@ -53,19 +48,18 @@ services:
       - ENVIRONMENT=development
       - FIREBASE_SERVICE_ACCOUNT_PATH=/creds/gitfable-app-firebase-adminsdk-fbsvc-1faf6f92c5.json
     env_file:
-      - ./backend/.env
+      - ../backend/.env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./creds:/creds:ro
+      - ../creds:/creds:ro
 
-  # Frontend
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
         - REACT_APP_BACKEND_URL=http://localhost:8001
