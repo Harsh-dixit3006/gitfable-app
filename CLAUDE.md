@@ -89,8 +89,14 @@ make build-sync           # build sync CLI binary
 
 ## Environment
 
-Backend `.env` requires: `DATABASE_URL` (postgresql:// format, no asyncpg), Firebase credentials (`FIREBASE_SERVICE_ACCOUNT_PATH` or individual `FIREBASE_*` vars), `CORS_ORIGINS`. See `backend/.env.example`. **Note:** The Go backend uses `os.Getenv` only — it does not auto-load `.env` files. Set env vars explicitly or use `docker compose` which wires them.
+All environment config lives in `docker/.env` (single source of truth). Run `make env` to create it from `docker/.env.example`.
 
-Frontend `.env` requires: `REACT_APP_BACKEND_URL`, `REACT_APP_FIREBASE_*` config vars. See `frontend/.env.example`.
+**Local dev:** `make dev-backend` and `make dev-frontend` auto-source `docker/.env` before running. No manual env setup needed after `make env`.
 
-Docker compose files live under `docker/`. Dev: `docker/docker-compose.yml`. Prod: `docker/docker-compose.prod.yml`. They provide postgres (5432), redis (6379), and wire `DATABASE_URL` + `REDIS_URL` automatically.
+**Docker:** Compose files live under `docker/`. Dev: `docker/docker-compose.yml`. Prod: `docker/docker-compose.prod.yml`. Compose auto-loads `docker/.env` from its directory. Dev compose overrides only container-specific hostnames (DATABASE_URL uses `postgres:5432`, REDIS_URL uses `redis:6379`).
+
+**Prod:** Uses `docker/.env.prod` (not committed). Sensitive values use Docker secrets in `docker/secrets/`.
+
+**Required secrets** (fill in `docker/.env` after `make env`): `FIREBASE_SERVICE_ACCOUNT_PATH` (absolute path to Firebase service account JSON), `GITHUB_TOKEN` (GitHub PAT for issue sync).
+
+**Note:** The Go backend uses `os.Getenv` only — it does not auto-load `.env` files. The Makefile handles sourcing via `set -a`.
