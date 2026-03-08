@@ -23,10 +23,12 @@ dev: ## Start both backend and frontend (requires two terminals)
 	@echo "  make dev-frontend"
 
 dev-backend: ## Start backend dev server (port 8001)
-	@command -v air >/dev/null 2>&1 && (cd backend && air) || (cd backend && go run ./cmd/server)
+	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
+	@set -a && . docker/.env && set +a && command -v air >/dev/null 2>&1 && (cd backend && air) || (cd backend && go run ./cmd/server)
 
 dev-frontend: ## Start frontend dev server (port 3000)
-	cd frontend && npm start
+	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
+	@set -a && . docker/.env && set +a && cd frontend && npm start
 
 # ─── Build ───────────────────────────────────────────────────────────
 
@@ -79,10 +81,9 @@ clean: ## Remove build artifacts and caches
 
 # ─── Environment Setup ───────────────────────────────────────────────
 
-env: ## Create .env files from examples
-	@test -f backend/.env || (cp backend/.env.example backend/.env && echo "Created backend/.env")
-	@test -f frontend/.env || (cp frontend/.env.example frontend/.env && echo "Created frontend/.env")
-	@echo "Edit .env files with your local values"
+env: ## Create docker/.env from example
+	@test -f docker/.env || (cp docker/.env.example docker/.env && echo "Created docker/.env from example")
+	@echo "Edit docker/.env with your local values (Firebase path, GitHub token)"
 
 # ─── Docker ──────────────────────────────────────────────────────────
 
