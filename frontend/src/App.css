@@ -272,6 +272,117 @@
   z-index: 1;
 }
 
+/* ═══ Particle Motes ═══ */
+@keyframes mote-drift {
+  0% { transform: translateY(0) translateX(0) scale(0); opacity: 0; }
+  10% { opacity: 1; transform: scale(1); }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(-100vh) translateX(calc(var(--drift-x, 30px))) scale(0.3); opacity: 0; }
+}
+.mote {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: mote-drift var(--mote-dur, 12s) ease-in-out infinite;
+  animation-delay: var(--mote-delay, 0s);
+}
+
+/* ═══ Aurora Effect ═══ */
+@keyframes aurora-shift {
+  0% { transform: translateX(-25%) skewX(-5deg); opacity: 0.4; }
+  25% { transform: translateX(0%) skewX(2deg); opacity: 0.6; }
+  50% { transform: translateX(15%) skewX(-3deg); opacity: 0.35; }
+  75% { transform: translateX(-10%) skewX(4deg); opacity: 0.55; }
+  100% { transform: translateX(-25%) skewX(-5deg); opacity: 0.4; }
+}
+.aurora-band {
+  animation: aurora-shift var(--aurora-dur, 20s) ease-in-out infinite;
+  animation-delay: var(--aurora-delay, 0s);
+}
+
+/* ═══ Radial Burst (card reveal) ═══ */
+@keyframes radial-burst {
+  0% { transform: scale(0); opacity: 0.8; }
+  60% { opacity: 0.4; }
+  100% { transform: scale(3); opacity: 0; }
+}
+.radial-burst {
+  animation: radial-burst 0.8s ease-out forwards;
+}
+
+/* ═══ Screen Shake ═══ */
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-3px, 2px); }
+  20% { transform: translate(4px, -2px); }
+  30% { transform: translate(-2px, 3px); }
+  40% { transform: translate(3px, -1px); }
+  50% { transform: translate(-1px, 2px); }
+  60% { transform: translate(2px, -3px); }
+  70% { transform: translate(-4px, 1px); }
+  80% { transform: translate(1px, -2px); }
+  90% { transform: translate(-2px, 3px); }
+}
+.screen-shake {
+  animation: screen-shake 0.5s ease-out;
+}
+
+/* ═══ Energy Ring ═══ */
+@keyframes energy-ring-pulse {
+  0% { transform: scale(1); opacity: 0.6; box-shadow: 0 0 20px 4px rgba(125, 211, 252, 0.3); }
+  50% { transform: scale(1.15); opacity: 0.2; box-shadow: 0 0 40px 8px rgba(125, 211, 252, 0.5); }
+  100% { transform: scale(1); opacity: 0.6; box-shadow: 0 0 20px 4px rgba(125, 211, 252, 0.3); }
+}
+@keyframes energy-ring-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.energy-ring {
+  animation: energy-ring-pulse 2s ease-in-out infinite;
+}
+.energy-ring-rotate {
+  animation: energy-ring-rotate 8s linear infinite;
+}
+
+/* ═══ Glitch Text ═══ */
+@keyframes glitch-1 {
+  0%, 100% { clip-path: inset(0 0 96% 0); transform: translate(0); }
+  20% { clip-path: inset(20% 0 60% 0); transform: translate(-3px, 1px); }
+  40% { clip-path: inset(50% 0 30% 0); transform: translate(3px, -1px); }
+  60% { clip-path: inset(70% 0 10% 0); transform: translate(-2px, 2px); }
+  80% { clip-path: inset(10% 0 80% 0); transform: translate(2px, -2px); }
+}
+@keyframes glitch-2 {
+  0%, 100% { clip-path: inset(96% 0 0 0); transform: translate(0); }
+  20% { clip-path: inset(60% 0 20% 0); transform: translate(3px, -1px); }
+  40% { clip-path: inset(30% 0 50% 0); transform: translate(-3px, 1px); }
+  60% { clip-path: inset(10% 0 70% 0); transform: translate(2px, -2px); }
+  80% { clip-path: inset(80% 0 10% 0); transform: translate(-2px, 2px); }
+}
+
+/* ═══ Spark Particles (draw reveal) ═══ */
+@keyframes spark-fly {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--spark-x, 50px), var(--spark-y, -80px)) scale(0); opacity: 0; }
+}
+.spark {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: spark-fly 0.8s ease-out forwards;
+  animation-delay: var(--spark-delay, 0s);
+}
+
+/* ═══ Card Tilt Perspective ═══ */
+.tilt-card {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.15s ease-out, box-shadow 0.3s ease;
+}
+.tilt-card:hover {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
 /* ═══ Scrollbar ═══ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
