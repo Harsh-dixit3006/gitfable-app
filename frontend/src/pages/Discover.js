@@ -4,13 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Zap, ListFilter as Filter, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Zap, ListFilter as Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { colors, accent } from '@/lib/theme';
 import DrawAnimation, { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
 import InfoSidebar from '@/components/InfoSidebar';
 import IssueCardRow from '@/components/IssueCardRow';
+import { applyIssueFilters } from '@/pages/discoverUtils';
 
 const LANGUAGES = ['JavaScript', 'TypeScript', 'Python', 'Rust', 'Go', 'Java', 'Ruby', 'C', 'Dart', 'Elixir'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
@@ -157,44 +158,6 @@ function ParticleMotes() {
   );
 }
 
-function GlitchText({ children, className = '' }) {
-  const [glitching, setGlitching] = useState(false);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGlitching(true);
-      setTimeout(() => setGlitching(false), 200);
-    }, 4000 + Math.random() * 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <span className={`relative inline-block ${className}`}>
-      {children}
-      {glitching && (
-        <>
-          <span
-            className="absolute inset-0"
-            style={{
-              animation: 'glitch-1 0.2s ease-in-out',
-              color: `rgba(${colors.accent.rgb},0.7)`,
-            }}
-            aria-hidden
-          >{children}</span>
-          <span
-            className="absolute inset-0"
-            style={{
-              animation: 'glitch-2 0.2s ease-in-out',
-              color: `rgba(${colors.accent.rgb},0.5)`,
-            }}
-            aria-hidden
-          >{children}</span>
-        </>
-      )}
-    </span>
-  );
-}
-
 function AnimatedCounter({ value, duration = 1.5 }) {
   const [display, setDisplay] = useState(0);
   const ref = useRef(null);
@@ -265,19 +228,13 @@ export default function Discover() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const loadIdRef = useRef(0);
-
   useEffect(() => {
-    const id = ++loadIdRef.current;
     let cancelled = false;
 
     const load = async () => {
       setIssuesLoading(true);
       try {
         const params = { limit: 100 };
-        if (languages.length === 1) params.language = languages[0];
-        if (difficulties.length === 1) params.difficulty = difficulties[0];
-        if (rarities.length === 1) params.rarity = rarities[0];
 
         let all = [];
         let cursor = null;
@@ -299,7 +256,7 @@ export default function Discover() {
 
     load();
     return () => { cancelled = true; };
-  }, [languages, difficulties, rarities]);
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -432,33 +389,16 @@ export default function Discover() {
     return `${Math.floor(diff / 86400000)}d ${Math.floor((diff % 86400000) / 3600000)}h`;
   };
 
-  const tableData = useMemo(() => {
-    return issues.filter((issue) => {
-      const byLang = languages.length <= 1 || languages.includes(issue.language);
-      const byDiff = difficulties.length <= 1 || difficulties.includes(issue.difficulty);
-      const byRarity = rarities.length <= 1 || rarities.includes(issue.rarity);
-      return byLang && byDiff && byRarity;
-    });
-  }, [issues, languages, difficulties, rarities]);
-
   const filteredIssues = useMemo(() => {
-    let filtered = tableData;
-    if (issueQuery) {
-      const term = issueQuery.toLowerCase();
-      filtered = filtered.filter(issue =>
-        `${issue.repo} ${issue.title} ${(issue.labels || []).join(' ')}`.toLowerCase().includes(term)
-      );
-    }
-    filtered = [...filtered].sort((a, b) => {
-      const aVal = a[sortField] ?? 0;
-      const bVal = b[sortField] ?? 0;
-      if (typeof aVal === 'string') {
-        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      }
-      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+    return applyIssueFilters(issues, {
+      languages,
+      difficulties,
+      rarities,
+      query: issueQuery,
+      sortField,
+      sortDir,
     });
-    return filtered;
-  }, [tableData, issueQuery, sortField, sortDir]);
+  }, [issues, languages, difficulties, rarities, issueQuery, sortField, sortDir]);
 
   const totalPages = Math.ceil(filteredIssues.length / pageSize) || 1;
   const paginatedIssues = filteredIssues.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -500,31 +440,14 @@ export default function Discover() {
             transition={{ duration: 0.8, ease: EASE }}
             className="text-center mb-16"
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${accent.badge} mb-6`}
-            >
-              <motion.div
-                animate={{ rotate: [0, 180, 360] }}
-                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                className={`text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight bg-gradient-to-br ${accent.gradient} bg-clip-text text-transparent`}
               >
-                <Sparkles className={`w-4 h-4 ${accent.icon}`} />
-              </motion.div>
-              <span className={`text-sm font-mono ${accent.text} tracking-wider`}>DISCOVER YOUR NEXT QUEST</span>
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.6 }}
-              className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
-            >
-              <span className={`bg-gradient-to-br ${accent.gradient} bg-clip-text text-transparent`}>
-                <GlitchText>Draw Your Destiny</GlitchText>
-              </span>
-            </motion.h1>
+                Draw an Issue
+              </motion.h1>
 
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -532,7 +455,7 @@ export default function Discover() {
               transition={{ delay: 0.4, duration: 0.6 }}
               className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed"
             >
-              Experience the thrill of discovering perfect open-source issues through our gamified system.
+              Experience the thrill of discovering perfect open-source issues.
               <br />
               Each draw is a new adventure waiting to unfold.
             </motion.p>
@@ -606,7 +529,7 @@ export default function Discover() {
                   <h2 className="text-3xl font-bold mb-2 bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent" data-testid="issues-table-title">
                     All Issues
                   </h2>
-                  <p className="text-sm text-zinc-500" data-testid="issues-table-subtitle">
+                  <p className="text-base text-zinc-500" data-testid="issues-table-subtitle">
                     <AnimatedCounter value={filteredIssues.length} duration={0.8} /> issues available
                   </p>
                 </div>
@@ -671,7 +594,7 @@ export default function Discover() {
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <Filter className="w-4 h-4 text-zinc-500" />
-                          <span className="text-sm font-mono text-zinc-400 uppercase tracking-wider">Active Filters</span>
+                          <span className="text-base font-mono text-zinc-400 uppercase tracking-wider">Active Filters</span>
                         </div>
                         <AnimatePresence>
                           {activeFilterCount > 0 && (
@@ -697,7 +620,7 @@ export default function Discover() {
 
                       <div className="space-y-4">
                         <div>
-                          <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Languages</label>
+                              <label className="text-sm font-mono text-zinc-500 uppercase tracking-wider block mb-2">Languages</label>
                           <div className="flex flex-wrap gap-2">
                             {LANGUAGES.map((lang) => (
                               <motion.button
@@ -706,7 +629,7 @@ export default function Discover() {
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => toggleLang(lang)}
                                 data-testid={`filter-lang-${lang.toLowerCase()}`}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-mono border backdrop-blur-sm transition-all ${
                                   languages.includes(lang)
                                     ? accent.activeBtn
                                     : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
@@ -719,7 +642,7 @@ export default function Discover() {
                         </div>
 
                         <div>
-                          <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Difficulty</label>
+                              <label className="text-sm font-mono text-zinc-500 uppercase tracking-wider block mb-2">Difficulty</label>
                           <div className="flex flex-wrap gap-2">
                             {DIFFICULTIES.map((diff) => (
                               <motion.button
@@ -728,7 +651,7 @@ export default function Discover() {
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => toggleDiff(diff)}
                                 data-testid={`filter-diff-${diff.toLowerCase()}`}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-mono border backdrop-blur-sm transition-all ${
                                   difficulties.includes(diff)
                                     ? accent.activeBtn
                                     : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
@@ -741,7 +664,7 @@ export default function Discover() {
                         </div>
 
                         <div>
-                          <label className="text-xs font-mono text-zinc-500 uppercase tracking-wider block mb-2">Rarity</label>
+                              <label className="text-sm font-mono text-zinc-500 uppercase tracking-wider block mb-2">Rarity</label>
                           <div className="flex flex-wrap gap-2">
                             {RARITIES.map((r) => {
                               const Icon = RARITY[r].icon;
@@ -753,7 +676,7 @@ export default function Discover() {
                                   whileTap={{ scale: 0.95 }}
                                   onClick={() => toggleRarity(r)}
                                   data-testid={`filter-rarity-${r}`}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm inline-flex items-center gap-1.5 transition-all`}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-mono border backdrop-blur-sm inline-flex items-center gap-1.5 transition-all`}
                                   style={rarities.includes(r) ? {
                                     background: `${rarityData.accent}0.08)`,
                                     borderColor: `${rarityData.accent}0.4)`,
@@ -854,8 +777,6 @@ export default function Discover() {
                         className={`text-sm font-mono bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg px-3 py-1.5 outline-none ${accent.focusBorder} transition-colors`}
                       >
                         {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
-                        )
-                        }
                       </select>
                     </div>
 

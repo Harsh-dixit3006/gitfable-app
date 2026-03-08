@@ -21,12 +21,12 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
         <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${accent.divider} to-transparent`} />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <Zap className={`w-3.5 h-3.5 ${accent.textMuted}`} />
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Draw Budget</p>
+            <Zap className={`w-4 h-4 ${accent.textMuted}`} />
+            <p className="text-sm font-mono uppercase tracking-[0.18em] text-zinc-500">Draw Budget</p>
           </div>
           <div className="flex items-baseline gap-2">
             <p className={`text-2xl font-bold ${accent.text}`}>{redrawsRemaining}</p>
-            <p className="text-xs text-zinc-500 font-mono">remaining</p>
+            <p className="text-sm text-zinc-500 font-mono">remaining</p>
           </div>
         </div>
         <div className="absolute bottom-0 right-0 w-20 h-20 rounded-full blur-xl transition-colors duration-500" style={{ background: `rgba(${colors.accent.rgb},0.03)` }} />
@@ -41,8 +41,8 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
         <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${accent.divider} to-transparent`} />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3">
-            <Bookmark className={`w-3.5 h-3.5 ${accent.textMuted}`} />
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Active Bookmark</p>
+            <Bookmark className={`w-4 h-4 ${accent.textMuted}`} />
+            <p className="text-sm font-mono uppercase tracking-[0.18em] text-zinc-500">Active Bookmark</p>
           </div>
 
           {!activeBookmark ? (
@@ -50,8 +50,8 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
               <div className="w-12 h-12 rounded-full bg-zinc-800/40 border border-white/5 flex items-center justify-center mb-3">
                 <Bookmark className="w-5 h-5 text-zinc-600" />
               </div>
-              <p className="text-sm text-zinc-400 font-medium">No active bookmark</p>
-              <p className="text-xs text-zinc-600 mt-1">Draw an issue to start</p>
+                  <p className="text-base text-zinc-400 font-medium">No active bookmark</p>
+                  <p className="text-sm text-zinc-600 mt-1">Draw an issue to start</p>
             </div>
           ) : (
             <motion.div
@@ -60,13 +60,13 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
               className="space-y-3"
             >
               <RarityBadge rarity={activeBookmark.rarity} />
-              <p className="text-xs font-mono text-zinc-400 truncate">{activeBookmark.repo}</p>
-              <p className="text-sm text-zinc-200 leading-snug line-clamp-2 font-medium">{activeBookmark.title}</p>
+                  <p className="text-sm font-mono text-zinc-400 truncate">{activeBookmark.repo}</p>
+                  <p className="text-base text-zinc-200 leading-snug line-clamp-2 font-medium">{activeBookmark.title}</p>
 
               <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-zinc-900/60 border border-white/[0.06]">
-                <Clock className="w-3 h-3 text-zinc-500" strokeWidth={1.5} />
-                <span className="text-[10px] font-mono text-zinc-400">{getCountdown(activeBookmark.expires_at)}</span>
-              </div>
+                    <Clock className="w-3.5 h-3.5 text-zinc-500" strokeWidth={1.5} />
+                    <span className="text-sm font-mono text-zinc-400">{getCountdown(activeBookmark.expires_at)}</span>
+                  </div>
 
               {/* Action buttons */}
               <div className="flex flex-col gap-2 pt-1">
@@ -75,7 +75,7 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     data-testid="submit-pr-button"
-                    className="rune-btn px-3 py-2 rounded-lg text-xs font-mono uppercase tracking-wider w-full text-center flex items-center justify-center gap-2"
+                        className="rune-btn px-3 py-2 rounded-lg text-sm font-mono uppercase tracking-wider w-full text-center flex items-center justify-center gap-2"
                     onClick={() => onSubmitPR(activeBookmark.id)}
                   >
                     <Send className="w-3.5 h-3.5" />
@@ -87,7 +87,7 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     data-testid="verify-pr-button"
-                    className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono uppercase tracking-wider w-full flex items-center justify-center gap-2 shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)] hover:bg-emerald-500/20 transition-all duration-200"
+                        className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-mono uppercase tracking-wider w-full flex items-center justify-center gap-2 shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)] hover:bg-emerald-500/20 transition-all duration-200"
                     onClick={() => onVerify(activeBookmark.id)}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -101,7 +101,7 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
                   href={activeBookmark.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-2 rounded-lg text-zinc-400 hover:text-white text-xs font-mono uppercase tracking-wider hover:bg-white/5 border border-white/[0.06] hover:border-white/10 flex items-center justify-center gap-2 transition-all duration-200"
+                      className="px-3 py-2 rounded-lg text-zinc-400 hover:text-white text-sm font-mono uppercase tracking-wider hover:bg-white/5 border border-white/[0.06] hover:border-white/10 flex items-center justify-center gap-2 transition-all duration-200"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   View on GitHub
@@ -110,7 +110,7 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   data-testid="release-bookmark-button"
-                  className="px-3 py-2 rounded-lg text-zinc-500 hover:text-red-400 text-xs font-mono uppercase tracking-wider hover:bg-red-500/5 border border-transparent hover:border-red-500/20 w-full flex items-center justify-center gap-2 transition-all duration-200"
+                      className="px-3 py-2 rounded-lg text-zinc-500 hover:text-red-400 text-sm font-mono uppercase tracking-wider hover:bg-red-500/5 border border-transparent hover:border-red-500/20 w-full flex items-center justify-center gap-2 transition-all duration-200"
                   onClick={() => onRelease()}
                 >
                   <X className="w-3.5 h-3.5" />
@@ -131,16 +131,16 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmark, onSubmit
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300/20 to-transparent" />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-purple-300/60" />
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Draw Rewards</p>
-          </div>
-          <div className="space-y-2">
-            {Object.entries(RARITY).map(([key, data]) => (
-              <motion.div
-                key={key}
-                whileHover={{ x: 2 }}
-                className="flex items-center justify-between text-[11px] font-mono py-1.5 px-2 rounded-md hover:bg-white/[0.02] transition-colors"
-              >
+                <Sparkles className="w-4 h-4 text-purple-300/60" />
+                <p className="text-sm font-mono uppercase tracking-[0.18em] text-zinc-500">Draw Rewards</p>
+              </div>
+              <div className="space-y-2">
+                {Object.entries(RARITY).map(([key, data]) => (
+                  <motion.div
+                    key={key}
+                    whileHover={{ x: 2 }}
+                    className="flex items-center justify-between text-sm font-mono py-1.5 px-2 rounded-md hover:bg-white/[0.02] transition-colors"
+                  >
                 <span style={{ color: `${data.accent}0.8)` }}>{data.label}</span>
                 <span className="text-zinc-400">+{data.drawXP} XP</span>
               </motion.div>
