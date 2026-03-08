@@ -309,15 +309,16 @@ export default function Discover() {
   return (
     <div className="pt-20 pb-16 relative" data-testid="discover-page">
       {/* Ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(125,211,252,0.1) 0%, transparent 70%)' }} />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(251,191,36,0.08) 0%, transparent 70%)' }} />
 
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
         {/* Page Header */}
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE }}>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 tracking-tight">
-            <span className="text-sky-200 font-mono text-xl">//</span> Discover
+          <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-4">Discover</span>
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
+            Draw your next contribution.
           </h1>
-          <p className="text-zinc-300 text-base md:text-lg mb-8">Draw your next contribution from the archive.</p>
+          <p className="text-zinc-500 text-base md:text-lg mb-8">Find the issue that was meant for you.</p>
         </motion.div>
 
         {/* Hero Draw Area — sidebar + draw animation */}
@@ -353,11 +354,11 @@ export default function Discover() {
         >
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
             <div>
-              <h2 className="text-xl md:text-2xl font-semibold tracking-tight" data-testid="issues-table-title">
+              <h2 className="font-display text-xl md:text-2xl font-semibold tracking-tight" style={{ letterSpacing: '-0.05em' }} data-testid="issues-table-title">
                 Browse Issues
               </h2>
-              <p className="text-zinc-400 text-sm" data-testid="issues-table-subtitle">
-                Choose directly — XP on merge. Or <span className="text-sky-300">Draw</span> for 3× rarity-scaled rewards.
+              <p className="text-zinc-500 text-sm" data-testid="issues-table-subtitle">
+                Choose directly — XP on merge. Or <span className="text-amber-400">Draw</span> for 3× rarity-scaled rewards.
                 <span className="text-amber-400/60 ml-1">Legendary issues are draw-exclusive.</span>
               </p>
             </div>
@@ -378,7 +379,7 @@ export default function Discover() {
             {LANGUAGES.map(lang => (
               <button key={lang} onClick={() => toggleLang(lang)} data-testid={`filter-lang-${lang.toLowerCase()}`}
                 className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  languages.includes(lang) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                  languages.includes(lang) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
                 }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
                 {lang}
               </button>
@@ -387,7 +388,7 @@ export default function Discover() {
             {DIFFICULTIES.map(diff => (
               <button key={diff} onClick={() => toggleDiff(diff)} data-testid={`filter-diff-${diff.toLowerCase()}`}
                 className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  difficulties.includes(diff) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                  difficulties.includes(diff) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
                 }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
                 {diff}
               </button>
@@ -398,7 +399,7 @@ export default function Discover() {
               return (
                 <button key={r} onClick={() => toggleRarity(r)} data-testid={`filter-rarity-${r}`}
                   className={`px-3 py-1.5 rounded-md text-xs font-mono border inline-flex items-center gap-1.5 ${
-                    rarities.includes(r) ? 'bg-sky-300/12 border-sky-300/35 text-sky-100 shadow-[0_0_12px_-6px_rgba(125,211,252,0.8)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
+                    rarities.includes(r) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
                   }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
                   {Icon && <Icon className="w-3 h-3" />}
                   {RARITY[r].label}
@@ -435,7 +436,7 @@ export default function Discover() {
                   data-testid="page-size-select"
                   value={pageSize}
                   onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                  className="text-xs font-mono bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md px-2 py-1 outline-none focus:border-sky-300/30"
+                  className="text-xs font-mono bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md px-2 py-1 outline-none focus:border-amber-400/30"
                 >
                   {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
                 </select>
@@ -462,7 +463,7 @@ export default function Discover() {
                     onClick={() => setCurrentPage(p)}
                     className={`min-w-[28px] h-7 rounded-md text-xs font-mono ${
                       p === currentPage
-                        ? 'bg-sky-300/12 border border-sky-300/35 text-sky-100'
+                        ? 'bg-amber-400/10 border border-amber-400/30 text-amber-200'
                         : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
                     }`}
                   >
@@ -492,7 +493,7 @@ export default function Discover() {
                   type="number"
                   min={1}
                   max={totalPages}
-                  className="w-14 h-7 text-xs font-mono text-center bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md outline-none focus:border-sky-300/30"
+                  className="w-14 h-7 text-xs font-mono text-center bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md outline-none focus:border-amber-400/30"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const val = parseInt(e.target.value, 10);
