@@ -9,7 +9,7 @@ import { Crown, Medal } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const PODIUM_CONFIG = [
-  { accent: 'sky', border: 'border-sky-300/40', glow: '0 0 30px -10px rgba(125,211,252,0.55)', icon: Crown, color: 'text-sky-200', bgGlow: 'rgba(125,211,252,0.08)' },
+  { accent: 'amber', border: 'border-amber-400/35', glow: '0 0 30px -10px rgba(251,191,36,0.45)', icon: Crown, color: 'text-amber-300', bgGlow: 'rgba(251,191,36,0.06)' },
   { accent: 'zinc', border: 'border-zinc-400/20', glow: 'none', icon: Medal, color: 'text-zinc-300', bgGlow: 'rgba(255,255,255,0.02)' },
   { accent: 'slate', border: 'border-slate-400/25', glow: 'none', icon: Medal, color: 'text-slate-300', bgGlow: 'rgba(148,163,184,0.05)' },
 ];
@@ -38,20 +38,21 @@ export default function Leaderboard() {
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="leaderboard-page">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] pointer-events-none" style={{ background: 'radial-gradient(ellipse, rgba(125,211,252,0.08) 0%, transparent 70%)' }} />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] pointer-events-none" style={{ background: 'radial-gradient(ellipse, rgba(251,191,36,0.06) 0%, transparent 70%)' }} />
 
       <div className="max-w-5xl mx-auto px-6 sm:px-8 lg:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif mb-2 tracking-tight">
-            <span className="text-sky-200 font-mono text-xl">//</span> Leaderboard
+          <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-4">Leaderboard</span>
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
+            The most prolific authors.
           </h1>
-          <p className="text-zinc-400 text-base md:text-lg mb-8">The most prolific authors of open source.</p>
+          <p className="text-zinc-500 text-base md:text-lg mb-8">Open-source legends, ranked by contribution.</p>
 
           <Tabs value={period} onValueChange={setPeriod} className="mb-10">
             <TabsList className="bg-zinc-950/80 border border-white/5 p-1">
               {['weekly', 'monthly', 'all-time'].map(p => (
                 <TabsTrigger key={p} value={p} data-testid={`tab-${p}`}
-                  className="data-[state=active]:bg-sky-300/10 data-[state=active]:text-sky-100 data-[state=active]:border-sky-300/30 data-[state=active]:shadow-[0_0_14px_-8px_rgba(125,211,252,0.8)] font-mono text-xs uppercase tracking-wider border border-transparent rounded-md px-4 py-2">
+                  className="data-[state=active]:bg-amber-400/10 data-[state=active]:text-amber-200 data-[state=active]:border-amber-400/25 data-[state=active]:shadow-[0_0_14px_-8px_rgba(251,191,36,0.6)] font-mono text-xs uppercase tracking-wider border border-transparent rounded-md px-4 py-2">
                   {p === 'all-time' ? 'All Time' : p.charAt(0).toUpperCase() + p.slice(1)}
                 </TabsTrigger>
               ))}
@@ -88,14 +89,14 @@ export default function Leaderboard() {
                         <div className="relative flex flex-col items-center text-center">
                           <cfg.icon className={`w-5 h-5 ${cfg.color} mb-3`} strokeWidth={1.5} />
                           <div className="relative mb-3">
-                            {isFirst && <div className="absolute -inset-1.5 rounded-full bg-sky-300/20 blur-md" />}
+                            {isFirst && <div className="absolute -inset-1.5 rounded-full bg-amber-400/15 blur-md" />}
                             <Avatar className={`relative ${isFirst ? 'w-16 h-16' : 'w-12 h-12'} border-2 ${cfg.border}`}>
                               <AvatarImage src={u.avatar_url} />
-                              <AvatarFallback className="bg-zinc-900 font-serif">{u.username?.[0]?.toUpperCase()}</AvatarFallback>
+                              <AvatarFallback className="bg-zinc-900 font-display">{u.username?.[0]?.toUpperCase()}</AvatarFallback>
                             </Avatar>
                           </div>
                           <p className="font-medium text-sm truncate max-w-full text-zinc-200">{u.username}</p>
-                          <p className="text-xs font-mono text-sky-100 mt-1 font-bold">{u.xp?.toLocaleString()} XP</p>
+                          <p className="text-xs font-mono text-amber-200 mt-1 font-bold">{u.xp?.toLocaleString()} XP</p>
                           <p className="text-xs text-zinc-600 font-mono">Lv.{u.level}</p>
                         </div>
                       </motion.div>
@@ -121,7 +122,7 @@ export default function Leaderboard() {
                       <TableRow
                         key={u.username}
                         className={`border-white/[0.03] cursor-pointer hover:bg-white/[0.02] ${
-                          user?.username === u.username ? 'bg-sky-300/[0.04] border-l-2 border-l-sky-300/55' : ''
+                          user?.username === u.username ? 'bg-amber-400/[0.04] border-l-2 border-l-amber-400/40' : ''
                         }`}
                         onClick={() => navigate(`/u/${u.username}`)}
                         data-testid={`leaderboard-row-${u.rank}`}
@@ -136,7 +137,7 @@ export default function Leaderboard() {
                             <span className="font-medium text-sm text-zinc-300">{u.username}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs text-sky-100">Lv.{u.level}</TableCell>
+                        <TableCell className="text-right font-mono text-xs text-amber-200">Lv.{u.level}</TableCell>
                         <TableCell className="text-right font-mono text-xs text-zinc-300">{u.xp?.toLocaleString()}</TableCell>
                         <TableCell className="text-right font-mono text-xs text-zinc-500 hidden sm:table-cell">{u.total_contributions}</TableCell>
                       </TableRow>
@@ -147,7 +148,7 @@ export default function Leaderboard() {
 
               {/* Pinned user row */}
               {user && !users.find(u => u.username === user.username) && (
-                <div className="fixed bottom-0 left-0 right-0 border-t border-sky-300/20 bg-zinc-950/95 backdrop-blur-xl py-3 px-6 z-40" data-testid="pinned-user-row">
+                <div className="fixed bottom-0 left-0 right-0 border-t border-amber-400/15 bg-zinc-950/95 backdrop-blur-xl py-3 px-6 z-40" data-testid="pinned-user-row">
                   <div className="max-w-5xl mx-auto flex items-center gap-4">
                     <span className="text-xs text-zinc-600 font-mono w-8 text-center">--</span>
                     <Avatar className="w-7 h-7 border border-white/5">
@@ -155,7 +156,7 @@ export default function Leaderboard() {
                       <AvatarFallback className="bg-zinc-900">{user.username?.[0]?.toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <span className="font-medium text-sm flex-1 text-zinc-300">{user.username}</span>
-                    <span className="font-mono text-xs text-sky-100 font-bold">{user.xp} XP</span>
+                    <span className="font-mono text-xs text-amber-200 font-bold">{user.xp} XP</span>
                     <span className="font-mono text-xs text-zinc-600">Lv.{user.level}</span>
                   </div>
                 </div>
