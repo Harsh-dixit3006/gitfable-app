@@ -39,16 +39,24 @@ services:
     container_name: gitfable-backend
     restart: unless-stopped
     ports:
-      - "8001:8001"
+      - "${PORT:-8001}:8001"
     environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - PORT=8001
       - DATABASE_URL=postgresql://gitfable:gitfable@postgres:5432/gitfable?sslmode=disable
       - MIGRATIONS_PATH=/migrations
       - REDIS_URL=redis://redis:6379
+      - DB_POOL_SIZE=${DB_POOL_SIZE:-25}
       - CORS_ORIGINS=http://localhost:3000,http://frontend:80
-      - ENVIRONMENT=development
-      - FIREBASE_SERVICE_ACCOUNT_PATH=/creds/gitfable-app-firebase-adminsdk-fbsvc-1faf6f92c5.json
-    env_file:
-      - ../backend/.env
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - FIREBASE_SERVICE_ACCOUNT_PATH=/creds/firebase.json
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-gitfable-app}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - SYNC_ENABLED=${SYNC_ENABLED:-true}
+      - SYNC_INTERVAL=${SYNC_INTERVAL:-6h}
+      - STALE_INTERVAL=${STALE_INTERVAL:-12h}
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,13 +70,13 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_BACKEND_URL=http://localhost:8001
-        - REACT_APP_FIREBASE_API_KEY=AIzaSyDRgUUCN6XjWtaknC3AltGdqdnbPrURoAE
-        - REACT_APP_FIREBASE_AUTH_DOMAIN=gitfable-app.firebaseapp.com
-        - REACT_APP_FIREBASE_PROJECT_ID=gitfable-app
-        - REACT_APP_FIREBASE_STORAGE_BUCKET=gitfable-app.firebasestorage.app
-        - REACT_APP_FIREBASE_MESSAGING_SENDER_ID=30932902369
-        - REACT_APP_FIREBASE_APP_ID=1:30932902369:web:cfcb19db92cda374b432a0
+        - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL:-http://localhost:8001}
+        - REACT_APP_FIREBASE_API_KEY=${REACT_APP_FIREBASE_API_KEY}
+        - REACT_APP_FIREBASE_AUTH_DOMAIN=${REACT_APP_FIREBASE_AUTH_DOMAIN}
+        - REACT_APP_FIREBASE_PROJECT_ID=${REACT_APP_FIREBASE_PROJECT_ID}
+        - REACT_APP_FIREBASE_STORAGE_BUCKET=${REACT_APP_FIREBASE_STORAGE_BUCKET}
+        - REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
+        - REACT_APP_FIREBASE_APP_ID=${REACT_APP_FIREBASE_APP_ID}
     container_name: gitfable-frontend
     restart: unless-stopped
     ports:
