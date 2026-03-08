@@ -7,6 +7,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Zap, ListFilter as Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { colors, accent } from '@/lib/theme';
 import DrawAnimation, { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
 import InfoSidebar from '@/components/InfoSidebar';
 import IssueCardRow from '@/components/IssueCardRow';
@@ -55,7 +56,7 @@ function normalizeHistoryDraw(draw) {
   };
 }
 
-function FloatingOrb({ delay = 0, duration = 20, color = 'rgba(251,191,36,0.15)', size = 300 }) {
+function FloatingOrb({ delay = 0, duration = 20, color = `rgba(${colors.accent.rgb},0.15)`, size = 300 }) {
   return (
     <motion.div
       className="absolute rounded-full blur-3xl pointer-events-none"
@@ -86,7 +87,7 @@ function AuroraBands() {
       <div
         className="aurora-band absolute -top-20 left-0 right-0 h-[300px] opacity-40"
         style={{
-          background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(217,119,6,0.04) 30%, transparent 60%)',
+          background: `linear-gradient(135deg, rgba(${colors.accent.rgb},0.08) 0%, rgba(${colors.accent.rgb},0.04) 30%, transparent 60%)`,
           filter: 'blur(60px)',
           '--aurora-dur': '18s',
           '--aurora-delay': '0s',
@@ -95,7 +96,7 @@ function AuroraBands() {
       <div
         className="aurora-band absolute -top-10 left-0 right-0 h-[250px] opacity-30"
         style={{
-          background: 'linear-gradient(160deg, transparent 20%, rgba(252,211,77,0.06) 50%, rgba(245,158,11,0.03) 80%, transparent 100%)',
+          background: `linear-gradient(160deg, transparent 20%, rgba(${colors.accent.rgb},0.06) 50%, rgba(${colors.accent.rgb},0.03) 80%, transparent 100%)`,
           filter: 'blur(50px)',
           '--aurora-dur': '24s',
           '--aurora-delay': '-6s',
@@ -104,7 +105,7 @@ function AuroraBands() {
       <div
         className="aurora-band absolute top-0 left-0 right-0 h-[200px] opacity-25"
         style={{
-          background: 'linear-gradient(180deg, rgba(251,191,36,0.05) 0%, transparent 100%)',
+          background: `linear-gradient(180deg, rgba(${colors.accent.rgb},0.05) 0%, transparent 100%)`,
           filter: 'blur(40px)',
           '--aurora-dur': '15s',
           '--aurora-delay': '-3s',
@@ -125,10 +126,10 @@ function ParticleMotes() {
       delay: Math.random() * 12,
       driftX: (Math.random() - 0.5) * 60,
       color: [
-        'rgba(251,191,36,0.6)',
-        'rgba(245,158,11,0.5)',
-        'rgba(217,119,6,0.4)',
-        'rgba(253,230,138,0.5)',
+        `rgba(${colors.accent.rgb},0.6)`,
+        `rgba(${colors.accent.rgb},0.5)`,
+        `rgba(${colors.accent.rgb},0.4)`,
+        `rgba(${colors.accent.rgb},0.5)`,
       ][Math.floor(Math.random() * 4)],
     })),
   []);
@@ -176,7 +177,7 @@ function GlitchText({ children, className = '' }) {
             className="absolute inset-0"
             style={{
               animation: 'glitch-1 0.2s ease-in-out',
-              color: 'rgba(251,191,36,0.7)',
+              color: `rgba(${colors.accent.rgb},0.7)`,
             }}
             aria-hidden
           >{children}</span>
@@ -184,7 +185,7 @@ function GlitchText({ children, className = '' }) {
             className="absolute inset-0"
             style={{
               animation: 'glitch-2 0.2s ease-in-out',
-              color: 'rgba(245,158,11,0.5)',
+              color: `rgba(${colors.accent.rgb},0.5)`,
             }}
             aria-hidden
           >{children}</span>
@@ -478,9 +479,9 @@ export default function Discover() {
     <div className="relative min-h-screen overflow-hidden" data-testid="discover-page">
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950" />
-        <FloatingOrb delay={0} duration={25} color="rgba(251,191,36,0.08)" size={400} />
-        <FloatingOrb delay={3} duration={30} color="rgba(245,158,11,0.05)" size={350} />
-        <FloatingOrb delay={6} duration={28} color="rgba(217,119,6,0.04)" size={300} />
+        <FloatingOrb delay={0} duration={25} color={`rgba(${colors.accent.rgb},0.08)`} size={400} />
+        <FloatingOrb delay={3} duration={30} color={`rgba(${colors.accent.rgb},0.05)`} size={350} />
+        <FloatingOrb delay={6} duration={28} color={`rgba(${colors.accent.rgb},0.04)`} size={300} />
       </div>
 
       <AuroraBands />
@@ -503,15 +504,15 @@ export default function Discover() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-300/5 border border-amber-300/20 mb-6"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${accent.badge} mb-6`}
             >
               <motion.div
                 animate={{ rotate: [0, 180, 360] }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
               >
-                <Sparkles className="w-4 h-4 text-amber-300" />
+                <Sparkles className={`w-4 h-4 ${accent.icon}`} />
               </motion.div>
-              <span className="text-sm font-mono text-amber-200 tracking-wider">DISCOVER YOUR NEXT QUEST</span>
+              <span className={`text-sm font-mono ${accent.text} tracking-wider`}>DISCOVER YOUR NEXT QUEST</span>
             </motion.div>
 
             <motion.h1
@@ -520,7 +521,7 @@ export default function Discover() {
               transition={{ delay: 0.3, duration: 0.6 }}
               className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
             >
-              <span className="bg-gradient-to-br from-white via-amber-100 to-zinc-400 bg-clip-text text-transparent">
+              <span className={`bg-gradient-to-br ${accent.gradient} bg-clip-text text-transparent`}>
                 <GlitchText>Draw Your Destiny</GlitchText>
               </span>
             </motion.h1>
@@ -540,7 +541,7 @@ export default function Discover() {
               initial={{ opacity: 0, scaleX: 0 }}
               animate={{ opacity: 1, scaleX: 1 }}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="mt-8 mx-auto w-48 h-px bg-gradient-to-r from-transparent via-amber-300/30 to-transparent"
+              className={`mt-8 mx-auto w-48 h-px bg-gradient-to-r from-transparent ${accent.divider} to-transparent`}
             />
           </motion.div>
 
@@ -585,7 +586,7 @@ export default function Discover() {
             <div className="relative flex justify-center">
               <motion.div
                 className="px-6 py-2 rounded-full bg-zinc-950/90 border border-white/10 backdrop-blur-sm"
-                whileHover={{ scale: 1.05, borderColor: 'rgba(251,191,36,0.3)' }}
+                whileHover={{ scale: 1.05, borderColor: `rgba(${colors.accent.rgb},0.3)` }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
                 <span className="text-sm font-mono text-zinc-500 uppercase tracking-wider">Browse Collection</span>
@@ -617,7 +618,7 @@ export default function Discover() {
                       value={issueQuery}
                       onChange={(e) => setIssueQuery(e.target.value)}
                       placeholder="Search issues..."
-                      className="pl-11 pr-4 py-3 bg-zinc-900/40 border-white/[0.08] rounded-xl hover:border-white/15 focus:border-amber-300/40 transition-all backdrop-blur-sm"
+                      className={`pl-11 pr-4 py-3 bg-zinc-900/40 border-white/[0.08] rounded-xl hover:border-white/15 ${accent.focusBorder} transition-all backdrop-blur-sm`}
                       data-testid="issues-table-search-input"
                     />
                   </div>
@@ -628,7 +629,7 @@ export default function Discover() {
                     onClick={() => setShowFilters(!showFilters)}
                     className={`relative px-4 py-3 rounded-xl border backdrop-blur-sm transition-all ${
                       showFilters || activeFilterCount > 0
-                        ? 'bg-amber-300/10 border-amber-300/40 text-amber-200'
+                        ? accent.activeBtn
                         : 'bg-zinc-900/40 border-white/[0.08] text-zinc-400 hover:border-white/15'
                     }`}
                   >
@@ -647,7 +648,7 @@ export default function Discover() {
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0, opacity: 0 }}
-                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-amber-400 text-zinc-950 text-xs font-bold flex items-center justify-center"
+                          className={`absolute -top-2 -right-2 w-6 h-6 rounded-full ${accent.badgeCount} text-zinc-950 text-xs font-bold flex items-center justify-center`}
                         >
                           {activeFilterCount}
                         </motion.div>
@@ -707,7 +708,7 @@ export default function Discover() {
                                 data-testid={`filter-lang-${lang.toLowerCase()}`}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
                                   languages.includes(lang)
-                                    ? 'bg-amber-300/10 border-amber-300/40 text-amber-200 shadow-[0_0_12px_-4px_rgba(251,191,36,0.4)]'
+                                    ? accent.activeBtn
                                     : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
                                 }`}
                               >
@@ -729,7 +730,7 @@ export default function Discover() {
                                 data-testid={`filter-diff-${diff.toLowerCase()}`}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-mono border backdrop-blur-sm transition-all ${
                                   difficulties.includes(diff)
-                                    ? 'bg-amber-300/10 border-amber-300/40 text-amber-200 shadow-[0_0_12px_-4px_rgba(251,191,36,0.4)]'
+                                    ? accent.activeBtn
                                     : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
                                 }`}
                               >
@@ -850,7 +851,7 @@ export default function Discover() {
                         data-testid="page-size-select"
                         value={pageSize}
                         onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                        className="text-sm font-mono bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg px-3 py-1.5 outline-none focus:border-amber-300/40 transition-colors"
+                        className={`text-sm font-mono bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg px-3 py-1.5 outline-none ${accent.focusBorder} transition-colors`}
                       >
                         {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
                         )
@@ -887,7 +888,7 @@ export default function Discover() {
                             onClick={() => setCurrentPage(p)}
                             className={`min-w-[36px] h-9 rounded-lg text-sm font-mono transition-all ${
                               p === currentPage
-                                ? 'bg-amber-300/10 border border-amber-300/30 text-amber-200 shadow-[0_0_12px_-4px_rgba(251,191,36,0.4)]'
+                                ? `${accent.activeBtn} border`
                                 : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
                             }`}
                           >
@@ -924,7 +925,7 @@ export default function Discover() {
                         min={1}
                         max={totalPages}
                         placeholder={currentPage.toString()}
-                        className="w-16 h-9 text-sm font-mono text-center bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg outline-none focus:border-amber-300/40 transition-colors"
+                        className={`w-16 h-9 text-sm font-mono text-center bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg outline-none ${accent.focusBorder} transition-colors`}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             const val = parseInt(e.target.value, 10);
@@ -955,7 +956,7 @@ export default function Discover() {
               placeholder="https://github.com/.../pull/123"
               value={prUrl}
               onChange={e => setPrUrl(e.target.value)}
-              className="bg-zinc-900/60 border-white/10 font-mono text-sm py-3 rounded-xl focus:border-amber-300/40 transition-colors"
+              className={`bg-zinc-900/60 border-white/10 font-mono text-sm py-3 rounded-xl ${accent.focusBorder} transition-colors`}
               data-testid="pr-url-input"
             />
             <motion.button
