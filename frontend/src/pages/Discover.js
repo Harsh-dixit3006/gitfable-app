@@ -3,8 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { motion } from 'framer-motion';
-import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, X, Sparkles, Shuffle } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import DrawAnimation, { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
@@ -58,6 +58,37 @@ function normalizeHistoryDraw(draw) {
   };
 }
 
+// Filter chip component
+function FilterChip({ label, active, onClick, icon: Icon, testId }) {
+  return (
+    <button
+      onClick={onClick}
+      data-testid={testId}
+      className={`
+        filter-chip flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono border
+        ${active 
+          ? 'filter-chip-active' 
+          : 'bg-zinc-900/60 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/80'
+        }
+      `}
+    >
+      {Icon && <Icon className="w-3 h-3" />}
+      {label}
+    </button>
+  );
+}
+
+// Filter section component
+function FilterSection({ title, children }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-zinc-600 whitespace-nowrap">{title}</span>
+      <div className="w-px h-4 bg-zinc-800" />
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
 export default function Discover() {
   const { user, setShowLogin, refreshUser } = useAuth();
   const [languages, setLanguages] = useState([]);
@@ -76,6 +107,7 @@ export default function Discover() {
   const [issueQuery, setIssueQuery] = useState('');
   const [choosingIssueId, setChoosingIssueId] = useState(null);
   const [xpAwarded, setXpAwarded] = useState(null);
+  const [showFilters, setShowFilters] = useState(true);
   const shuffleRef = useRef([]);
 
   // Pagination state
@@ -159,6 +191,15 @@ export default function Discover() {
   const toggleLang = (lang) => setLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]);
   const toggleDiff = (diff) => setDifficulties(prev => prev.includes(diff) ? prev.filter(d => d !== diff) : [...prev, diff]);
   const toggleRarity = (r) => setRarities(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+
+  const clearAllFilters = () => {
+    setLanguages([]);
+    setDifficulties([]);
+    setRarities([]);
+    setIssueQuery('');
+  };
+
+  const activeFilterCount = languages.length + difficulties.length + rarities.length + (issueQuery ? 1 : 0);
 
   const handleDraw = useCallback(async () => {
     if (!user) { setShowLogin(true); return; }
@@ -307,22 +348,49 @@ export default function Discover() {
   };
 
   return (
-    <div className="pt-20 pb-16 relative" data-testid="discover-page">
-      {/* Ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(251,191,36,0.08) 0%, transparent 70%)' }} />
+    <div className="pt-20 pb-16 relative min-h-screen" data-testid="discover-page">
+      {/* Ambient background effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div 
+          className="absolute top-0 left-1/4 w-[600px] h-[400px] animate-soft-glow" 
+          style={{ background: 'radial-gradient(ellipse, rgba(14,165,233,0.06) 0%, transparent 70%)' }} 
+        />
+        <div 
+          className="absolute bottom-1/4 right-1/4 w-[500px] h-[350px] animate-soft-glow" 
+          style={{ 
+            background: 'radial-gradient(ellipse, rgba(168,85,247,0.04) 0%, transparent 70%)',
+            animationDelay: '2s'
+          }} 
+        />
+      </div>
 
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 relative">
         {/* Page Header */}
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE }}>
-          <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-4">Discover</span>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
+        <motion.header 
+          initial={{ opacity: 0, y: 24 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          transition={{ duration: 0.6, ease: EASE }}
+          className="mb-12"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <span className="font-mono text-[10px] text-sky-400/70 uppercase tracking-[0.3em]">Discover</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-sky-500/20 to-transparent" />
+          </div>
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 tracking-tight text-white">
             Draw your next contribution.
           </h1>
-          <p className="text-zinc-500 text-base md:text-lg mb-8">Find the issue that was meant for you.</p>
-        </motion.div>
+          <p className="text-zinc-400 text-base md:text-lg max-w-xl">
+            Discover open source issues matched to your skills. Draw for bonus XP or browse to choose directly.
+          </p>
+        </motion.header>
 
         {/* Hero Draw Area — sidebar + draw animation */}
-        <div className="flex gap-6 items-start justify-center mb-16">
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
+          className="flex flex-col lg:flex-row gap-6 items-start justify-center mb-20"
+        >
           <InfoSidebar
             redrawsRemaining={redrawsRemaining}
             activeBookmark={activeBookmark}
@@ -343,184 +411,305 @@ export default function Discover() {
               redrawsRemaining={redrawsRemaining}
             />
           </div>
-        </div>
+        </motion.section>
 
         {/* Browse Section */}
         <motion.section
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.72, ease: EASE, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: EASE }}
           data-testid="issues-table-section"
         >
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
+          {/* Section header */}
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
             <div>
-              <h2 className="font-display text-xl md:text-2xl font-semibold tracking-tight" style={{ letterSpacing: '-0.05em' }} data-testid="issues-table-title">
-                Browse Issues
-              </h2>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-sky-400/60" />
+                <h2 
+                  className="font-display text-xl md:text-2xl font-bold tracking-tight text-white" 
+                  data-testid="issues-table-title"
+                >
+                  Browse Issues
+                </h2>
+              </div>
               <p className="text-zinc-500 text-sm" data-testid="issues-table-subtitle">
-                Choose directly — XP on merge. Or <span className="text-amber-400">Draw</span> for 3× rarity-scaled rewards.
-                <span className="text-amber-400/60 ml-1">Legendary issues are draw-exclusive.</span>
+                Choose directly for XP on merge, or{' '}
+                <span className="text-sky-400 font-medium">Draw</span> for 3x rarity-scaled rewards.
+                <span className="text-amber-400/70 ml-1">Legendary issues are draw-exclusive.</span>
               </p>
             </div>
+
+            {/* Search input */}
             <div className="relative w-full md:w-[340px]">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
               <Input
                 value={issueQuery}
                 onChange={(e) => setIssueQuery(e.target.value)}
-                placeholder="Search by repo, title, or label..."
-                className="pl-10 bg-zinc-900/60 border-white/10"
+                placeholder="Search repos, titles, or labels..."
+                className="pl-10 pr-10 bg-zinc-900/60 border-zinc-800 focus:border-sky-500/50 focus:ring-sky-500/20 placeholder:text-zinc-600"
                 data-testid="issues-table-search-input"
               />
-            </div>
-          </div>
-
-          {/* Inline filter chips */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {LANGUAGES.map(lang => (
-              <button key={lang} onClick={() => toggleLang(lang)} data-testid={`filter-lang-${lang.toLowerCase()}`}
-                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  languages.includes(lang) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                {lang}
-              </button>
-            ))}
-            <div className="w-px h-6 bg-white/10 self-center mx-1" />
-            {DIFFICULTIES.map(diff => (
-              <button key={diff} onClick={() => toggleDiff(diff)} data-testid={`filter-diff-${diff.toLowerCase()}`}
-                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  difficulties.includes(diff) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                {diff}
-              </button>
-            ))}
-            <div className="w-px h-6 bg-white/10 self-center mx-1" />
-            {RARITIES.map(r => {
-              const Icon = RARITY[r].icon;
-              return (
-                <button key={r} onClick={() => toggleRarity(r)} data-testid={`filter-rarity-${r}`}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono border inline-flex items-center gap-1.5 ${
-                    rarities.includes(r) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                  }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                  {Icon && <Icon className="w-3 h-3" />}
-                  {RARITY[r].label}
+              {issueQuery && (
+                <button
+                  onClick={() => setIssueQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Issue card list */}
-          {issuesLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-lg shimmer" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {paginatedIssues.map(issue => (
-                <IssueCardRow key={issue.id} issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
-              ))}
-              {filteredIssues.length === 0 && (
-                <p className="text-center text-zinc-500 py-12 font-mono text-sm">No issues match your filters.</p>
               )}
             </div>
-          )}
+          </div>
+
+          {/* Filter bar */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 text-xs font-mono text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                <Filter className="w-3.5 h-3.5" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[10px]">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs font-mono text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex flex-col gap-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/50">
+                    {/* Language filters */}
+                    <FilterSection title="Language">
+                      {LANGUAGES.map(lang => (
+                        <FilterChip
+                          key={lang}
+                          label={lang}
+                          active={languages.includes(lang)}
+                          onClick={() => toggleLang(lang)}
+                          testId={`filter-lang-${lang.toLowerCase()}`}
+                        />
+                      ))}
+                    </FilterSection>
+
+                    {/* Difficulty filters */}
+                    <FilterSection title="Difficulty">
+                      {DIFFICULTIES.map(diff => (
+                        <FilterChip
+                          key={diff}
+                          label={diff}
+                          active={difficulties.includes(diff)}
+                          onClick={() => toggleDiff(diff)}
+                          testId={`filter-diff-${diff.toLowerCase()}`}
+                        />
+                      ))}
+                    </FilterSection>
+
+                    {/* Rarity filters */}
+                    <FilterSection title="Rarity">
+                      {RARITIES.map(r => {
+                        const Icon = RARITY[r]?.icon;
+                        return (
+                          <FilterChip
+                            key={r}
+                            label={RARITY[r]?.label}
+                            active={rarities.includes(r)}
+                            onClick={() => toggleRarity(r)}
+                            icon={Icon}
+                            testId={`filter-rarity-${r}`}
+                          />
+                        );
+                      })}
+                    </FilterSection>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Issue list */}
+          <div className="space-y-2">
+            {issuesLoading ? (
+              // Loading skeletons
+              Array.from({ length: 5 }).map((_, i) => (
+                <div 
+                  key={i} 
+                  className="h-[88px] rounded-xl shimmer"
+                  style={{ animationDelay: `${i * 0.1}s` }}
+                />
+              ))
+            ) : paginatedIssues.length > 0 ? (
+              paginatedIssues.map((issue, index) => (
+                <IssueCardRow 
+                  key={issue.id} 
+                  issue={issue} 
+                  onChoose={handleChooseIssue} 
+                  choosingIssueId={choosingIssueId}
+                  index={index}
+                />
+              ))
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-16 rounded-xl border border-dashed border-zinc-800"
+              >
+                <Shuffle className="w-8 h-8 text-zinc-700 mx-auto mb-3" />
+                <p className="text-zinc-500 font-mono text-sm">No issues match your filters.</p>
+                <button
+                  onClick={clearAllFilters}
+                  className="mt-3 text-xs text-sky-400 hover:text-sky-300 font-mono transition-colors"
+                >
+                  Clear filters
+                </button>
+              </motion.div>
+            )}
+          </div>
 
           {/* Pagination */}
           {!issuesLoading && filteredIssues.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-zinc-600 font-mono">{filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}</span>
-                <div className="w-px h-3 bg-white/10" />
-                <select
-                  data-testid="page-size-select"
-                  value={pageSize}
-                  onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                  className="text-xs font-mono bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md px-2 py-1 outline-none focus:border-amber-400/30"
-                >
-                  {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
-                </select>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap items-center justify-between gap-4 mt-8 pt-6 border-t border-zinc-800/50"
+            >
+              {/* Left: count + page size */}
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-zinc-500 font-mono">
+                  {filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}
+                </span>
+                <div className="w-px h-4 bg-zinc-800" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-600 font-mono">Show</span>
+                  <select
+                    data-testid="page-size-select"
+                    value={pageSize}
+                    onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                    className="text-xs font-mono bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-sky-500/50 transition-colors cursor-pointer"
+                  >
+                    {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              {/* Right: pagination controls */}
+              <div className="flex items-center gap-2">
+                {/* First/Prev */}
                 <button
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                  className="p-2 rounded-lg border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 hover:bg-zinc-800/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
                 >
-                  <ChevronsLeft className="w-3.5 h-3.5" />
+                  <ChevronsLeft className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                  className="p-2 rounded-lg border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 hover:bg-zinc-800/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                {getPageNumbers().map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setCurrentPage(p)}
-                    className={`min-w-[28px] h-7 rounded-md text-xs font-mono ${
-                      p === currentPage
-                        ? 'bg-amber-400/10 border border-amber-400/30 text-amber-200'
-                        : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+
+                {/* Page numbers */}
+                <div className="flex items-center gap-1 mx-2">
+                  {getPageNumbers().map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`
+                        min-w-[36px] h-9 rounded-lg text-xs font-mono transition-all
+                        ${p === currentPage
+                          ? 'bg-sky-500/15 border border-sky-500/40 text-sky-200'
+                          : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50'
+                        }
+                      `}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Next/Last */}
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                  className="p-2 rounded-lg border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 hover:bg-zinc-800/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
                 >
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
+                  className="p-2 rounded-lg border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 hover:bg-zinc-800/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
                 >
-                  <ChevronsRight className="w-3.5 h-3.5" />
+                  <ChevronsRight className="w-4 h-4" />
                 </button>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-zinc-600">Go to</span>
-                <input
-                  data-testid="page-jump-input"
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  className="w-14 h-7 text-xs font-mono text-center bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md outline-none focus:border-amber-400/30"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const val = parseInt(e.target.value, 10);
-                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
-                      e.target.value = '';
-                    }
-                  }}
-                />
+                {/* Page jump */}
+                <div className="w-px h-5 bg-zinc-800 mx-2" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-zinc-600">Go to</span>
+                  <input
+                    data-testid="page-jump-input"
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    placeholder={String(currentPage)}
+                    className="w-14 h-9 text-xs font-mono text-center bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg outline-none focus:border-sky-500/50 transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseInt(e.target.value, 10);
+                        if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </motion.section>
       </div>
 
       {/* PR Dialog */}
       <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
-        <DialogContent className="bg-zinc-950 border-white/10" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
+        <DialogContent className="bg-zinc-950 border-zinc-800 max-w-md" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Submit Pull Request</DialogTitle>
-            <DialogDescription id="pr-dialog-description" className="text-zinc-500 text-sm">
-              Paste your pull request URL to track and verify merge progress.
+            <DialogTitle className="text-xl font-bold text-white">Submit Pull Request</DialogTitle>
+            <DialogDescription id="pr-dialog-description" className="text-zinc-400 text-sm">
+              Paste your pull request URL to track merge progress and earn XP.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <Input placeholder="https://github.com/.../pull/123" value={prUrl} onChange={e => setPrUrl(e.target.value)}
-              className="bg-zinc-900 border-white/10 font-mono text-sm" data-testid="pr-url-input" />
-            <button onClick={handleSubmitPR} className="rune-btn w-full py-3 rounded-lg text-center" data-testid="pr-submit-confirm">
+          <div className="space-y-4 mt-4">
+            <Input 
+              placeholder="https://github.com/.../pull/123" 
+              value={prUrl} 
+              onChange={e => setPrUrl(e.target.value)}
+              className="bg-zinc-900 border-zinc-800 font-mono text-sm focus:border-sky-500/50" 
+              data-testid="pr-url-input" 
+            />
+            <button 
+              onClick={handleSubmitPR} 
+              className="w-full py-3 rounded-lg bg-sky-500/15 border border-sky-500/40 text-sky-200 font-semibold text-sm uppercase tracking-wider hover:bg-sky-500/25 hover:border-sky-400/50 transition-all" 
+              data-testid="pr-submit-confirm"
+            >
               Submit PR
             </button>
           </div>

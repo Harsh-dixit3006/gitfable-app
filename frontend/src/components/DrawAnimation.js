@@ -22,12 +22,17 @@ export const DIFF_COLORS = {
   Advanced: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
 
-export function RarityBadge({ rarity }) {
+export function RarityBadge({ rarity, size = 'default' }) {
   const r = RARITY[rarity] || RARITY.common;
   const Icon = r.icon;
+  const sizeClasses = size === 'sm' 
+    ? 'text-[9px] px-1.5 py-0.5 gap-0.5' 
+    : 'text-[10px] px-2 py-0.5 gap-1';
+  const iconSize = size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3';
+  
   return (
-    <span className={`rarity-badge rarity-badge-${rarity || 'common'} inline-flex items-center gap-1`}>
-      {Icon && <Icon className="w-3 h-3" strokeWidth={2} />}
+    <span className={`rarity-badge rarity-badge-${rarity || 'common'} inline-flex items-center ${sizeClasses}`}>
+      {Icon && <Icon className={iconSize} strokeWidth={2} />}
       {r.label}
     </span>
   );
@@ -373,81 +378,100 @@ export default function DrawAnimation({
       {/* ── Draw Controls ── */}
       <div className="flex flex-col items-center gap-3">
         {state === 'idle' && (
-          <>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-col items-center gap-3"
+          >
             <button
               data-testid="draw-button"
               onClick={onDraw}
-              className="rune-btn px-8 py-3 rounded-lg animate-pulse-glow"
+              className="group relative px-10 py-4 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-100 font-bold text-sm uppercase tracking-wider hover:bg-sky-500/20 hover:border-sky-400/50 hover:shadow-[0_0_30px_-6px_rgba(14,165,233,0.5)] transition-all duration-300"
             >
-              <Shuffle className="w-4 h-4 inline mr-2" />Draw
+              <span className="relative z-10 flex items-center gap-2">
+                <Shuffle className="w-4 h-4" />
+                Draw Issue
+              </span>
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-sky-500/0 via-sky-400/10 to-sky-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             {redrawsRemaining != null && (
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600">
-                {redrawsRemaining} draw{redrawsRemaining !== 1 ? 's' : ''} remaining
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                {redrawsRemaining} draw{redrawsRemaining !== 1 ? 's' : ''} remaining today
               </p>
             )}
-          </>
+          </motion.div>
         )}
         {state === 'shuffling' && (
           <p className="font-mono text-xs text-sky-200 uppercase tracking-widest animate-pulse">Drawing...</p>
         )}
         {state === 'revealed' && (
-          <div className="flex flex-col items-center gap-3">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center gap-4"
+          >
             {/* XP capsule */}
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="flex items-center gap-4 px-5 py-3 rounded-xl border"
+              className="flex items-center gap-5 px-6 py-4 rounded-2xl border backdrop-blur-sm"
               style={{
-                background: `${r.accent}0.06)`,
-                borderColor: `${r.accent}0.25)`,
-                boxShadow: `0 0 20px -6px ${r.accent}0.3)`,
+                background: `${r.accent}0.08)`,
+                borderColor: `${r.accent}0.3)`,
+                boxShadow: `0 0 30px -8px ${r.accent}0.35)`,
               }}
             >
-              {Icon && <Icon className="w-5 h-5" style={{ color: `${r.accent}0.8)` }} />}
+              {Icon && <Icon className="w-6 h-6" style={{ color: `${r.accent}0.85)` }} />}
               <div className="flex flex-col">
-                <span className="text-sm font-semibold font-mono" style={{ color: `${r.accent}0.9)` }}>
+                <span className="text-base font-bold font-mono" style={{ color: `${r.accent}0.95)` }}>
                   +{xpAwarded != null ? xpAwarded : r.drawXP} XP
                 </span>
-                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Draw reward</span>
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Draw reward</span>
               </div>
-              <div className="w-px h-8 bg-white/10" />
+              <div className="w-px h-10 bg-white/10" />
               <div className="flex flex-col">
-                <span className="text-sm font-semibold font-mono" style={{ color: `${r.accent}0.9)` }}>
+                <span className="text-base font-bold font-mono" style={{ color: `${r.accent}0.95)` }}>
                   +{mergeXP} XP
                 </span>
-                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">On merge</span>
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">On merge</span>
               </div>
             </motion.div>
 
             {/* Action buttons */}
-            <div className="flex items-center gap-3">
+            <motion.div 
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="flex items-center gap-1"
+            >
               <button
                 data-testid="bookmark-button"
                 onClick={onBookmark}
-                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-sky-200 font-mono uppercase tracking-wider transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs text-zinc-300 hover:text-sky-200 hover:bg-sky-500/10 font-mono uppercase tracking-wider transition-all"
               >
                 <Bookmark className="w-3.5 h-3.5" />Bookmark
               </button>
               <button
                 data-testid="redraw-button"
                 onClick={onRedraw}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 font-mono uppercase tracking-wider transition-all"
               >
-                <RotateCcw className="w-3 h-3" />Redraw
+                <RotateCcw className="w-3.5 h-3.5" />Redraw
               </button>
               <a
                 data-testid="view-github-button"
                 href={issue?.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 font-mono uppercase tracking-wider transition-all"
               >
-                <ExternalLink className="w-3 h-3" />GitHub
+                <ExternalLink className="w-3.5 h-3.5" />GitHub
               </a>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
       </div>
     </div>
