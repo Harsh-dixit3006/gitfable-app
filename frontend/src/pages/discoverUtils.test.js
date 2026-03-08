@@ -5,6 +5,7 @@ import { applyIssueFilters } from './discoverUtils';
 const discoverSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/Discover.js'), 'utf8');
 const issueCardRowSource = fs.readFileSync(path.join(process.cwd(), 'src/components/IssueCardRow.js'), 'utf8');
 const infoSidebarSource = fs.readFileSync(path.join(process.cwd(), 'src/components/InfoSidebar.js'), 'utf8');
+const drawAnimationSource = fs.readFileSync(path.join(process.cwd(), 'src/components/DrawAnimation.js'), 'utf8');
 
 describe('discover issue filtering', () => {
   const issues = [
@@ -104,6 +105,13 @@ describe('discover source regressions', () => {
   });
 
   test('draw card uses larger dimensions to balance the sidebar', () => {
-    expect(fs.readFileSync(path.join(process.cwd(), 'src/components/DrawAnimation.js'), 'utf8')).toContain('w-96 h-[520px]');
+    expect(drawAnimationSource).toContain('w-96 h-[520px]');
+  });
+
+  test('draw reveal pacing is slowed down to build suspense', () => {
+    expect(drawAnimationSource).toContain('drop: 1400');
+    expect(drawAnimationSource).toContain('infoFlash: 2800');
+    expect(drawAnimationSource).toContain('flip: 5200');
+    expect(drawAnimationSource).toContain('settle: 6700');
   });
 });

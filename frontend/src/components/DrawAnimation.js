@@ -78,6 +78,15 @@ export default function DrawAnimation({
   drawSource,
   redrawsRemaining,
 }) {
+  const REVEAL_TIMING = {
+    drop: 1400,
+    infoFlash: 2800,
+    flashStep: 800,
+    flip: 5200,
+    settle: 6700,
+    shake: 900,
+  };
+
   const rarity = issue?.rarity || 'common';
   const r = RARITY[rarity];
   const Icon = r.icon;
@@ -114,17 +123,17 @@ export default function DrawAnimation({
         height: 70 + Math.random() * 50,
       }));
       setPhase('flares');
-      timers.current.push(setTimeout(() => setPhase('drop'), 700));
-      timers.current.push(setTimeout(() => { setPhase('infoFlash'); setFlashIndex(0); }, 1400));
-      timers.current.push(setTimeout(() => setFlashIndex(1), 1800));
-      timers.current.push(setTimeout(() => setFlashIndex(2), 2200));
+      timers.current.push(setTimeout(() => setPhase('drop'), REVEAL_TIMING.drop));
+      timers.current.push(setTimeout(() => { setPhase('infoFlash'); setFlashIndex(0); }, REVEAL_TIMING.infoFlash));
+      timers.current.push(setTimeout(() => setFlashIndex(1), REVEAL_TIMING.infoFlash + REVEAL_TIMING.flashStep));
+      timers.current.push(setTimeout(() => setFlashIndex(2), REVEAL_TIMING.infoFlash + (REVEAL_TIMING.flashStep * 2)));
       timers.current.push(setTimeout(() => {
         setPhase('flip');
         setShaking(true);
         setShowBurst(true);
-        setTimeout(() => setShaking(false), 500);
-      }, 2700));
-      timers.current.push(setTimeout(() => setPhase('settle'), 3400));
+        setTimeout(() => setShaking(false), REVEAL_TIMING.shake);
+      }, REVEAL_TIMING.flip));
+      timers.current.push(setTimeout(() => setPhase('settle'), REVEAL_TIMING.settle));
     } else {
       setPhase('idle');
       setFlashIndex(-1);
@@ -180,9 +189,9 @@ export default function DrawAnimation({
                 scaleY: 1,
               }}
               transition={{
-                rotate: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-                opacity: phase === 'flip' ? { duration: 0.5 } : { duration: 0.6 },
-                scaleY: { duration: 0.4 },
+                    rotate: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                    opacity: phase === 'flip' ? { duration: 0.7 } : { duration: 0.85 },
+                    scaleY: { duration: 0.6 },
               }}
             />
             <motion.div
@@ -201,9 +210,9 @@ export default function DrawAnimation({
                 scaleY: 1,
               }}
               transition={{
-                rotate: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-                opacity: phase === 'flip' ? { duration: 0.5 } : { duration: 0.6 },
-                scaleY: { duration: 0.4 },
+                    rotate: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                    opacity: phase === 'flip' ? { duration: 0.7 } : { duration: 0.85 },
+                    scaleY: { duration: 0.6 },
               }}
             />
             <motion.div
@@ -217,9 +226,9 @@ export default function DrawAnimation({
               initial={{ opacity: 0 }}
               animate={{ opacity: phase === 'flip' ? 0 : [0, 0.8, 0.5, 0.7] }}
               transition={{
-                duration: 1.2,
-                delay: 0.4,
-                opacity: phase === 'flip' ? { duration: 0.5 } : undefined,
+                    duration: 1.5,
+                    delay: 0.55,
+                    opacity: phase === 'flip' ? { duration: 0.7 } : undefined,
               }}
             />
             <motion.div
@@ -235,7 +244,7 @@ export default function DrawAnimation({
                 opacity: phase === 'flip' ? 0 : [0, 1, 0.6],
                 scale: phase === 'flip' ? 0 : [0, 1.5, 1],
               }}
-              transition={{ duration: 0.4, delay: 0.5 }}
+                  transition={{ duration: 0.55, delay: 0.7 }}
             />
           </div>
         )}
@@ -247,7 +256,7 @@ export default function DrawAnimation({
               style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.4)' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
+                transition={{ duration: 0.3 }}
             />
             <div className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none">
               {flashItems.map((item, idx) => (
@@ -257,7 +266,7 @@ export default function DrawAnimation({
                     className="text-center"
                     initial={{ opacity: 0, scale: 1.4, y: 10 }}
                     animate={{ opacity: [0, 1, 1, 0.8], scale: [1.4, 1, 1, 0.97], y: [10, 0, 0, -5] }}
-                    transition={{ duration: 0.4, times: [0, 0.2, 0.75, 1], ease: [0.22, 1, 0.36, 1] }}
+                        transition={{ duration: 0.85, times: [0, 0.2, 0.75, 1], ease: [0.22, 1, 0.36, 1] }}
                   >
                     <p className="text-2xl font-bold tracking-tight" style={{ color: `${f.color}0.9)` }}>
                       {item.label}
@@ -307,10 +316,10 @@ export default function DrawAnimation({
               }
               transition={
                 phase === 'drop' || phase === 'infoFlash'
-                  ? { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
-                  : phase === 'flip'
-                  ? { scale: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
-                  : { duration: 0.3 }
+                          ? { duration: 0.9, ease: [0.16, 1, 0.3, 1] }
+                          : phase === 'flip'
+                          ? { scale: { duration: 1.05, ease: [0.22, 1, 0.36, 1] } }
+                          : { duration: 0.65 }
               }
             >
               {(phase === 'flip' || phase === 'settle') && (
@@ -370,7 +379,7 @@ export default function DrawAnimation({
                       className="flex items-center gap-2 text-xs text-zinc-500 font-mono mb-3"
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: 0.05 }}
+                          transition={{ duration: 0.45, delay: 0.15 }}
                     >
                       <FolderGit2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                       <span>{issue.repo}</span>
@@ -379,7 +388,7 @@ export default function DrawAnimation({
                       className="mb-3"
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: 0.08 }}
+                          transition={{ duration: 0.45, delay: 0.22 }}
                     >
                       <RarityBadge rarity={rarity} />
                     </motion.div>
@@ -387,13 +396,13 @@ export default function DrawAnimation({
                       className="font-semibold text-xl leading-snug text-zinc-100 text-center mb-6"
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: 0.12 }}
+                          transition={{ duration: 0.45, delay: 0.34 }}
                     >{issue.title}</motion.h3>
                     <motion.div
                       className="flex flex-col items-center gap-3"
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: 0.2 }}
+                          transition={{ duration: 0.45, delay: 0.5 }}
                       >
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-2 py-0.5 rounded border font-mono ${accent.bgSubtle} ${accent.text} ${accent.borderFaint}`}>{issue.language}</span>
