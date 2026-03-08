@@ -1,3 +1,22 @@
+/* ═══ Theme Color Variables ═══ */
+:root {
+  --accent-rgb: 251,191,36;
+  --color-common: 161,161,170;
+  --color-rare: 96,165,250;
+  --color-epic: 168,85,247;
+  --color-legendary: 251,191,36;
+  --color-sky: 125,211,252;
+  --color-emerald: 16,185,129;
+  --color-red: 239,68,68;
+  --color-slate: 148,163,184;
+  --color-blue: 59,130,246;
+  --status-drawn: 113,113,122;
+  --status-bookmarked: 251,191,36;
+  --status-pr-submitted: 59,130,246;
+  --status-merged: 16,185,129;
+  --status-expired: 239,68,68;
+}
+
 /* ═══ Grid Background ═══ */
 .grid-bg {
     background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
@@ -42,13 +61,13 @@
     border-radius: 1px;
 }
 .inner-glow-violet::before {
-    background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.35), transparent);
+    background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.35), transparent);
 }
 
 /* ═══ Glow Effects ═══ */
 .glow-amber { box-shadow: 0 0 20px -4px rgba(148, 163, 184, 0.35); }
 .glow-amber-lg { box-shadow: 0 0 40px -8px rgba(148, 163, 184, 0.42); }
-.glow-violet { box-shadow: 0 0 20px -4px rgba(125, 211, 252, 0.35); }
+.glow-violet { box-shadow: 0 0 20px -4px rgba(var(--accent-rgb), 0.35); }
 .glow-emerald { box-shadow: 0 0 20px -4px rgba(163, 163, 163, 0.3); }
 
 /* ═══ Ambient Radials ═══ */
@@ -56,15 +75,15 @@
     background: radial-gradient(ellipse at 50% 0%, rgba(148, 163, 184, 0.1) 0%, transparent 70%);
 }
 .ambient-violet {
-    background: radial-gradient(ellipse at 80% 80%, rgba(125, 211, 252, 0.08) 0%, transparent 60%);
+    background: radial-gradient(ellipse at 80% 80%, rgba(var(--accent-rgb), 0.08) 0%, transparent 60%);
 }
 
 /* ═══ Rune Button ═══ */
 .rune-btn {
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(125, 211, 252, 0.4);
+    border: 1px solid rgba(var(--accent-rgb), 0.4);
     color: #e7f5ff;
-    box-shadow: 0 0 15px -4px rgba(125, 211, 252, 0.45);
+    box-shadow: 0 0 15px -4px rgba(var(--accent-rgb), 0.45);
     font-family: 'Satoshi', sans-serif;
     font-weight: 700;
     text-transform: uppercase;
@@ -72,16 +91,16 @@
     font-size: 0.75rem;
 }
 .rune-btn:hover {
-    background: rgba(125, 211, 252, 0.12);
-    box-shadow: 0 0 26px -6px rgba(125, 211, 252, 0.6);
-    border-color: rgba(125, 211, 252, 0.55);
+    background: rgba(var(--accent-rgb), 0.12);
+    box-shadow: 0 0 26px -6px rgba(var(--accent-rgb), 0.6);
+    border-color: rgba(var(--accent-rgb), 0.55);
     transform: translateY(-1px);
 }
 
 /* ═══ Animations ═══ */
 @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 18px -6px rgba(125, 211, 252, 0.35); }
-    50% { box-shadow: 0 0 34px -8px rgba(125, 211, 252, 0.58); }
+    0%, 100% { box-shadow: 0 0 18px -6px rgba(var(--accent-rgb), 0.35); }
+    50% { box-shadow: 0 0 34px -8px rgba(var(--accent-rgb), 0.58); }
 }
 .animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
 
@@ -146,35 +165,35 @@
 }
 
 /* ═══ Status Pill Styles ═══ */
-.status-drawn { background: rgba(113, 113, 122, 0.15); color: #A1A1AA; border: 1px solid rgba(113, 113, 122, 0.2); }
-.status-bookmarked { background: rgba(125, 211, 252, 0.12); color: #BAE6FD; border: 1px solid rgba(125, 211, 252, 0.25); }
-.status-pr_submitted { background: rgba(59, 130, 246, 0.12); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.25); }
-.status-merged { background: rgba(16, 185, 129, 0.12); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.25); }
-.status-expired { background: rgba(239, 68, 68, 0.12); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.25); }
+.status-drawn { background: rgba(var(--status-drawn), 0.15); color: #A1A1AA; border: 1px solid rgba(var(--status-drawn), 0.2); }
+.status-bookmarked { background: rgba(var(--status-bookmarked), 0.12); color: #FBBF24; border: 1px solid rgba(var(--status-bookmarked), 0.25); }
+.status-pr_submitted { background: rgba(var(--status-pr-submitted), 0.12); color: #60A5FA; border: 1px solid rgba(var(--status-pr-submitted), 0.25); }
+.status-merged { background: rgba(var(--status-merged), 0.12); color: #34D399; border: 1px solid rgba(var(--status-merged), 0.25); }
+.status-expired { background: rgba(var(--status-expired), 0.12); color: #F87171; border: 1px solid rgba(var(--status-expired), 0.25); }
 
 /* ═══ Rarity Tiers ═══ */
 .rarity-common {
-    --rarity-color: 161, 161, 170;
+    --rarity-color: var(--color-common);
     --rarity-text: #A1A1AA;
 }
 .rarity-rare {
-    --rarity-color: 96, 165, 250;
+    --rarity-color: var(--color-rare);
     --rarity-text: #60A5FA;
 }
 .rarity-epic {
-    --rarity-color: 168, 85, 247;
+    --rarity-color: var(--color-epic);
     --rarity-text: #A855F7;
 }
 .rarity-legendary {
-    --rarity-color: 251, 191, 36;
+    --rarity-color: var(--color-legendary);
     --rarity-text: #FBBF24;
 }
 
 /* Rarity card border treatment */
-.rarity-card-common { border-color: rgba(161, 161, 170, 0.15); }
-.rarity-card-rare { border-color: rgba(96, 165, 250, 0.35); box-shadow: 0 0 20px -4px rgba(96, 165, 250, 0.2); }
-.rarity-card-epic { border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 28px -4px rgba(168, 85, 247, 0.25); }
-.rarity-card-legendary { border-color: rgba(251, 191, 36, 0.5); box-shadow: 0 0 40px -4px rgba(251, 191, 36, 0.3), inset 0 1px 0 rgba(251, 191, 36, 0.15); }
+.rarity-card-common { border-color: rgba(var(--color-common), 0.15); }
+.rarity-card-rare { border-color: rgba(var(--color-rare), 0.35); box-shadow: 0 0 20px -4px rgba(var(--color-rare), 0.2); }
+.rarity-card-epic { border-color: rgba(var(--color-epic), 0.4); box-shadow: 0 0 28px -4px rgba(var(--color-epic), 0.25); }
+.rarity-card-legendary { border-color: rgba(var(--color-legendary), 0.5); box-shadow: 0 0 40px -4px rgba(var(--color-legendary), 0.3), inset 0 1px 0 rgba(var(--color-legendary), 0.15); }
 
 /* Rarity badge pill */
 .rarity-badge {
@@ -187,14 +206,14 @@
     border-radius: 4px;
     border: 1px solid;
 }
-.rarity-badge-common { background: rgba(161,161,170,0.08); color: #A1A1AA; border-color: rgba(161,161,170,0.2); }
-.rarity-badge-rare { background: rgba(96,165,250,0.1); color: #60A5FA; border-color: rgba(96,165,250,0.25); }
-.rarity-badge-epic { background: rgba(168,85,247,0.1); color: #A855F7; border-color: rgba(168,85,247,0.25); }
+.rarity-badge-common { background: rgba(var(--color-common),0.08); color: #A1A1AA; border-color: rgba(var(--color-common),0.2); }
+.rarity-badge-rare { background: rgba(var(--color-rare),0.1); color: #60A5FA; border-color: rgba(var(--color-rare),0.25); }
+.rarity-badge-epic { background: rgba(var(--color-epic),0.1); color: #A855F7; border-color: rgba(var(--color-epic),0.25); }
 .rarity-badge-legendary {
-    background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.08));
+    background: linear-gradient(135deg, rgba(var(--color-legendary),0.12), rgba(var(--color-legendary),0.08));
     color: #FBBF24;
-    border-color: rgba(251,191,36,0.35);
-    box-shadow: 0 0 10px -3px rgba(251,191,36,0.3);
+    border-color: rgba(var(--color-legendary),0.35);
+    box-shadow: 0 0 10px -3px rgba(var(--color-legendary),0.3);
 }
 
 /* Rarity ambient glow for the card draw area */
@@ -203,7 +222,7 @@
     50% { opacity: 0.8; filter: blur(50px); }
 }
 .rarity-glow-legendary {
-    background: radial-gradient(circle, rgba(251,191,36,0.25), transparent 70%);
+    background: radial-gradient(circle, rgba(var(--color-legendary),0.25), transparent 70%);
     animation: legendary-pulse 2.5s ease-in-out infinite;
 }
 @keyframes epic-pulse {
@@ -211,29 +230,29 @@
     50% { opacity: 0.7; filter: blur(42px); }
 }
 .rarity-glow-epic {
-    background: radial-gradient(circle, rgba(168,85,247,0.2), transparent 70%);
+    background: radial-gradient(circle, rgba(var(--color-epic),0.2), transparent 70%);
     animation: epic-pulse 3s ease-in-out infinite;
 }
 .rarity-glow-rare {
-    background: radial-gradient(circle, rgba(96,165,250,0.15), transparent 70%);
+    background: radial-gradient(circle, rgba(var(--color-rare),0.15), transparent 70%);
 }
 .rarity-glow-common {
-    background: radial-gradient(circle, rgba(161,161,170,0.08), transparent 70%);
+    background: radial-gradient(circle, rgba(var(--color-common),0.08), transparent 70%);
 }
 
 /* Rarity top-line glow for revealed card */
-.rarity-line-common { background: linear-gradient(90deg, transparent, rgba(161,161,170,0.25), transparent); }
-.rarity-line-rare { background: linear-gradient(90deg, transparent, rgba(96,165,250,0.4), transparent); }
-.rarity-line-epic { background: linear-gradient(90deg, transparent, rgba(168,85,247,0.5), transparent); }
-.rarity-line-legendary { background: linear-gradient(90deg, transparent, rgba(251,191,36,0.6), rgba(245,158,11,0.6), transparent); }
+.rarity-line-common { background: linear-gradient(90deg, transparent, rgba(var(--color-common),0.25), transparent); }
+.rarity-line-rare { background: linear-gradient(90deg, transparent, rgba(var(--color-rare),0.4), transparent); }
+.rarity-line-epic { background: linear-gradient(90deg, transparent, rgba(var(--color-epic),0.5), transparent); }
+.rarity-line-legendary { background: linear-gradient(90deg, transparent, rgba(var(--color-legendary),0.6), rgba(var(--color-legendary),0.6), transparent); }
 
 /* ═══ Card Shimmer ═══ */
 .card-shimmer {
   background: linear-gradient(
     135deg,
     transparent 30%,
-    rgba(251,191,36,0.04) 45%,
-    rgba(251,191,36,0.02) 55%,
+    rgba(var(--color-legendary),0.04) 45%,
+    rgba(var(--color-legendary),0.02) 55%,
     transparent 70%
   );
   background-size: 200% 200%;
@@ -267,7 +286,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(800px circle at var(--mx) var(--my), rgba(251,191,36,0.04), transparent 60%);
+  background: radial-gradient(800px circle at var(--mx) var(--my), rgba(var(--color-legendary),0.04), transparent 60%);
   pointer-events: none;
   z-index: 1;
 }
@@ -329,9 +348,9 @@
 
 /* ═══ Energy Ring ═══ */
 @keyframes energy-ring-pulse {
-  0% { transform: scale(1); opacity: 0.6; box-shadow: 0 0 20px 4px rgba(125, 211, 252, 0.3); }
-  50% { transform: scale(1.15); opacity: 0.2; box-shadow: 0 0 40px 8px rgba(125, 211, 252, 0.5); }
-  100% { transform: scale(1); opacity: 0.6; box-shadow: 0 0 20px 4px rgba(125, 211, 252, 0.3); }
+  0% { transform: scale(1); opacity: 0.6; box-shadow: 0 0 20px 4px rgba(var(--accent-rgb), 0.3); }
+  50% { transform: scale(1.15); opacity: 0.2; box-shadow: 0 0 40px 8px rgba(var(--accent-rgb), 0.5); }
+  100% { transform: scale(1); opacity: 0.6; box-shadow: 0 0 20px 4px rgba(var(--accent-rgb), 0.3); }
 }
 @keyframes energy-ring-rotate {
   0% { transform: rotate(0deg); }
