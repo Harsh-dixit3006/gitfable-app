@@ -95,4 +95,15 @@ describe('discover source regressions', () => {
     expect(infoSidebarSource).toContain('text-sm font-mono uppercase');
     expect(discoverSource).toContain('text-base text-zinc-500');
   });
+
+  test('discover syncs draw budget from actual history instead of a fixed default', () => {
+    expect(discoverSource).toContain('const [redrawsRemaining, setRedrawsRemaining] = useState(null);');
+    expect(discoverSource).toContain('const loadDrawBudget = async () =>');
+    expect(discoverSource).toContain('const maxDraws = user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT;');
+    expect(discoverSource).toContain('setRedrawsRemaining(Math.max(0, maxDraws - usedToday));');
+  });
+
+  test('draw card uses larger dimensions to balance the sidebar', () => {
+    expect(fs.readFileSync(path.join(process.cwd(), 'src/components/DrawAnimation.js'), 'utf8')).toContain('w-96 h-[520px]');
+  });
 });

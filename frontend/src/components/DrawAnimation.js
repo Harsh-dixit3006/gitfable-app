@@ -147,7 +147,7 @@ export default function DrawAnimation({
 
   return (
     <div className="flex flex-col items-center" ref={containerRef}>
-      <div className={`relative w-80 h-[440px] mb-8 ${shaking ? 'screen-shake' : ''}`}>
+      <div className={`relative w-96 h-[520px] mb-8 ${shaking ? 'screen-shake' : ''}`}>
 
         {showBurst && (
           <>
@@ -273,7 +273,7 @@ export default function DrawAnimation({
         <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 5 }}>
           {phase === 'idle' && (
               <div
-                className="w-80 h-[440px] rounded-lg flex items-center justify-center overflow-hidden"
+                className="w-96 h-[520px] rounded-lg flex items-center justify-center overflow-hidden"
                 style={{ background: 'rgba(9,9,11,0.85)', border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, rgba(${colors.accent.rgb},0.2), transparent)` }} />
@@ -286,7 +286,7 @@ export default function DrawAnimation({
 
           {showCard && issue && (
             <motion.div
-              className="w-80 h-[440px] rounded-lg overflow-hidden absolute"
+              className="w-96 h-[520px] rounded-lg overflow-hidden absolute"
               style={{
                 background: 'rgba(9,9,11,0.92)',
                 border: (phase === 'flip' || phase === 'settle')

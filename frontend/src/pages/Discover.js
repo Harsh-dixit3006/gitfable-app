@@ -17,6 +17,7 @@ const LANGUAGES = ['JavaScript', 'TypeScript', 'Python', 'Rust', 'Go', 'Java', '
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
 const RARITIES = ['common', 'rare', 'epic'];
 const EASE = [0.22, 1, 0.36, 1];
+const DEFAULT_DAILY_DRAW_LIMIT = 3;
 
 function getRarity(issue) {
   return RARITY[issue?.rarity] || RARITY.common;
@@ -189,7 +190,7 @@ export default function Discover() {
   const [drawState, setDrawState] = useState('idle');
   const [drawnIssue, setDrawnIssue] = useState(null);
   const [currentDrawId, setCurrentDrawId] = useState(null);
-  const [redrawsRemaining, setRedrawsRemaining] = useState(3);
+  const [redrawsRemaining, setRedrawsRemaining] = useState(null);
   const [activeBookmark, setActiveBookmark] = useState(null);
   const [showPRDialog, setShowPRDialog] = useState(false);
   const [prUrl, setPrUrl] = useState('');
@@ -224,6 +225,9 @@ export default function Discover() {
   useEffect(() => {
     if (user) {
       loadActiveBookmark();
+      loadDrawBudget();
+    } else {
+      setRedrawsRemaining(3);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -284,6 +288,24 @@ export default function Discover() {
     } catch { /* ignore */ }
   };
 
+  const loadDrawBudget = async () => {
+    try {
+      const maxDraws = user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT;
+      const res = await api.get('/draws/history', { params: { limit: maxDraws } });
+      const draws = res._data || [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const usedToday = draws.filter((draw) => {
+        if (!draw.created_at) return false;
+        const createdAt = new Date(draw.created_at);
+        return !Number.isNaN(createdAt.getTime()) && createdAt >= today;
+      }).length;
+      setRedrawsRemaining(Math.max(0, maxDraws - usedToday));
+    } catch {
+      setRedrawsRemaining(user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT);
+    }
+  };
+
   const toggleLang = (lang) => setLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]);
   const toggleDiff = (diff) => setDifficulties(prev => prev.includes(diff) ? prev.filter(d => d !== diff) : [...prev, diff]);
   const toggleRarity = (r) => setRarities(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
@@ -330,6 +352,7 @@ export default function Discover() {
       setXpAwarded(0);
       setDrawState('revealed');
       toast.success('Issue selected! XP awarded on merge.');
+      await loadDrawBudget();
       await refreshUser();
     } catch (err) {
       toast.error(err._message || 'Choose issue failed');
