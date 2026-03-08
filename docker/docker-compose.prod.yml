@@ -1,36 +1,31 @@
-version: '3.8'
-
 services:
-  # MongoDB Database
-  mongodb:
-    image: mongo:7.0
-    container_name: gitfable-mongodb-prod
+  postgres:
+    image: postgres:16-alpine
+    container_name: gitfable-postgres-prod
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/mongodb_root_username
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongodb_root_password
-      MONGO_INITDB_DATABASE: gitfable
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: gitfable
     volumes:
-      - mongodb_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - postgres_data:/var/lib/postgresql/data
     secrets:
-      - mongodb_root_username
-      - mongodb_root_password
+      - postgres_user
+      - postgres_password
     networks:
       - gitfable-network
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD-SHELL", "pg_isready -d gitfable"]
       interval: 10s
-      timeout: 10s
+      timeout: 5s
       retries: 5
-      start_period: 40s
+      start_period: 10s
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: gitfable-redis-prod
     restart: always
-    command: redis-server --requirepass $(cat /run/secrets/redis_password)
+    command: redis-server --requirepass $$(cat /run/secrets/redis_password)
     volumes:
       - redis_data:/data
     secrets:
@@ -38,34 +33,28 @@ services:
     networks:
       - gitfable-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "$(cat /run/secrets/redis_password)", "ping"]
+      test: ["CMD", "redis-cli", "-a", "$$(cat /run/secrets/redis_password)", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
 
-  # Backend API
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: gitfable-backend-prod
     restart: always
     environment:
       - ENVIRONMENT=production
-      - MONGO_URL_FILE=/run/secrets/mongodb_url
-      - DB_NAME=gitfable
-      - REDIS_URL_FILE=/run/secrets/redis_url
-      - RATE_LIMIT_ENABLED=true
+      - MIGRATIONS_PATH=/migrations
       - CORS_ORIGINS=${CORS_ORIGINS}
-      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
-      - FIREBASE_PRIVATE_KEY_FILE=/run/secrets/firebase_private_key
-      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase_service_account
     secrets:
-      - mongodb_url
+      - database_url
       - redis_url
-      - firebase_private_key
+      - firebase_service_account
     depends_on:
-      mongodb:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -80,13 +69,18 @@ services:
           cpus: '0.25'
           memory: 256M
 
-  # Frontend
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
         - REACT_APP_BACKEND_URL=${BACKEND_URL}
+        - REACT_APP_FIREBASE_API_KEY=${FIREBASE_API_KEY}
+        - REACT_APP_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
+        - REACT_APP_FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+        - REACT_APP_FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+        - REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
+        - REACT_APP_FIREBASE_APP_ID=${FIREBASE_APP_ID}
     container_name: gitfable-frontend-prod
     restart: always
     depends_on:
@@ -99,7 +93,6 @@ services:
           cpus: '0.5'
           memory: 256M
 
-  # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
     container_name: gitfable-nginx
@@ -108,8 +101,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - frontend
       - backend
@@ -117,7 +109,7 @@ services:
       - gitfable-network
 
 volumes:
-  mongodb_data:
+  postgres_data:
   redis_data:
 
 networks:
@@ -125,15 +117,15 @@ networks:
     driver: bridge
 
 secrets:
-  mongodb_root_username:
-    file: ./secrets/mongodb_root_username.txt
-  mongodb_root_password:
-    file: ./secrets/mongodb_root_password.txt
-  mongodb_url:
-    file: ./secrets/mongodb_url.txt
+  postgres_user:
+    file: ./secrets/postgres_user.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  database_url:
+    file: ./secrets/database_url.txt
   redis_password:
     file: ./secrets/redis_password.txt
   redis_url:
     file: ./secrets/redis_url.txt
-  firebase_private_key:
-    file: ./secrets/firebase_private_key.txt
+  firebase_service_account:
+    file: ./secrets/firebase_service_account.json
