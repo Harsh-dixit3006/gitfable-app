@@ -853,6 +853,8 @@ export default function Discover() {
                         className="text-sm font-mono bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg px-3 py-1.5 outline-none focus:border-sky-300/40 transition-colors"
                       >
                         {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
+                        )
+                        }
                       </select>
                     </div>
 
