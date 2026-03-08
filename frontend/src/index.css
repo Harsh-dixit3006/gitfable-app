@@ -93,8 +93,8 @@ html {
 }
 
 ::selection {
-    background: rgba(14, 165, 233, 0.26);
-    color: #f0f9ff;
+    background: rgba(245, 158, 11, 0.26);
+    color: #fff8eb;
 }
 
 /* ═══ Glass Card Utility ═══ */
