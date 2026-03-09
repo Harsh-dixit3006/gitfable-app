@@ -19,7 +19,9 @@ import {
   Trophy,
   RotateCcw,
   AlertCircle,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Search,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -421,6 +423,18 @@ export default function HistoryPage() {
     older: false,
   });
   
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
   // Reactivation state
   const [reactivateModalOpen, setReactivateModalOpen] = useState(false);
   const [selectedDraw, setSelectedDraw] = useState(null);
@@ -458,15 +472,31 @@ export default function HistoryPage() {
     setLoading(false);
   };
 
+  // Filter draws based on search query
+  const filteredDraws = useMemo(() => {
+    if (!debouncedSearch.trim()) return draws;
+    
+    const query = debouncedSearch.toLowerCase();
+    return draws.filter(draw => {
+      return (
+        draw.title?.toLowerCase().includes(query) ||
+        draw.repo?.toLowerCase().includes(query) ||
+        draw.repoOwner?.toLowerCase().includes(query) ||
+        draw.repoName?.toLowerCase().includes(query) ||
+        draw.language?.toLowerCase().includes(query)
+      );
+    });
+  }, [draws, debouncedSearch]);
+
   // Group draws by time
   const groupedDraws = useMemo(() => {
     const groups = { today: [], week: [], month: [], older: [] };
-    draws.forEach(draw => {
+    filteredDraws.forEach(draw => {
       const group = getTimeGroup(draw.created_at);
       groups[group].push(draw);
     });
     return groups;
-  }, [draws]);
+  }, [filteredDraws]);
 
   // Filter counts
   const filterCounts = useMemo(() => ({
@@ -615,48 +645,79 @@ export default function HistoryPage() {
           />
         </motion.div>
 
-        {/* Filters */}
+        {/* Search and Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="flex flex-wrap gap-2 mb-6"
+          className="space-y-4 mb-6"
         >
-          <FilterChip
-            active={statusFilter === 'all'}
-            count={filterCounts.all}
-            icon={History}
-            label="All"
-            onClick={() => setStatusFilter('all')}
-          />
-          <FilterChip
-            active={statusFilter === 'merged'}
-            count={filterCounts.merged}
-            icon={GitMerge}
-            label="Merged"
-            onClick={() => setStatusFilter('merged')}
-          />
-          <FilterChip
-            active={statusFilter === 'active'}
-            count={filterCounts.active}
-            icon={Clock}
-            label="Active"
-            onClick={() => setStatusFilter('active')}
-          />
-          <FilterChip
-            active={statusFilter === 'drawn'}
-            count={filterCounts.drawn}
-            icon={Circle}
-            label="Drawn"
-            onClick={() => setStatusFilter('drawn')}
-          />
-          <FilterChip
-            active={statusFilter === 'expired'}
-            count={filterCounts.expired}
-            icon={XCircle}
-            label="Expired"
-            onClick={() => setStatusFilter('expired')}
-          />
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search issues, repos, languages..."
+              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl pl-10 pr-10 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-zinc-800 rounded transition-colors"
+              >
+                <X className="w-4 h-4 text-zinc-500" />
+              </button>
+            )}
+          </div>
+          
+          {/* Search Results Count */}
+          {debouncedSearch && (
+            <div className="text-sm text-zinc-500">
+              Found {filteredDraws.length} {filteredDraws.length === 1 ? 'result' : 'results'} 
+              {filteredDraws.length !== draws.length && ` out of ${draws.length} total`}
+            </div>
+          )}
+          
+          {/* Filter Chips */}
+          <div className="flex flex-wrap gap-2">
+            <FilterChip
+              active={statusFilter === 'all'}
+              count={filterCounts.all}
+              icon={History}
+              label="All"
+              onClick={() => setStatusFilter('all')}
+            />
+            <FilterChip
+              active={statusFilter === 'merged'}
+              count={filterCounts.merged}
+              icon={GitMerge}
+              label="Merged"
+              onClick={() => setStatusFilter('merged')}
+            />
+            <FilterChip
+              active={statusFilter === 'active'}
+              count={filterCounts.active}
+              icon={Clock}
+              label="Active"
+              onClick={() => setStatusFilter('active')}
+            />
+            <FilterChip
+              active={statusFilter === 'drawn'}
+              count={filterCounts.drawn}
+              icon={Circle}
+              label="Drawn"
+              onClick={() => setStatusFilter('drawn')}
+            />
+            <FilterChip
+              active={statusFilter === 'expired'}
+              count={filterCounts.expired}
+              icon={XCircle}
+              label="Expired"
+              onClick={() => setStatusFilter('expired')}
+            />
+          </div>
         </motion.div>
 
         {/* History List */}
@@ -687,6 +748,23 @@ export default function HistoryPage() {
                 <Target className="w-4 h-4" />
                 Discover Issues
               </a>
+            </div>
+          ) : filteredDraws.length === 0 ? (
+            <div className="text-center py-16 bg-zinc-900/30 rounded-2xl border border-zinc-800/50 border-dashed">
+              <Search className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-zinc-400 mb-2">
+                No results found
+              </h3>
+              <p className="text-sm text-zinc-600 mb-4">
+                No issues match "{debouncedSearch}"
+              </p>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors"
+              >
+                <X className="w-4 h-4" />
+                Clear Search
+              </button>
             </div>
           ) : (
             <div>
