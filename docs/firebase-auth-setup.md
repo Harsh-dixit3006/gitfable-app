@@ -202,9 +202,9 @@ const response = await fetch('/api/draws/draw', {
 2. Frontend receives Firebase ID token
 3. Frontend sends ID token in `Authorization: Bearer <token>` header
 4. Backend verifies token using Firebase Admin SDK
-5. Backend looks up user in MongoDB by `firebase_uid`
-6. If user doesn't exist, frontend calls `/api/auth/register`
-7. Backend creates user document linked to Firebase UID
+5. Backend looks up user in PostgreSQL by `firebase_uid`
+6. If user doesn't exist, frontend calls `/api/v1/auth/register`
+7. Backend creates user record linked to Firebase UID
 
 ## Environment Variables
 
@@ -226,7 +226,7 @@ FIREBASE_CLIENT_ID=your-client-id
 - **Never** commit service account credentials to version control
 - Firebase ID tokens expire after 1 hour and auto-refresh
 - The backend only verifies tokens, it doesn't handle OAuth flows
-- All user data is stored in MongoDB, Firebase is just for authentication
+- All user data is stored in PostgreSQL, Firebase is just for authentication
 - You can disable users in Firebase Console if needed
 
 ## Testing
@@ -237,7 +237,7 @@ Test the authentication flow:
 2. Start frontend: `make dev-frontend`
 3. Click "Sign in with GitHub"
 4. Authorize the app
-5. Check that user is created in MongoDB
+5. Check that user is created in PostgreSQL
 6. Make authenticated requests
 
 ## Troubleshooting
