@@ -1,15 +1,15 @@
 import axios from 'axios';
-import { auth } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/v1`;
 
 const api = axios.create({ baseURL: API });
 
-// Attach a fresh Firebase ID token to every request
+// Attach a fresh Supabase access token to every request
 api.interceptors.request.use(async (config) => {
-  const user = auth.currentUser;
-  if (user) {
-    const token = await user.getIdToken();
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

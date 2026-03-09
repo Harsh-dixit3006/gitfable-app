@@ -5,7 +5,7 @@ Gamified web app that matches developers with open-source "good first issues" th
 ## 🚀 Production Features
 
 ### Authentication & Security
-- ✅ **Firebase Authentication** - Supports GitHub OAuth, Email/Password, Google, and more
+- ✅ **Supabase Authentication** - Supports GitHub OAuth and JWT-based sessions
 - ✅ Rate limiting (Redis-backed with in-memory fallback)
 - ✅ Request validation and sanitization
 - ✅ Security headers (CSP, HSTS, X-Frame-Options)
@@ -39,7 +39,7 @@ Gamified web app that matches developers with open-source "good first issues" th
 | Backend  | Go (Chi router), sqlc, pgx (PostgreSQL driver)      |
 | Database | PostgreSQL 16                                       |
 | Cache    | Redis (optional, with in-memory fallback)           |
-| Auth     | Firebase Authentication (GitHub OAuth, Email/Pass)  |
+| Auth     | Supabase Auth (GitHub OAuth + JWT)                  |
 | Build    | Go modules, Yarn (Node.js)                          |
 
 ## Project Structure
@@ -58,7 +58,7 @@ gitfable-app/
 │   │   ├── middleware/       # Request ID, auth, rate limiting, security headers
 │   │   ├── database/         # sqlc-generated queries and models
 │   │   ├── config/           # Environment config loading
-│   │   ├── firebase/         # Firebase Admin SDK wrapper
+│   │   ├── supabase/         # Supabase Auth wrapper
 │   │   ├── redis/            # Redis client with fallback
 │   │   ├── ctxutil/          # Context helpers
 │   │   └── seed/             # Mock data seeding for dev
@@ -71,8 +71,8 @@ gitfable-app/
 │   ├── src/
 │   │   ├── pages/            # Route pages (Landing, Discover, Dashboard, etc.)
 │   │   ├── components/       # UI components
-│   │   ├── contexts/         # Auth context (Firebase)
-│   │   └── lib/              # Utilities (api, firebase, theme)
+│   │   ├── contexts/         # Auth context (Supabase)
+│   │   └── lib/              # Utilities (api, supabase, theme)
 │   ├── public/
 │   └── package.json
 ├── docker/                   # Docker configurations
@@ -90,7 +90,7 @@ The easiest way to run the entire application:
 ```bash
 # 1. Setup environment
 make env
-# Edit docker/.env with your Firebase credentials
+# Edit docker/.env with your Supabase credentials
 
 # 2. Start everything with Docker
 make docker-up
@@ -125,7 +125,7 @@ See `docs/docker-quickstart.md` for detailed Docker instructions.
 - **Node.js 20+ + Yarn** - Frontend tooling
 - **PostgreSQL 16** - Database
 - **Redis** - Rate limiting (optional, falls back to in-memory)
-- **Firebase Project** - For authentication
+- **Supabase Project** - For authentication
 - **sqlc** - SQL code generation
   ```bash
   go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
@@ -135,14 +135,14 @@ See `docs/docker-quickstart.md` for detailed Docker instructions.
   go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
   ```
 
-### 1. Setup Firebase
+### 1. Setup Supabase Auth
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
 2. Create a new project
-3. Enable **Authentication** → **GitHub** sign-in method
-4. Create a GitHub OAuth App and link it (see `docs/firebase-auth-setup.md`)
-5. Download **Service Account** credentials JSON file
-6. See `docs/firebase-auth-setup.md` for detailed instructions
+3. Enable **Authentication** → **Providers** → **GitHub**
+4. Create/Configure GitHub OAuth app callback URL from Supabase settings
+5. Copy `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and anon key
+6. See `docs/supabase-auth-setup.md` for detailed instructions
 
 ### 2. Setup Backend
 
@@ -155,7 +155,8 @@ go mod download
 cp docker/.env.example docker/.env
 # Edit docker/.env and set:
 # - DATABASE_URL
-# - FIREBASE_SERVICE_ACCOUNT_PATH (absolute path to your Firebase JSON)
+# - SUPABASE_URL
+# - SUPABASE_SERVICE_ROLE_KEY
 # - GITHUB_TOKEN (for issue sync)
 
 # 3. Run migrations
@@ -186,13 +187,13 @@ make dev-frontend  # Runs on :3000
 
 ## Authentication Flow
 
-GitFable uses **Firebase Authentication**:
+GitFable uses **Supabase Authentication**:
 
-1. **Frontend** authenticates user via Firebase (GitHub OAuth, Email, etc.)
-2. **Frontend** receives Firebase ID token
+1. **Frontend** authenticates user via Supabase (GitHub OAuth)
+2. **Frontend** receives Supabase access token (JWT)
 3. **Frontend** sends token in `Authorization: Bearer <token>` header
-4. **Backend** verifies token with Firebase Admin SDK
-5. **Backend** looks up user in PostgreSQL by `firebase_uid`
+4. **Backend** verifies token with Supabase GoTrue API
+5. **Backend** looks up user in PostgreSQL by `auth_id`
 6. **User** is authenticated and can make API calls
 
 ### API Endpoints
@@ -204,7 +205,7 @@ All API endpoints are prefixed with `/api/v1`.
 - `GET /ready` - Readiness check (includes DB connectivity)
 
 #### Authentication (`/api/v1/auth`)
-- `POST /auth/register` - Register new user (after Firebase auth)
+- `POST /auth/register` - Register new user (after Supabase auth)
 - `GET /auth/me` - Get current user profile
 - `PUT /auth/me` - Update user profile (display_name, avatar_url)
 
@@ -291,7 +292,10 @@ make test-docker
 
 ### Required
 - `DATABASE_URL` - PostgreSQL connection string (e.g., `postgres://user:pass@localhost:5432/gitfable`)
-- `FIREBASE_SERVICE_ACCOUNT_PATH` - Absolute path to Firebase service account JSON file
+- `SUPABASE_URL` - Supabase project URL (e.g. `https://<project-ref>.supabase.co`)
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (backend only)
+- `REACT_APP_SUPABASE_URL` - Supabase project URL for frontend
+- `REACT_APP_SUPABASE_ANON_KEY` - Supabase anon key for frontend
 - `GITHUB_TOKEN` - GitHub Personal Access Token for issue sync
 
 ### Security
@@ -349,8 +353,8 @@ WHERE LOWER(username) = LOWER('nishantg96');
 
 Before deploying to production:
 
-- [ ] Set up Firebase project with production config
-- [ ] Download Firebase service account credentials
+- [ ] Set up Supabase project and GitHub OAuth provider
+- [ ] Configure Supabase service role + anon keys
 - [ ] Configure PostgreSQL with proper auth and SSL
 - [ ] Set strong CORS origins
 - [ ] Set up Redis for rate limiting
@@ -377,10 +381,10 @@ docker compose -f docker/docker-compose.prod.yml up -d
 - Other endpoints: 100 requests/minute
 
 ### Authentication
-- Firebase handles all OAuth flows securely
-- Backend only verifies Firebase ID tokens
-- Tokens expire after 1 hour (auto-refreshed by frontend Firebase SDK)
-- User data stored in PostgreSQL linked to Firebase UID
+- Supabase handles OAuth and token lifecycle
+- Backend verifies Supabase access tokens
+- Tokens are auto-refreshed by Supabase client SDK
+- User data stored in PostgreSQL linked to Supabase `auth_id`
 
 ### Database
 - sqlc generates type-safe queries (prevents SQL injection)
@@ -390,7 +394,7 @@ docker compose -f docker/docker-compose.prod.yml up -d
 ## Documentation
 
 - `docs/docker-quickstart.md` - Docker setup and deployment guide
-- `docs/firebase-auth-setup.md` - Firebase Authentication setup
+- `docs/supabase-auth-setup.md` - Supabase authentication setup guide
 - `docs/TESTING.md` - Comprehensive testing guide (unit, integration, E2E)
 - `docs/P2-BACKLOG.md` - Future feature roadmap
 - `docs/design_guidelines.json` - UI/UX design system

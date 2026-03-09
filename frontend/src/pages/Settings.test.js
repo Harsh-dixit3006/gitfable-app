@@ -44,9 +44,9 @@ describe('Settings page functionality', () => {
     expect(settingsSource).toContain('cursor-not-allowed');
   });
 
-  test('email is managed by Firebase', () => {
+  test('email is managed by auth provider', () => {
     expect(settingsSource).toContain('email');
-    expect(settingsSource).toContain('Managed by Firebase');
+    expect(settingsSource).toContain('Managed by Supabase Auth');
     expect(settingsSource).toContain('user.email');
   });
 

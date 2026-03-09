@@ -208,9 +208,9 @@ export default function Navbar() {
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="text-center mb-4">
                   <Avatar className={`w-16 h-16 mx-auto border-2 ${accent.borderBright}`}>
-                    <AvatarImage src={firebaseUser?.photoURL} />
+                    <AvatarImage src={firebaseUser?.user_metadata?.avatar_url} />
                     <AvatarFallback className="bg-zinc-900 text-xl">
-                      {firebaseUser?.displayName?.[0]?.toUpperCase() || '?'}
+                      {firebaseUser?.user_metadata?.full_name?.[0]?.toUpperCase() || '?'}
                     </AvatarFallback>
                   </Avatar>
                   <p className="mt-2 text-sm text-zinc-300">{firebaseUser?.email}</p>

@@ -49,8 +49,8 @@ services:
       - DB_POOL_SIZE=${DB_POOL_SIZE:-25}
       - CORS_ORIGINS=http://localhost:3000,http://frontend:80
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - FIREBASE_SERVICE_ACCOUNT_PATH=/creds/firebase.json
-      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-gitfable-app}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
@@ -62,8 +62,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ../creds:/creds:ro
 
   frontend:
     build:
@@ -71,12 +69,8 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL:-http://localhost:8001}
-        - REACT_APP_FIREBASE_API_KEY=${REACT_APP_FIREBASE_API_KEY}
-        - REACT_APP_FIREBASE_AUTH_DOMAIN=${REACT_APP_FIREBASE_AUTH_DOMAIN}
-        - REACT_APP_FIREBASE_PROJECT_ID=${REACT_APP_FIREBASE_PROJECT_ID}
-        - REACT_APP_FIREBASE_STORAGE_BUCKET=${REACT_APP_FIREBASE_STORAGE_BUCKET}
-        - REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
-        - REACT_APP_FIREBASE_APP_ID=${REACT_APP_FIREBASE_APP_ID}
+        - REACT_APP_SUPABASE_URL=${REACT_APP_SUPABASE_URL}
+        - REACT_APP_SUPABASE_ANON_KEY=${REACT_APP_SUPABASE_ANON_KEY}
     container_name: gitfable-frontend
     restart: unless-stopped
     ports:

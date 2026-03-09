@@ -203,13 +203,13 @@ export default function Settings() {
               )}
             </div>
 
-            {/* Email (Read-only from Firebase) */}
+            {/* Email (Read-only from auth provider) */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
                 <Mail className="w-4 h-4" />
                 Email
                 <span className="text-xs text-zinc-600 bg-zinc-800 px-2 py-0.5 rounded">
-                  Managed by Firebase
+                  Managed by Supabase Auth
                 </span>
               </label>
               <Input
