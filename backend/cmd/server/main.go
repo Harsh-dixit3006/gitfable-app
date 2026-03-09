@@ -23,6 +23,9 @@ import (
 	"github.com/nishantg96/gitfable/internal/seed"
 	"github.com/nishantg96/gitfable/internal/service"
 	isync "github.com/nishantg96/gitfable/internal/sync"
+
+	_ "github.com/nishantg96/gitfable/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
@@ -178,6 +181,9 @@ func main() {
 	// Health (no version prefix).
 	r.Get("/health", healthHandler.Health)
 	r.Get("/ready", healthHandler.Ready)
+
+	// Swagger documentation.
+	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	// API v1.
 	r.Route("/api/v1", func(r chi.Router) {

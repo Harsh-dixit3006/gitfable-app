@@ -8,6 +8,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// HealthCheck represents a health check response
+type HealthCheck struct {
+	Status string `json:"status" example:"healthy"`
+}
+
+// ReadinessCheck represents a readiness check response
+type ReadinessCheck struct {
+	Status string `json:"status" example:"ready"`
+}
+
 type HealthHandler struct {
 	Pool  *pgxpool.Pool
 	Redis *redis.Client
@@ -20,10 +30,27 @@ func (h *HealthHandler) Routes() chi.Router {
 	return r
 }
 
+// Health godoc
+// @Summary     Health check
+// @Description Returns the health status of the API
+// @Tags        health
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} HealthCheck
+// @Router      /health [get]
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	OK(w, map[string]string{"status": "healthy"})
 }
 
+// Ready godoc
+// @Summary     Readiness check
+// @Description Returns the readiness status including database and Redis connectivity
+// @Tags        health
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} ReadinessCheck
+// @Failure     503 {object} Response
+// @Router      /ready [get]
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

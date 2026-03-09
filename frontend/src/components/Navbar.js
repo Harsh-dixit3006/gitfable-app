@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BookOpen, Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User, Loader2 } from 'lucide-react';
+import { BookOpen, Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User, Loader2, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { colors, accent } from '@/lib/theme';
 
@@ -121,6 +121,9 @@ export default function Navbar() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/dashboard')} data-testid="menu-dashboard" className="font-mono text-xs text-zinc-300 focus:bg-white/5 focus:text-zinc-100">
                     <LayoutDashboard className="w-3.5 h-3.5 mr-2" strokeWidth={1.5} />Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')} data-testid="menu-settings" className="font-mono text-xs text-zinc-300 focus:bg-white/5 focus:text-zinc-100">
+                    <Settings className="w-3.5 h-3.5 mr-2" strokeWidth={1.5} />Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/5" />
                   <DropdownMenuItem onClick={logout} data-testid="menu-logout" className="font-mono text-xs text-zinc-500 focus:bg-red-500/5 focus:text-red-400">
