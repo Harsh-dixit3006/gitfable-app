@@ -309,7 +309,39 @@ make test-docker
 - `DEFAULT_DAILY_DRAW_LIMIT` - Fallback daily draw cap (default: `3`)
 - `DB_POOL_SIZE` - PostgreSQL connection pool size (default: `10`)
 
-See `docs/draw-limit-overrides.md` for per-user override examples.
+## Daily Draw Limits
+
+### Global Default
+
+Set the fallback daily draw cap for all users:
+
+```bash
+DEFAULT_DAILY_DRAW_LIMIT=3
+```
+
+### Per-User Overrides (Development)
+
+In non-production environments, seed per-user draw limits on startup:
+
+```bash
+SEED_DAILY_DRAW_LIMITS=nishantg96:5,tester:7
+```
+
+Format: comma-separated `username:limit` pairs (case-insensitive).
+
+### Manual Override
+
+```sql
+-- Set custom limit
+UPDATE users
+SET daily_draw_limit = 5
+WHERE LOWER(username) = LOWER('nishantg96');
+
+-- Remove override (falls back to global default)
+UPDATE users
+SET daily_draw_limit = NULL
+WHERE LOWER(username) = LOWER('nishantg96');
+```
 
 ## Production Deployment
 
@@ -359,10 +391,10 @@ docker compose -f docker/docker-compose.prod.yml up -d
 
 - `docs/docker-quickstart.md` - Docker setup and deployment guide
 - `docs/firebase-auth-setup.md` - Firebase Authentication setup
-- `docs/FULL_WORKFLOW_TEST.md` - E2E testing documentation
-- `docs/TESTING_DOCKER.md` - Docker testing environment
-- `docs/production-plan.md` - Original production readiness plan
+- `docs/TESTING.md` - Comprehensive testing guide (unit, integration, E2E)
+- `docs/P2-BACKLOG.md` - Future feature roadmap
 - `docs/design_guidelines.json` - UI/UX design system
+- `docs/archive/` - Historical documents and implementation plans
 
 ## Contributing
 
