@@ -73,8 +73,8 @@ func (h *WebhookHandler) GitHub(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Action      string `json:"action"`
 		PullRequest struct {
-			Merged        bool   `json:"merged"`
-			HTMLURL       string `json:"html_url"`
+			Merged         bool   `json:"merged"`
+			HTMLURL        string `json:"html_url"`
 			MergeCommitSHA string `json:"merge_commit_sha"`
 		} `json:"pull_request"`
 	}
@@ -125,6 +125,7 @@ func (h *WebhookHandler) GitHub(w http.ResponseWriter, r *http.Request) {
 		ID:             draw.ID,
 		MergeCommitSha: pgtype.Text{String: mergeCommitSHA, Valid: mergeCommitSHA != ""},
 		XpAwarded:      int32(webhookMergeXP),
+		RewardSource:   pgtype.Text{String: "webhook", Valid: true},
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
