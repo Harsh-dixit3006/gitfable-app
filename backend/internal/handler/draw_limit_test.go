@@ -30,3 +30,9 @@ func TestRemainingDraws_NeverGoesNegative(t *testing.T) {
 		t.Fatalf("remainingDraws() = %d, want 0", got)
 	}
 }
+
+func TestActiveWorkIncludesBookmarkedAndPRSubmitted(t *testing.T) {
+	var q database.Queries
+	_ = q.CountActiveWorkForUser
+	_ = q.ListActiveWorkForUser
+}

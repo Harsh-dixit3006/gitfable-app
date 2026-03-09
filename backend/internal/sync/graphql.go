@@ -96,8 +96,9 @@ type Comment struct {
 // claimPattern matches outsider comments expressing intent to work on an issue.
 // Structure: <intent prefix> <action verb> <object suffix>
 // This covers hundreds of natural permutations like:
-//   "I'd like to take this", "can I work on this issue?", "I will handle it",
-//   "I'm going to pick this up", "let me tackle this", "could I take this on?"
+//
+//	"I'd like to take this", "can I work on this issue?", "I will handle it",
+//	"I'm going to pick this up", "let me tackle this", "could I take this on?"
 var claimPattern = regexp.MustCompile(
 	`(?i)` +
 		// Intent prefixes: "I'll", "I'd like to", "can I", "let me", "I want to", etc.
@@ -225,7 +226,12 @@ func isClaimedByComments(comments []Comment) bool {
 
 // FilterIssue returns true if the repo meets quality thresholds:
 // stars >= minStars AND pushed within maxInactiveDays.
-func FilterIssue(repoStars int32, repoPushedAt time.Time, minStars int32, maxInactiveDays int) bool {
+func FilterIssue(repoFullName string, repoStars int32, repoPushedAt time.Time, minStars int32, maxInactiveDays int, allowlist []string) bool {
+	for _, allowed := range allowlist {
+		if strings.EqualFold(strings.TrimSpace(allowed), strings.TrimSpace(repoFullName)) {
+			return true
+		}
+	}
 	if repoStars < minStars {
 		return false
 	}
@@ -243,21 +249,21 @@ type PageInfo struct {
 
 // ParsedIssue holds a single issue parsed from the GraphQL search response.
 type ParsedIssue struct {
-	DatabaseID int64
-	Number     int
-	Title      string
-	URL        string
-	State      string
-	CreatedAt  time.Time
+	DatabaseID    int64
+	Number        int
+	Title         string
+	URL           string
+	State         string
+	CreatedAt     time.Time
 	Labels        []string
 	HasOpenPR     bool
 	AssigneeCount int
 	Comments      []Comment
-	RepoOwner  string
-	RepoName   string
-	RepoStars  int32
-	PushedAt   time.Time
-	Language   string
+	RepoOwner     string
+	RepoName      string
+	RepoStars     int32
+	PushedAt      time.Time
+	Language      string
 }
 
 // SearchResult holds the parsed result of a GraphQL search response.
@@ -292,7 +298,7 @@ type rawIssueNode struct {
 	URL        string `json:"url"`
 	State      string `json:"state"`
 	CreatedAt  string `json:"createdAt"`
-	Assignees struct {
+	Assignees  struct {
 		TotalCount int `json:"totalCount"`
 	} `json:"assignees"`
 	Comments struct {
@@ -404,11 +410,11 @@ func ParseSearchResponse(data []byte) (*SearchResult, error) {
 			HasOpenPR:     hasOpenPR,
 			AssigneeCount: node.Assignees.TotalCount,
 			Comments:      comments,
-			RepoOwner:  node.Repository.Owner.Login,
-			RepoName:   node.Repository.Name,
-			RepoStars:  node.Repository.StargazerCount,
-			PushedAt:   pushedAt,
-			Language:   lang,
+			RepoOwner:     node.Repository.Owner.Login,
+			RepoName:      node.Repository.Name,
+			RepoStars:     node.Repository.StargazerCount,
+			PushedAt:      pushedAt,
+			Language:      lang,
 		})
 	}
 

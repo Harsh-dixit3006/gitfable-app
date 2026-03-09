@@ -31,7 +31,7 @@ func main() {
 	defer pool.Close()
 
 	queries := database.New(pool)
-	svc := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncInterval, cfg.StaleInterval)
+	svc := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncRepoAllowlist, cfg.SyncInterval, cfg.StaleInterval)
 
 	slog.Info("starting one-time sync")
 	if err := svc.RunOnce(ctx); err != nil {

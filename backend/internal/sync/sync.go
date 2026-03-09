@@ -39,6 +39,7 @@ type SyncService struct {
 	httpClient    *http.Client
 	token         string
 	languages     []string
+	repoAllowlist []string
 	interval      time.Duration
 	staleInterval time.Duration
 	stopCh        chan struct{}
@@ -46,7 +47,7 @@ type SyncService struct {
 
 // NewSyncService creates a new SyncService. If token is empty, the service
 // runs in degraded mode with fewer languages.
-func NewSyncService(queries *database.Queries, token string, interval, staleInterval time.Duration) *SyncService {
+func NewSyncService(queries *database.Queries, token string, repoAllowlist []string, interval, staleInterval time.Duration) *SyncService {
 	languages := DefaultLanguages
 	if token == "" {
 		languages = DegradedLanguages
@@ -57,6 +58,7 @@ func NewSyncService(queries *database.Queries, token string, interval, staleInte
 		httpClient:    &http.Client{Timeout: 30 * time.Second},
 		token:         token,
 		languages:     languages,
+		repoAllowlist: repoAllowlist,
 		interval:      interval,
 		staleInterval: staleInterval,
 		stopCh:        make(chan struct{}),
@@ -172,7 +174,8 @@ func (s *SyncService) syncLanguage(ctx context.Context, language string) (upsert
 		}
 
 		for _, issue := range result.Issues {
-			if !FilterIssue(issue.RepoStars, issue.PushedAt, MinRepoStars, MaxRepoInactiveDays) {
+			repoFullName := fmt.Sprintf("%s/%s", issue.RepoOwner, issue.RepoName)
+			if !FilterIssue(repoFullName, issue.RepoStars, issue.PushedAt, MinRepoStars, MaxRepoInactiveDays, s.repoAllowlist) {
 				skipped++
 				continue
 			}

@@ -58,6 +58,17 @@ function normalizeHistoryDraw(draw) {
   };
 }
 
+function sortActiveBookmarks(draws) {
+  return [...draws].sort((a, b) => {
+    if (a.status !== b.status) {
+      return a.status === 'pr_submitted' ? -1 : 1;
+    }
+    const aExpiry = a.expires_at ? new Date(a.expires_at).getTime() : Number.MAX_SAFE_INTEGER;
+    const bExpiry = b.expires_at ? new Date(b.expires_at).getTime() : Number.MAX_SAFE_INTEGER;
+    return aExpiry - bExpiry;
+  });
+}
+
 function FloatingOrb({ delay = 0, duration = 20, color = `rgba(${colors.accent.rgb},0.15)`, size = 300 }) {
   return (
     <motion.div
@@ -191,10 +202,12 @@ export default function Discover() {
   const [drawnIssue, setDrawnIssue] = useState(null);
   const [currentDrawId, setCurrentDrawId] = useState(null);
   const [redrawsRemaining, setRedrawsRemaining] = useState(null);
-  const [activeBookmark, setActiveBookmark] = useState(null);
+  const [activeBookmarks, setActiveBookmarks] = useState([]);
   const [showPRDialog, setShowPRDialog] = useState(false);
   const [prUrl, setPrUrl] = useState('');
   const [prDrawId, setPrDrawId] = useState(null);
+  const [pendingSwapIssue, setPendingSwapIssue] = useState(null);
+  const [swapCandidates, setSwapCandidates] = useState([]);
   const [issues, setIssues] = useState([]);
   const [issuesLoading, setIssuesLoading] = useState(true);
   const [issueQuery, setIssueQuery] = useState('');
@@ -224,10 +237,11 @@ export default function Discover() {
 
   useEffect(() => {
     if (user) {
-      loadActiveBookmark();
+      loadActiveBookmarks();
       loadDrawBudget();
     } else {
       setRedrawsRemaining(3);
+      setActiveBookmarks([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -266,25 +280,17 @@ export default function Discover() {
     setCurrentPage(1);
   }, [languages, difficulties, rarities, issueQuery]);
 
-  const loadActiveBookmark = async () => {
+  const loadActiveBookmarks = async () => {
     try {
-      const res = await api.get('/draws/history', {
-        params: { status: 'bookmarked', limit: 1 },
-      });
-      const draws = res._data || [];
-      if (draws.length > 0) {
-        setActiveBookmark(normalizeHistoryDraw(draws[0]));
-      } else {
-        const res2 = await api.get('/draws/history', {
-          params: { status: 'pr_submitted', limit: 1 },
-        });
-        const draws2 = res2._data || [];
-        if (draws2.length > 0) {
-          setActiveBookmark(normalizeHistoryDraw(draws2[0]));
-        } else {
-          setActiveBookmark(null);
-        }
-      }
+      const [bookmarkedRes, submittedRes] = await Promise.all([
+        api.get('/draws/history', { params: { status: 'bookmarked', limit: 5 } }),
+        api.get('/draws/history', { params: { status: 'pr_submitted', limit: 5 } }),
+      ]);
+      const combined = [
+        ...(bookmarkedRes._data || []).map(normalizeHistoryDraw),
+        ...(submittedRes._data || []).map(normalizeHistoryDraw),
+      ];
+      setActiveBookmarks(sortActiveBookmarks(combined));
     } catch { /* ignore */ }
   };
 
@@ -343,18 +349,37 @@ export default function Discover() {
     try {
       const res = await api.post(
         '/draws/choose',
-        { issue_id: issueId },
+        { issue_id: issueId, bookmark_immediately: true },
       );
       const data = res._data;
       const normalized = normalizeDrawResponse(data);
-      setDrawnIssue(normalized);
-      setCurrentDrawId(data.draw.id);
-      setXpAwarded(0);
-      setDrawState('revealed');
-      toast.success('Issue selected! XP awarded on merge.');
+      if (data.draw.status === 'bookmarked') {
+        setActiveBookmarks(prev => sortActiveBookmarks([...prev, {
+          ...normalized,
+          id: data.draw.id,
+          status: data.draw.status,
+          expires_at: data.draw.expires_at,
+        }]));
+        setDrawnIssue(null);
+        setCurrentDrawId(null);
+        setXpAwarded(null);
+        setDrawState('idle');
+        toast.success('Issue chosen and bookmarked! You have 7 days.');
+      } else {
+        setDrawnIssue(normalized);
+        setCurrentDrawId(data.draw.id);
+        setXpAwarded(0);
+        setDrawState('revealed');
+        toast.success('Issue selected! XP awarded on merge.');
+      }
       await loadDrawBudget();
       await refreshUser();
     } catch (err) {
+      if (err._code === 'BOOKMARK_LIMIT_REACHED') {
+        const selectedIssue = issues.find((issue) => issue.id === issueId) || null;
+        setPendingSwapIssue(selectedIssue);
+        setSwapCandidates(err.response?.data?.data?.active_work || []);
+      }
       toast.error(err._message || 'Choose issue failed');
     }
     setChoosingIssueId(null);
@@ -366,7 +391,7 @@ export default function Discover() {
       await api.put(`/draws/${currentDrawId}/status`, { status: 'bookmarked' });
       toast.success('Issue bookmarked! You have 7 days.');
       await refreshUser();
-      await loadActiveBookmark();
+      await loadActiveBookmarks();
       setDrawState('idle');
       setDrawnIssue(null);
       setCurrentDrawId(null);
@@ -374,11 +399,11 @@ export default function Discover() {
     } catch (err) { toast.error(err._message || 'Bookmark failed'); }
   };
 
-  const handleRelease = async () => {
-    if (!activeBookmark) return;
+  const handleRelease = async (drawId) => {
+    if (!drawId) return;
     try {
-      await api.put(`/draws/${activeBookmark.id}/status`, { status: 'expired' });
-      setActiveBookmark(null);
+      await api.put(`/draws/${drawId}/status`, { status: 'expired' });
+      setActiveBookmarks(prev => prev.filter((bookmark) => bookmark.id !== drawId));
       toast.success('Bookmark released');
       await refreshUser();
     } catch (err) { toast.error(err._message || 'Release failed'); }
@@ -391,7 +416,9 @@ export default function Discover() {
       toast.success('PR submitted! XP awarded on merge.');
       setShowPRDialog(false);
       setPrUrl('');
-      if (activeBookmark?.id === prDrawId) setActiveBookmark(prev => prev ? { ...prev, status: 'pr_submitted', pr_url: prUrl } : null);
+      setActiveBookmarks(prev => sortActiveBookmarks(prev.map((bookmark) => (
+        bookmark.id === prDrawId ? { ...bookmark, status: 'pr_submitted', pr_url: prUrl } : bookmark
+      ))));
     } catch (err) { toast.error(err._message || 'Submit failed'); }
   };
 
@@ -400,9 +427,38 @@ export default function Discover() {
       const res = await api.post(`/draws/${drawId}/verify`, {});
       const data = res._data;
       toast.success(`PR merged! ${data.new_badges?.length ? '+ New badge!' : ''}`);
-      setActiveBookmark(null);
+      setActiveBookmarks(prev => prev.filter((bookmark) => bookmark.id !== drawId));
       await refreshUser();
     } catch (err) { toast.error(err._message || 'Verification failed'); }
+  };
+
+  const handleSwapBookmark = async (replaceDrawId) => {
+    if (!pendingSwapIssue) return;
+    try {
+      const res = await api.post('/draws/choose', {
+        issue_id: pendingSwapIssue.id,
+        bookmark_immediately: true,
+        replace_draw_id: replaceDrawId,
+      });
+      const data = res._data;
+      const normalized = normalizeDrawResponse(data);
+      setActiveBookmarks(prev => sortActiveBookmarks([
+        ...prev.filter((bookmark) => bookmark.id !== replaceDrawId),
+        {
+          ...normalized,
+          id: data.draw.id,
+          status: data.draw.status,
+          expires_at: data.draw.expires_at,
+        },
+      ]));
+      setPendingSwapIssue(null);
+      setSwapCandidates([]);
+      toast.success('Swapped into active work.');
+      await loadDrawBudget();
+      await refreshUser();
+    } catch (err) {
+      toast.error(err._message || 'Swap failed');
+    }
   };
 
   const getCountdown = (expiresAt) => {
@@ -422,6 +478,12 @@ export default function Discover() {
       sortDir,
     });
   }, [issues, languages, difficulties, rarities, issueQuery, sortField, sortDir]);
+
+  const activeIssueIds = useMemo(() => new Set(
+    activeBookmarks
+      .map((bookmark) => bookmark.issue?.id)
+      .filter(Boolean)
+  ), [activeBookmarks]);
 
   const totalPages = Math.ceil(filteredIssues.length / pageSize) || 1;
   const paginatedIssues = filteredIssues.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -499,10 +561,10 @@ export default function Discover() {
           >
             <InfoSidebar
               redrawsRemaining={redrawsRemaining}
-              activeBookmark={activeBookmark}
+              activeBookmarks={activeBookmarks}
               onSubmitPR={(drawId) => { setPrDrawId(drawId); setShowPRDialog(true); }}
               onVerify={(drawId) => handleVerify(drawId)}
-              onRelease={handleRelease}
+              onRelease={(drawId) => handleRelease(drawId)}
               getCountdown={getCountdown}
             />
 
@@ -750,9 +812,14 @@ export default function Discover() {
                         exit={{ opacity: 0, scale: 0.95, x: -20 }}
                         transition={{ delay: idx * 0.03, duration: 0.35, ease: EASE }}
                       >
-                        <IssueCardRow issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
-                      </motion.div>
-                    ))}
+                            <IssueCardRow
+                              issue={issue}
+                              onChoose={handleChooseIssue}
+                              choosingIssueId={choosingIssueId}
+                              isAlreadyBookmarked={activeIssueIds.has(issue.id)}
+                            />
+                          </motion.div>
+                        ))}
                   </AnimatePresence>
 
                   {filteredIssues.length === 0 && (
@@ -887,7 +954,7 @@ export default function Discover() {
         </div>
       </div>
 
-      <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
+        <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
         <DialogContent className="bg-zinc-950 border-white/10 backdrop-blur-xl" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">Submit Pull Request</DialogTitle>
@@ -913,8 +980,46 @@ export default function Discover() {
               Submit PR
             </motion.button>
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!pendingSwapIssue} onOpenChange={(open) => { if (!open) { setPendingSwapIssue(null); setSwapCandidates([]); } }}>
+          <DialogContent className="bg-zinc-950 border-white/10 backdrop-blur-xl" data-testid="swap-dialog">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">Bookmark Queue Full</DialogTitle>
+              <DialogDescription className="text-zinc-400 text-sm mt-2">
+                Choose an existing active item to replace with this issue.
+              </DialogDescription>
+            </DialogHeader>
+            {pendingSwapIssue && (
+              <div className="space-y-4 mt-4">
+                <div className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
+                  <p className="text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">New Issue</p>
+                  <p className="text-sm font-mono text-zinc-400 truncate">{pendingSwapIssue.repo}</p>
+                  <p className="text-base text-zinc-100 font-medium mt-1">{pendingSwapIssue.title}</p>
+                </div>
+                    <div className="space-y-2">
+                      {swapCandidates.map((bookmark) => (
+                        <div key={bookmark.id} className="rounded-xl border border-white/10 bg-zinc-900/40 p-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                          <div className="min-w-0 pr-2">
+                            <p className="text-xs font-mono uppercase tracking-wider text-zinc-500">{bookmark.issue.repo_owner}/{bookmark.issue.repo_name}</p>
+                            <p className="text-sm text-zinc-100 font-medium truncate">{bookmark.issue.title}</p>
+                          </div>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleSwapBookmark(bookmark.id)}
+                            className="min-w-[140px] px-3 py-2 rounded-lg text-sm font-mono uppercase tracking-wider border border-white/10 bg-zinc-950/85 text-zinc-100 hover:bg-white/[0.04] hover:border-white/25 transition-all duration-200"
+                          >
+                            Replace this
+                          </motion.button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
   );
 }

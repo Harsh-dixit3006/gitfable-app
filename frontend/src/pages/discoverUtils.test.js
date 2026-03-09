@@ -114,4 +114,39 @@ describe('discover source regressions', () => {
     expect(drawAnimationSource).toContain('flip: 5200');
     expect(drawAnimationSource).toContain('settle: 6700');
   });
+
+  test('browse flow supports choosing and bookmarking directly from the table path', () => {
+    expect(discoverSource).toContain('bookmark_immediately: true');
+    expect(issueCardRowSource).toContain('Choose & Bookmark');
+  });
+
+  test('discover renders active work queue instead of single active bookmark card', () => {
+    expect(discoverSource).toContain('const [activeBookmarks, setActiveBookmarks] = useState([]);');
+    expect(infoSidebarSource).toContain('Active Work');
+    expect(infoSidebarSource).toContain('activeIndex');
+    expect(infoSidebarSource).toContain('Viewing');
+  });
+
+  test('discover shows swap modal when bookmark queue is full', () => {
+    expect(discoverSource).toContain('BOOKMARK_LIMIT_REACHED');
+    expect(discoverSource).toContain('Replace this');
+    expect(discoverSource).toContain('replace_draw_id');
+  });
+
+  test('discover keeps PR actions scoped to explicit draw ids from the active work list', () => {
+    expect(discoverSource).toContain('const [pendingSwapIssue, setPendingSwapIssue] = useState(null);');
+    expect(discoverSource).toContain('onSubmitPR={(drawId) => { setPrDrawId(drawId); setShowPRDialog(true); }}');
+    expect(discoverSource).toContain('bookmark.id === prDrawId ? { ...bookmark, status: \'pr_submitted\', pr_url: prUrl } : bookmark');
+    expect(discoverSource).toContain('filter((bookmark) => bookmark.id !== drawId)');
+  });
+
+  test('discover prevents choosing an issue already present in active work', () => {
+    expect(discoverSource).toContain('const activeIssueIds = useMemo(() => new Set(');
+    expect(issueCardRowSource).toContain("isAlreadyBookmarked ? 'Bookmarked' : 'Choose & Bookmark'");
+  });
+
+  test('swap modal uses aligned rows with a stable action column', () => {
+    expect(discoverSource).toContain('grid-cols-[minmax(0,1fr)_auto]');
+    expect(discoverSource).toContain('min-w-[140px]');
+  });
 });

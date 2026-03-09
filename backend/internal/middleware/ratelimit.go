@@ -104,6 +104,9 @@ func (rl *RateLimiter) categorize(path string) string {
 	if strings.Contains(path, "/auth") {
 		return "auth"
 	}
+	if strings.Contains(path, "/draws/history") {
+		return "default"
+	}
 	if strings.Contains(path, "/draws") {
 		return "draws"
 	}

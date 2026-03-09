@@ -65,6 +65,29 @@ SELECT * FROM draws
 WHERE user_id = $1 AND status = 'bookmarked' AND (expires_at IS NULL OR expires_at > NOW())
 LIMIT 1;
 
+-- name: CountActiveWorkForUser :one
+SELECT COUNT(*) FROM draws
+WHERE user_id = $1
+  AND (
+    (status = 'bookmarked' AND (expires_at IS NULL OR expires_at > NOW()))
+    OR status = 'pr_submitted'
+  );
+
+-- name: ListActiveWorkForUser :many
+SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels
+FROM draws d
+JOIN issues i ON d.issue_id = i.id
+WHERE d.user_id = $1
+  AND (
+    (d.status = 'bookmarked' AND (d.expires_at IS NULL OR d.expires_at > NOW()))
+    OR d.status = 'pr_submitted'
+  )
+ORDER BY
+  CASE WHEN d.status = 'pr_submitted' THEN 0 ELSE 1 END,
+  COALESCE(d.expires_at, '9999-12-31'::timestamptz) ASC,
+  d.created_at DESC,
+  d.id DESC;
+
 -- name: ListUserDraws :many
 SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels
 FROM draws d

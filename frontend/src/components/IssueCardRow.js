@@ -10,7 +10,7 @@ const BROWSE_DIFF_COLORS = {
   Advanced: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
 
-export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
+export default function IssueCardRow({ issue, onChoose, choosingIssueId, isAlreadyBookmarked = false }) {
   const r = RARITY[issue.rarity] || RARITY.common;
   const isChoosing = choosingIssueId === issue.id;
   const cardRef = useRef(null);
@@ -139,11 +139,11 @@ export default function IssueCardRow({ issue, onChoose, choosingIssueId }) {
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   className="px-4 py-2 rounded-lg text-[11px] flex items-center gap-1.5 border border-white/12 bg-zinc-950/85 text-zinc-100 hover:bg-white/[0.04] hover:border-white/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-mono uppercase tracking-[0.16em]"
-                  disabled={isChoosing}
+                  disabled={isChoosing || isAlreadyBookmarked}
                   onClick={() => onChoose(issue.id)}
                 >
               <Crosshair className="w-3.5 h-3.5" />
-              {isChoosing ? 'Choosing...' : 'Choose'}
+              {isChoosing ? 'Choosing...' : isAlreadyBookmarked ? 'Bookmarked' : 'Choose & Bookmark'}
             </motion.button>
           </div>
         </div>

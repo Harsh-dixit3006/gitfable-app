@@ -29,10 +29,11 @@ type Config struct {
 	CORSOrigins []string
 	FrontendURL string
 
-	GitHubToken   string
-	SyncInterval  time.Duration
-	StaleInterval time.Duration
-	SyncEnabled   bool
+	GitHubToken       string
+	SyncRepoAllowlist []string
+	SyncInterval      time.Duration
+	StaleInterval     time.Duration
+	SyncEnabled       bool
 }
 
 func Load() (*Config, error) {
@@ -57,10 +58,11 @@ func Load() (*Config, error) {
 		CORSOrigins: parseCSV(getEnv("CORS_ORIGINS", "")),
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:3000"),
 
-		GitHubToken:   getEnv("GITHUB_TOKEN", ""),
-		SyncInterval:  getEnvDuration("SYNC_INTERVAL", 6*time.Hour),
-		StaleInterval: getEnvDuration("STALE_INTERVAL", 12*time.Hour),
-		SyncEnabled:   getEnvBool("SYNC_ENABLED", true),
+		GitHubToken:       getEnv("GITHUB_TOKEN", ""),
+		SyncRepoAllowlist: parseCSV(getEnv("SYNC_REPO_ALLOWLIST", "")),
+		SyncInterval:      getEnvDuration("SYNC_INTERVAL", 6*time.Hour),
+		StaleInterval:     getEnvDuration("STALE_INTERVAL", 12*time.Hour),
+		SyncEnabled:       getEnvBool("SYNC_ENABLED", true),
 	}
 
 	if cfg.IsProduction() && len(cfg.CORSOrigins) == 0 {
