@@ -25,7 +25,7 @@ func (q *Queries) CountActiveUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (firebase_uid, username, email, display_name, avatar_url, github_id, github_username)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit
+RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 
 type CreateUserParams struct {
@@ -70,6 +70,60 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
+	)
+	return i, err
+}
+
+const createUserWithAuthID = `-- name: CreateUserWithAuthID :one
+INSERT INTO users (auth_id, username, email, display_name, avatar_url, github_id, github_username)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
+`
+
+type CreateUserWithAuthIDParams struct {
+	AuthID         string      `json:"auth_id"`
+	Username       string      `json:"username"`
+	Email          string      `json:"email"`
+	DisplayName    string      `json:"display_name"`
+	AvatarUrl      string      `json:"avatar_url"`
+	GithubID       pgtype.Text `json:"github_id"`
+	GithubUsername pgtype.Text `json:"github_username"`
+}
+
+func (q *Queries) CreateUserWithAuthID(ctx context.Context, arg CreateUserWithAuthIDParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUserWithAuthID,
+		arg.AuthID,
+		arg.Username,
+		arg.Email,
+		arg.DisplayName,
+		arg.AvatarUrl,
+		arg.GithubID,
+		arg.GithubUsername,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.FirebaseUid,
+		&i.Username,
+		&i.Email,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.GithubID,
+		&i.GithubUsername,
+		&i.Xp,
+		&i.Level,
+		&i.CurrentStreak,
+		&i.LongestStreak,
+		&i.LastContributionDate,
+		&i.TotalContributions,
+		&i.Filters,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
@@ -185,8 +239,42 @@ func (q *Queries) GetLeaderboardAfterCursor(ctx context.Context, arg GetLeaderbo
 	return items, nil
 }
 
+const getUserByAuthID = `-- name: GetUserByAuthID :one
+SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id FROM users WHERE auth_id = $1
+`
+
+// Supabase Auth Queries (replaces Firebase)
+func (q *Queries) GetUserByAuthID(ctx context.Context, authID string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByAuthID, authID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.FirebaseUid,
+		&i.Username,
+		&i.Email,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.GithubID,
+		&i.GithubUsername,
+		&i.Xp,
+		&i.Level,
+		&i.CurrentStreak,
+		&i.LongestStreak,
+		&i.LastContributionDate,
+		&i.TotalContributions,
+		&i.Filters,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DailyDrawLimit,
+		&i.AuthID,
+	)
+	return i, err
+}
+
 const getUserByFirebaseUID = `-- name: GetUserByFirebaseUID :one
-SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit FROM users WHERE firebase_uid = $1
+SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id FROM users WHERE firebase_uid = $1
 `
 
 func (q *Queries) GetUserByFirebaseUID(ctx context.Context, firebaseUid string) (User, error) {
@@ -213,12 +301,13 @@ func (q *Queries) GetUserByFirebaseUID(ctx context.Context, firebaseUid string) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
 
 const getUserByGithubUsername = `-- name: GetUserByGithubUsername :one
-SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit FROM users WHERE github_username = $1
+SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id FROM users WHERE github_username = $1
 `
 
 func (q *Queries) GetUserByGithubUsername(ctx context.Context, githubUsername pgtype.Text) (User, error) {
@@ -245,12 +334,13 @@ func (q *Queries) GetUserByGithubUsername(ctx context.Context, githubUsername pg
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit FROM users WHERE id = $1
+SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -277,12 +367,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
 
 const getUserByPublicID = `-- name: GetUserByPublicID :one
-SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit FROM users WHERE public_id = $1
+SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id FROM users WHERE public_id = $1
 `
 
 func (q *Queries) GetUserByPublicID(ctx context.Context, publicID pgtype.UUID) (User, error) {
@@ -309,12 +400,13 @@ func (q *Queries) GetUserByPublicID(ctx context.Context, publicID pgtype.UUID) (
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit FROM users WHERE LOWER(username) = LOWER($1)
+SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id FROM users WHERE LOWER(username) = LOWER($1)
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, lower string) (User, error) {
@@ -341,6 +433,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, lower string) (User, er
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
@@ -355,7 +448,7 @@ func (q *Queries) IncrementContributions(ctx context.Context, id int64) error {
 }
 
 const syncUserFromFirebase = `-- name: SyncUserFromFirebase :one
-UPDATE users SET email = $2, display_name = $3, avatar_url = $4 WHERE firebase_uid = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit
+UPDATE users SET email = $2, display_name = $3, avatar_url = $4 WHERE firebase_uid = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 
 type SyncUserFromFirebaseParams struct {
@@ -394,12 +487,58 @@ func (q *Queries) SyncUserFromFirebase(ctx context.Context, arg SyncUserFromFire
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
+	)
+	return i, err
+}
+
+const updateUserAuthProfile = `-- name: UpdateUserAuthProfile :one
+UPDATE users SET email = $2, display_name = $3, avatar_url = $4 WHERE auth_id = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
+`
+
+type UpdateUserAuthProfileParams struct {
+	AuthID      string `json:"auth_id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	AvatarUrl   string `json:"avatar_url"`
+}
+
+func (q *Queries) UpdateUserAuthProfile(ctx context.Context, arg UpdateUserAuthProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserAuthProfile,
+		arg.AuthID,
+		arg.Email,
+		arg.DisplayName,
+		arg.AvatarUrl,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.FirebaseUid,
+		&i.Username,
+		&i.Email,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.GithubID,
+		&i.GithubUsername,
+		&i.Xp,
+		&i.Level,
+		&i.CurrentStreak,
+		&i.LongestStreak,
+		&i.LastContributionDate,
+		&i.TotalContributions,
+		&i.Filters,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
 
 const updateUserDailyDrawLimitByUsername = `-- name: UpdateUserDailyDrawLimitByUsername :one
-UPDATE users SET daily_draw_limit = $2 WHERE LOWER(username) = LOWER($1) RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit
+UPDATE users SET daily_draw_limit = $2 WHERE LOWER(username) = LOWER($1) RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 
 type UpdateUserDailyDrawLimitByUsernameParams struct {
@@ -431,12 +570,13 @@ func (q *Queries) UpdateUserDailyDrawLimitByUsername(ctx context.Context, arg Up
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
 
 const updateUserFilters = `-- name: UpdateUserFilters :one
-UPDATE users SET filters = $2 WHERE id = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit
+UPDATE users SET filters = $2 WHERE id = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 
 type UpdateUserFiltersParams struct {
@@ -468,12 +608,13 @@ func (q *Queries) UpdateUserFilters(ctx context.Context, arg UpdateUserFiltersPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
 
 const updateUserProfile = `-- name: UpdateUserProfile :one
-UPDATE users SET display_name = $2, avatar_url = $3 WHERE id = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit
+UPDATE users SET display_name = $2, avatar_url = $3 WHERE id = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 
 type UpdateUserProfileParams struct {
@@ -506,6 +647,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }
@@ -532,7 +674,7 @@ func (q *Queries) UpdateUserStreak(ctx context.Context, arg UpdateUserStreakPara
 }
 
 const updateUserXP = `-- name: UpdateUserXP :one
-UPDATE users SET xp = $2, level = $3 WHERE id = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit
+UPDATE users SET xp = $2, level = $3 WHERE id = $1 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 
 type UpdateUserXPParams struct {
@@ -565,6 +707,7 @@ func (q *Queries) UpdateUserXP(ctx context.Context, arg UpdateUserXPParams) (Use
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyDrawLimit,
+		&i.AuthID,
 	)
 	return i, err
 }

@@ -279,6 +279,7 @@ type User struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	DailyDrawLimit       pgtype.Int4        `json:"daily_draw_limit"`
+	AuthID               string             `json:"auth_id"`
 }
 
 type UserBadge struct {
