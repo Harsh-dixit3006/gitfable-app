@@ -5,6 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { motion } from 'framer-motion';
 import { Crown, Medal } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { colors, accent } from '@/lib/theme';
 
@@ -28,7 +29,10 @@ export default function Leaderboard() {
         const ranked = (r._data || []).map((u, i) => ({ ...u, rank: i + 1 }));
         setUsers(ranked);
       })
-      .catch(() => {})
+      .catch((err) => {
+        toast.error('Failed to load leaderboard');
+        console.error('Leaderboard error:', err);
+      })
       .finally(() => setLoading(false));
   }, []);
 
