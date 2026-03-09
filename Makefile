@@ -88,6 +88,9 @@ lint-backend: ## Lint backend Go code
 generate: ## Generate Go code from sqlc queries
 	cd backend && sqlc generate
 
+swagger: ## Generate Swagger documentation
+	cd backend && swag init -g cmd/server/main.go --output docs
+
 # ─── Database Migrations ────────────────────────────────────────────
 
 migrate-up: ## Run database migrations up
