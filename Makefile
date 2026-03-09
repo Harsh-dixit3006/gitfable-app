@@ -1,4 +1,4 @@
-.PHONY: help install install-backend install-frontend dev dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
+.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
 
 # Default target
 help: ## Show this help
@@ -17,16 +17,20 @@ install-frontend: ## Install frontend Node dependencies
 
 # ─── Development ─────────────────────────────────────────────────────
 
-dev: ## Start both backend and frontend (requires two terminals)
-	@echo "Run in separate terminals:"
-	@echo "  make dev-backend"
-	@echo "  make dev-frontend"
+dev: ## Start infra (Docker) + backend & frontend (tmux split)
+	@scripts/dev.sh
+
+dev-stop: ## Stop all dev services (tmux + Docker)
+	@tmux kill-session -t gitfable 2>/dev/null || true
+	@docker compose -f docker/docker-compose.yml down
 
 dev-backend: ## Start backend dev server (port 8001)
-	@command -v air >/dev/null 2>&1 && (cd backend && air) || (cd backend && go run ./cmd/server)
+	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
+	@set -a && . docker/.env && set +a && command -v air >/dev/null 2>&1 && (cd backend && air) || (cd backend && go run ./cmd/server)
 
 dev-frontend: ## Start frontend dev server (port 3000)
-	cd frontend && npm start
+	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
+	@set -a && . docker/.env && set +a && cd frontend && npm start
 
 # ─── Build ───────────────────────────────────────────────────────────
 
@@ -48,6 +52,28 @@ test: test-backend ## Run all tests
 
 test-backend: ## Run backend tests with verbose output
 	cd backend && go test ./... -v
+
+test-full-workflow: ## Run full E2E workflow test (requires GITHUB_TOKEN and TEST_GITHUB_USERNAME)
+	@test -f docker/.env.test || (echo "Error: docker/.env.test not found. Copy docker/.env.test.example to docker/.env.test and add your credentials." && exit 1)
+	@echo "Running full workflow tests in Docker..."
+	@docker compose -f docker/docker-compose.test.yml --env-file docker/.env.test up --abort-on-container-exit
+
+test-full-workflow-local: ## Run full E2E workflow test locally (requires env vars)
+	@test -n "$(GITHUB_TOKEN)" || (echo "Error: GITHUB_TOKEN not set" && exit 1)
+	@test -n "$(TEST_GITHUB_USERNAME)" || (echo "Error: TEST_GITHUB_USERNAME not set" && exit 1)
+	cd backend && GITHUB_TOKEN=$(GITHUB_TOKEN) TEST_GITHUB_USERNAME=$(TEST_GITHUB_USERNAME) go test -v ./internal/handler -run TestFullWorkflow
+
+test-docker: ## Run all tests in Docker container
+	@docker compose -f docker/docker-compose.test.yml --env-file docker/.env.test up --abort-on-container-exit
+
+test-docker-down: ## Stop test Docker containers
+	@docker compose -f docker/docker-compose.test.yml down -v
+
+test-cleanup: ## Clean up test database and containers
+	@docker compose -f docker/docker-compose.test.yml down -v
+	@docker volume rm gitfable_postgres_test_data gitfable_redis_test_data 2>/dev/null || true
+	env-test: ## Create docker/.env.test from example
+	@test -f docker/.env.test || (cp docker/.env.test.example docker/.env.test && echo "Created docker/.env.test from example. Edit it to add your credentials.")
 
 # ─── Code Quality ────────────────────────────────────────────────────
 
@@ -79,36 +105,35 @@ clean: ## Remove build artifacts and caches
 
 # ─── Environment Setup ───────────────────────────────────────────────
 
-env: ## Create .env files from examples
-	@test -f backend/.env || (cp backend/.env.example backend/.env && echo "Created backend/.env")
-	@test -f frontend/.env || (cp frontend/.env.example frontend/.env && echo "Created frontend/.env")
-	@echo "Edit .env files with your local values"
+env: ## Create docker/.env from example
+	@test -f docker/.env || (cp docker/.env.example docker/.env && echo "Created docker/.env from example")
+	@echo "Edit docker/.env with your local values (Firebase path, GitHub token)"
 
 # ─── Docker ──────────────────────────────────────────────────────────
 
 docker-build: ## Build all Docker images
-	docker compose build
+	docker compose -f docker/docker-compose.yml build
 
 docker-up: ## Start all services with Docker Compose
-	docker compose up -d
+	docker compose -f docker/docker-compose.yml up -d
 
 docker-down: ## Stop all Docker services
-	docker compose down
+	docker compose -f docker/docker-compose.yml down
 
 docker-logs: ## View logs from all services
-	docker compose logs -f
+	docker compose -f docker/docker-compose.yml logs -f
 
 docker-backend-logs: ## View backend logs only
-	docker compose logs -f backend
+	docker compose -f docker/docker-compose.yml logs -f backend
 
 docker-frontend-logs: ## View frontend logs only
-	docker compose logs -f frontend
+	docker compose -f docker/docker-compose.yml logs -f frontend
 
 docker-clean: ## Remove all containers, volumes, and images
-	docker compose down -v --rmi all
+	docker compose -f docker/docker-compose.yml down -v --rmi all
 
 docker-prod-build: ## Build production images
-	docker compose -f docker-compose.prod.yml build
+	docker compose -f docker/docker-compose.prod.yml build
 
 docker-prod-up: ## Start production services
-	docker compose -f docker-compose.prod.yml up -d
+	docker compose -f docker/docker-compose.prod.yml up -d

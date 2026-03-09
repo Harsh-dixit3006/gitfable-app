@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { motion } from 'framer-motion';
 import { Crown, Medal } from 'lucide-react';
 import { api } from '@/lib/api';
+import { colors, accent } from '@/lib/theme';
 
 const PODIUM_CONFIG = [
-  { accent: 'amber', border: 'border-amber-400/35', glow: '0 0 30px -10px rgba(251,191,36,0.45)', icon: Crown, color: 'text-amber-300', bgGlow: 'rgba(251,191,36,0.06)' },
+  { accent: 'amber', borderColor: `rgba(${colors.accent.rgb},0.35)`, glow: `0 0 30px -10px rgba(${colors.accent.rgb},0.45)`, icon: Crown, color: accent.textBright, bgGlow: `rgba(${colors.accent.rgb},0.06)` },
   { accent: 'zinc', border: 'border-zinc-400/20', glow: 'none', icon: Medal, color: 'text-zinc-300', bgGlow: 'rgba(255,255,255,0.02)' },
   { accent: 'slate', border: 'border-slate-400/25', glow: 'none', icon: Medal, color: 'text-slate-300', bgGlow: 'rgba(148,163,184,0.05)' },
 ];
@@ -17,13 +17,12 @@ const PODIUM_CONFIG = [
 export default function Leaderboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [period, setPeriod] = useState('all-time');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    api.get('/leaderboard', { params: { period, limit: 50 } })
+    api.get('/leaderboard', { params: { limit: 50 } })
       .then(r => {
         // Add rank to each user based on index
         const ranked = (r._data || []).map((u, i) => ({ ...u, rank: i + 1 }));
@@ -31,33 +30,23 @@ export default function Leaderboard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [period]);
+  }, []);
 
   const top3 = users.slice(0, 3);
-  const rest = users.slice(3);
+  const tableUsers = users.length >= 3 ? users.slice(3) : users;
 
   return (
     <div className="pt-20 pb-16 relative" data-testid="leaderboard-page">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] pointer-events-none" style={{ background: 'radial-gradient(ellipse, rgba(251,191,36,0.06) 0%, transparent 70%)' }} />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] pointer-events-none" style={{ background: `radial-gradient(ellipse, rgba(${colors.accent.rgb},0.06) 0%, transparent 70%)` }} />
 
       <div className="max-w-5xl mx-auto px-6 sm:px-8 lg:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-4">Leaderboard</span>
+          <span className={`font-mono text-[10px] ${accent.textMuted} uppercase tracking-[0.3em] block mb-4`}>Leaderboard</span>
           <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
             The most prolific authors.
           </h1>
-          <p className="text-zinc-500 text-base md:text-lg mb-8">Open-source legends, ranked by contribution.</p>
-
-          <Tabs value={period} onValueChange={setPeriod} className="mb-10">
-            <TabsList className="bg-zinc-950/80 border border-white/5 p-1">
-              {['weekly', 'monthly', 'all-time'].map(p => (
-                <TabsTrigger key={p} value={p} data-testid={`tab-${p}`}
-                  className="data-[state=active]:bg-amber-400/10 data-[state=active]:text-amber-200 data-[state=active]:border-amber-400/25 data-[state=active]:shadow-[0_0_14px_-8px_rgba(251,191,36,0.6)] font-mono text-xs uppercase tracking-wider border border-transparent rounded-md px-4 py-2">
-                  {p === 'all-time' ? 'All Time' : p.charAt(0).toUpperCase() + p.slice(1)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <p className="text-zinc-500 text-base md:text-lg mb-2">Open-source legends, ranked by contribution.</p>
+          <p className={`font-mono text-[11px] ${accent.textMuted} uppercase tracking-[0.22em] mb-10`}>All-time leaderboard</p>
 
           {loading ? (
             <div className="grid gap-4">{[1,2,3].map(i => <div key={i} className="h-24 rounded-xl shimmer" />)}</div>
@@ -77,8 +66,8 @@ export default function Leaderboard() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.1 + 0.2 }}
                         whileHover={{ scale: 1.03, y: -4 }}
-                        className={`relative obsidian rounded-xl cursor-pointer ${cfg.border} ${isFirst ? 'w-56 p-6 pb-8' : 'w-44 p-5 pb-7'}`}
-                        style={{ boxShadow: cfg.glow }}
+                        className={`relative obsidian rounded-xl cursor-pointer ${cfg.border || ''} ${isFirst ? 'w-56 p-6 pb-8' : 'w-44 p-5 pb-7'}`}
+                        style={{ boxShadow: cfg.glow, ...(cfg.borderColor ? { borderColor: cfg.borderColor } : {}) }}
                         onClick={() => navigate(`/u/${u.username}`)}
                         data-testid={`podium-${idx + 1}`}
                       >
@@ -89,14 +78,14 @@ export default function Leaderboard() {
                         <div className="relative flex flex-col items-center text-center">
                           <cfg.icon className={`w-5 h-5 ${cfg.color} mb-3`} strokeWidth={1.5} />
                           <div className="relative mb-3">
-                            {isFirst && <div className="absolute -inset-1.5 rounded-full bg-amber-400/15 blur-md" />}
+                            {isFirst && <div className={`absolute -inset-1.5 rounded-full ${accent.avatarGlow} blur-md`} />}
                             <Avatar className={`relative ${isFirst ? 'w-16 h-16' : 'w-12 h-12'} border-2 ${cfg.border}`}>
                               <AvatarImage src={u.avatar_url} />
                               <AvatarFallback className="bg-zinc-900 font-display">{u.username?.[0]?.toUpperCase()}</AvatarFallback>
                             </Avatar>
                           </div>
                           <p className="font-medium text-sm truncate max-w-full text-zinc-200">{u.username}</p>
-                          <p className="text-xs font-mono text-amber-200 mt-1 font-bold">{u.xp?.toLocaleString()} XP</p>
+                          <p className={`text-xs font-mono ${accent.text} mt-1 font-bold`}>{u.xp?.toLocaleString()} XP</p>
                           <p className="text-xs text-zinc-600 font-mono">Lv.{u.level}</p>
                         </div>
                       </motion.div>
@@ -118,12 +107,11 @@ export default function Leaderboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rest.map((u) => (
+                        {tableUsers.map((u) => (
                       <TableRow
                         key={u.username}
-                        className={`border-white/[0.03] cursor-pointer hover:bg-white/[0.02] ${
-                          user?.username === u.username ? 'bg-amber-400/[0.04] border-l-2 border-l-amber-400/40' : ''
-                        }`}
+                        className="border-white/[0.03] cursor-pointer hover:bg-white/[0.02]"
+                        style={user?.username === u.username ? { background: `rgba(${colors.accent.rgb},0.04)`, borderLeft: `2px solid rgba(${colors.accent.rgb},0.4)` } : undefined}
                         onClick={() => navigate(`/u/${u.username}`)}
                         data-testid={`leaderboard-row-${u.rank}`}
                       >
@@ -137,7 +125,7 @@ export default function Leaderboard() {
                             <span className="font-medium text-sm text-zinc-300">{u.username}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs text-amber-200">Lv.{u.level}</TableCell>
+                        <TableCell className={`text-right font-mono text-xs ${accent.text}`}>Lv.{u.level}</TableCell>
                         <TableCell className="text-right font-mono text-xs text-zinc-300">{u.xp?.toLocaleString()}</TableCell>
                         <TableCell className="text-right font-mono text-xs text-zinc-500 hidden sm:table-cell">{u.total_contributions}</TableCell>
                       </TableRow>
@@ -148,7 +136,7 @@ export default function Leaderboard() {
 
               {/* Pinned user row */}
               {user && !users.find(u => u.username === user.username) && (
-                <div className="fixed bottom-0 left-0 right-0 border-t border-amber-400/15 bg-zinc-950/95 backdrop-blur-xl py-3 px-6 z-40" data-testid="pinned-user-row">
+                <div className="fixed bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-xl py-3 px-6 z-40" style={{ borderTop: `1px solid rgba(${colors.accent.rgb},0.15)` }} data-testid="pinned-user-row">
                   <div className="max-w-5xl mx-auto flex items-center gap-4">
                     <span className="text-xs text-zinc-600 font-mono w-8 text-center">--</span>
                     <Avatar className="w-7 h-7 border border-white/5">
@@ -156,7 +144,7 @@ export default function Leaderboard() {
                       <AvatarFallback className="bg-zinc-900">{user.username?.[0]?.toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <span className="font-medium text-sm flex-1 text-zinc-300">{user.username}</span>
-                    <span className="font-mono text-xs text-amber-200 font-bold">{user.xp} XP</span>
+                    <span className={`font-mono text-xs ${accent.text} font-bold`}>{user.xp} XP</span>
                     <span className="font-mono text-xs text-zinc-600">Lv.{user.level}</span>
                   </div>
                 </div>

@@ -82,7 +82,7 @@ func main() {
 	xpService := service.NewXPService(queries)
 	badgeService := service.NewBadgeService(queries)
 	streakService := service.NewStreakService(queries)
-	githubClient := service.NewGitHubClient()
+	githubClient := service.NewGitHubClient(cfg.GitHubToken)
 	issueChecker := service.NewIssueChecker(redisClient)
 
 	// 9. Initialize badges in DB.
@@ -102,7 +102,7 @@ func main() {
 
 	// 9c. Start issue sync service.
 	if cfg.SyncEnabled {
-		syncService := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncInterval, cfg.StaleInterval)
+		syncService := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncRepoAllowlist, cfg.SyncInterval, cfg.StaleInterval)
 		syncService.Start(ctx)
 		defer syncService.Stop()
 	}
@@ -119,10 +119,11 @@ func main() {
 	}
 
 	authHandler := &handler.AuthHandler{
-		Queries:        queries,
-		FB:             fbClient,
-		RequireAuth:    authMiddleware.RequireAuth,
-		UserFromContext: ctxutil.UserFromContext,
+		Queries:               queries,
+		FB:                    fbClient,
+		RequireAuth:           authMiddleware.RequireAuth,
+		UserFromContext:       ctxutil.UserFromContext,
+		DefaultDailyDrawLimit: cfg.DefaultDailyDrawLimit,
 	}
 
 	drawHandler := handler.NewDrawHandler(
@@ -134,11 +135,13 @@ func main() {
 		streakService,
 		githubClient,
 		issueChecker,
+		cfg.DefaultDailyDrawLimit,
 	)
 
 	usersHandler := &handler.UsersHandler{
-		Queries:     queries,
-		RequireAuth: authMiddleware.RequireAuth,
+		Queries:               queries,
+		RequireAuth:           authMiddleware.RequireAuth,
+		DefaultDailyDrawLimit: cfg.DefaultDailyDrawLimit,
 	}
 
 	publicHandler := &handler.PublicHandler{

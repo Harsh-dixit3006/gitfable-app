@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { FolderGit2, ExternalLink, Star, ArrowUpRight, BarChart3, Bookmark, GitMerge } from 'lucide-react';
 import { api } from '@/lib/api';
+import { colors, accent } from '@/lib/theme';
 
 const STATUSES = ['all', 'drawn', 'bookmarked', 'pr_submitted', 'merged', 'expired'];
 const STATUS_LABELS = { drawn: 'Drawn', bookmarked: 'Bookmarked', pr_submitted: 'PR Submitted', merged: 'Merged', expired: 'Expired' };
@@ -80,7 +81,7 @@ export default function History() {
     <div className="pt-20 pb-16 relative" data-testid="history-page">
       <div className="max-w-5xl mx-auto px-6 sm:px-8 lg:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-4">History</span>
+          <span className={`font-mono text-[10px] ${accent.textMuted} uppercase tracking-[0.3em] block mb-4`}>History</span>
           <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
             Your contribution ledger.
           </h1>
@@ -89,9 +90,9 @@ export default function History() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-8" data-testid="history-stats">
             {[
-              { label: 'Total Draws', value: stats.total_draws, icon: BarChart3, color: 'text-amber-300', border: 'border-amber-400/20' },
-              { label: 'Bookmark Rate', value: `${stats.bookmark_rate}%`, icon: Bookmark, color: 'text-amber-400/60', border: 'border-white/10' },
-              { label: 'Merge Rate', value: `${stats.merge_rate}%`, icon: GitMerge, color: 'text-amber-400/60', border: 'border-white/10' },
+              { label: 'Total Draws', value: stats.total_draws, icon: BarChart3, color: accent.textBright, border: accent.borderFaint },
+              { label: 'Bookmark Rate', value: `${stats.bookmark_rate}%`, icon: Bookmark, color: accent.textMuted, border: 'border-white/10' },
+              { label: 'Merge Rate', value: `${stats.merge_rate}%`, icon: GitMerge, color: accent.textMuted, border: 'border-white/10' },
             ].map(s => (
               <div key={s.label} className={`obsidian rounded-xl p-5 ${s.border}`}>
                 <s.icon className={`w-4 h-4 ${s.color} mb-2`} strokeWidth={1.5} />
@@ -110,7 +111,7 @@ export default function History() {
                 data-testid={`filter-status-${s}`}
                 className={`px-3 py-1.5 rounded-md text-xs font-mono border capitalize ${
                   statusFilter === s
-                    ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]'
+                    ? `${accent.bg} ${accent.border} ${accent.text} shadow-[0_0_12px_-6px_rgba(${colors.accent.rgb},0.6)]`
                     : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
                 }`}
                 style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}
@@ -147,9 +148,9 @@ export default function History() {
                       </div>
                       <p className="text-sm font-medium text-zinc-300 mb-2 line-clamp-1">{draw.title}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-400/8 text-amber-200 border border-amber-400/20 font-mono">{draw.language}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${accent.bg} ${accent.text} border ${accent.borderFaint} font-mono`}>{draw.language}</span>
                         <span className="flex items-center gap-1 text-xs text-zinc-600 font-mono">
-                          <Star className="w-3 h-3 text-amber-400/50" strokeWidth={1.5} />{draw.stars?.toLocaleString()}
+                          <Star className={`w-3 h-3 ${accent.textMuted}`} strokeWidth={1.5} />{draw.stars?.toLocaleString()}
                         </span>
                         {draw.pr_url && (
                           <a href={draw.pr_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline flex items-center gap-1 font-mono" data-testid={`pr-link-${draw.id}`}>

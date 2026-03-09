@@ -266,6 +266,10 @@ See `docs/firebase-auth-setup.md` for:
 ### Other
 - `ENVIRONMENT` - development/production
 - `FRONTEND_URL` - Frontend URL for redirects
+- `DEFAULT_DAILY_DRAW_LIMIT` - Fallback daily draw cap for users without overrides
+- `SEED_DAILY_DRAW_LIMITS` - Dev-only `username:limit` overrides applied on startup
+
+See `docs/draw-limit-overrides.md` for per-user override examples.
 
 ## Production Deployment
 

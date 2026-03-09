@@ -15,8 +15,9 @@ import (
 )
 
 type UsersHandler struct {
-	Queries     *database.Queries
-	RequireAuth func(http.Handler) http.Handler
+	Queries               *database.Queries
+	RequireAuth           func(http.Handler) http.Handler
+	DefaultDailyDrawLimit int
 }
 
 func (h *UsersHandler) Routes() chi.Router {
@@ -71,10 +72,10 @@ func (h *UsersHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	OK(w, map[string]any{
-		"user":          userToResponse(*user),
-		"recent_draws":  mergedDrawsToResponse(mergedDraws),
-		"heatmap":       heatmapToResponse(heatmap),
-		"badges":        badgesToResponse(badges),
+		"user":         userToResponse(*user, h.DefaultDailyDrawLimit),
+		"recent_draws": mergedDrawsToResponse(mergedDraws),
+		"heatmap":      heatmapToResponse(heatmap),
+		"badges":       badgesToResponse(badges),
 	})
 }
 
@@ -159,7 +160,7 @@ func (h *UsersHandler) UpdateFilters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	OK(w, userToResponse(updated))
+	OK(w, userToResponse(updated, h.DefaultDailyDrawLimit))
 }
 
 // --- Response helpers ---

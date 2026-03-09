@@ -1,0 +1,21 @@
+# Dockerfile for running tests
+FROM golang:1.25-alpine
+
+# Install dependencies including redis-cli and netcat
+RUN apk add --no-cache git postgresql-client redis netcat-openbsd
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Make sure run-tests.sh is executable
+RUN chmod +x /app/run-tests.sh
+
+# Default command
+CMD ["./run-tests.sh"]

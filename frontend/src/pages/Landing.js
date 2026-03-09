@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
 import { ArrowRight, BookOpen, Compass, GitPullRequest, Award, Star, Users, FolderGit2, Zap, Github, ScrollText, GitCommitHorizontal, Trophy } from 'lucide-react';
 import { api } from '@/lib/api';
+import { colors, accent } from '@/lib/theme';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -29,8 +30,8 @@ function Embers({ count = 25 }) {
             left: e.left,
             width: `${e.size}px`,
             height: `${e.size}px`,
-            background: `rgba(251,191,36,${e.brightness})`,
-            boxShadow: `0 0 ${e.size * 4}px ${e.size}px rgba(251,191,36,${e.brightness * 0.4})`,
+            background: `rgba(${colors.accent.rgb},${e.brightness})`,
+            boxShadow: `0 0 ${e.size * 4}px ${e.size}px rgba(${colors.accent.rgb},${e.brightness * 0.4})`,
             animation: `${e.alt ? 'ember-rise-alt' : 'ember-rise'} ${e.duration} ${e.delay} ease-out infinite`,
           }}
         />
@@ -62,25 +63,25 @@ function HeroCard({ card }) {
       >
         <div className="relative rounded-2xl overflow-hidden" style={{
           background: 'linear-gradient(160deg, rgba(15,15,18,0.98), rgba(9,9,11,0.99))',
-          border: '1px solid rgba(251,191,36,0.2)',
-          boxShadow: '0 25px 60px -12px rgba(0,0,0,0.7), 0 0 60px -20px rgba(251,191,36,0.1)',
+          border: `1px solid rgba(${colors.accent.rgb},0.2)`,
+          boxShadow: `0 25px 60px -12px rgba(0,0,0,0.7), 0 0 60px -20px rgba(${colors.accent.rgb},0.1)`,
         }}>
           <div className="absolute inset-0 card-shimmer pointer-events-none" />
-          <div className="absolute top-0 left-8 right-8 h-px pointer-events-none" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.3), transparent)' }} />
+          <div className="absolute top-0 left-8 right-8 h-px pointer-events-none" style={{ background: `linear-gradient(90deg, transparent, rgba(${colors.accent.rgb},0.3), transparent)` }} />
           <div className="relative p-8">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2 text-xs text-zinc-600 font-mono">
                 <Github className="w-3.5 h-3.5" strokeWidth={1.5} />{card.repo}
               </div>
-              <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2.5 py-1 rounded-full text-amber-300 border border-amber-400/25 bg-amber-400/6">legendary</span>
+              <span className={`text-[9px] font-mono uppercase tracking-[0.2em] px-2.5 py-1 rounded-full ${accent.textBright} ${accent.badgeMuted}`}>legendary</span>
             </div>
             <h3 className="text-lg font-medium text-zinc-100 leading-snug mb-5 tracking-tight">{card.title}</h3>
-            <div className="flex items-center gap-2 mb-5 py-2.5 px-3.5 rounded-lg" style={{ background: 'rgba(251,191,36,0.04)', border: '1px solid rgba(251,191,36,0.08)' }}>
-              <Zap className="w-3.5 h-3.5 text-amber-400/60" strokeWidth={2} />
-              <span className="text-xs font-mono text-amber-300/70">+85 XP on merge</span>
+            <div className="flex items-center gap-2 mb-5 py-2.5 px-3.5 rounded-lg" style={{ background: `rgba(${colors.accent.rgb},0.04)`, border: `1px solid rgba(${colors.accent.rgb},0.08)` }}>
+              <Zap className={`w-3.5 h-3.5 ${accent.textMuted}`} strokeWidth={2} />
+                  <span className={`text-xs font-mono ${accent.textSoft}`}>+85 XP on merge</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] px-2.5 py-1.5 rounded-md font-mono text-amber-300 border border-amber-400/25 bg-amber-400/6">{card.lang}</span>
+                <span className={`text-[11px] px-2.5 py-1.5 rounded-md font-mono ${accent.textBright} ${accent.badgeMuted}`}>{card.lang}</span>
               <span className="text-xs text-zinc-500 flex items-center gap-1.5 font-mono"><Star className="w-3.5 h-3.5" strokeWidth={1.5} />{card.stars}</span>
             </div>
           </div>
@@ -110,7 +111,7 @@ function CodeBlock() {
         <span className="text-zinc-300"> merge</span>
         <span className="text-zinc-500">{' } '}</span>
         <span className="text-purple-400">from</span>{' '}
-        <span className="text-amber-300">"gitfable"</span>
+        <span className={accent.textBright}>"gitfable"</span>
         <span className="text-zinc-500">;</span>
         <br /><br />
         <span className="text-purple-400">const</span>{' '}
@@ -120,11 +121,11 @@ function CodeBlock() {
         <span className="text-zinc-500">{'({ '}</span>
         <span className="text-zinc-400">lang</span>
         <span className="text-zinc-500">: </span>
-        <span className="text-amber-300">"typescript"</span>
+        <span className={accent.textBright}>"typescript"</span>
         <span className="text-zinc-500">{', '}</span>
         <span className="text-zinc-400">difficulty</span>
         <span className="text-zinc-500">: </span>
-        <span className="text-amber-300">"beginner"</span>
+        <span className={accent.textBright}>"beginner"</span>
         <span className="text-zinc-500">{' });'}</span>
         <br />
         <span className="text-purple-400">const</span>{' '}
@@ -179,9 +180,9 @@ function Marquee({ items, speed = 35 }) {
         transition={{ duration: speed, ease: 'linear', repeat: Infinity }}
       >
         {[...items, ...items].map((item, i) => (
-          <span key={i} className="inline-flex items-center gap-3 text-zinc-600 font-mono text-[11px] tracking-wider uppercase">
-            <span className="w-1 h-1 rounded-full bg-amber-400/25 flex-shrink-0" />{item}
-          </span>
+            <span key={i} className="inline-flex items-center gap-3 text-zinc-600 font-mono text-[11px] tracking-wider uppercase">
+              <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: `rgba(${colors.accent.rgb},0.25)` }} />{item}
+            </span>
         ))}
       </motion.div>
     </div>
@@ -221,7 +222,7 @@ function TextRevealSection({ paragraphs }) {
         });
         return (
           <div key={pi}>
-            {para.divider && <div className="h-px w-16 my-10" style={{ background: 'linear-gradient(to right, rgba(251,191,36,0.4), transparent)' }} />}
+            {para.divider && <div className="h-px w-16 my-10" style={{ background: `linear-gradient(to right, rgba(${colors.accent.rgb},0.4), transparent)` }} />}
             <p className={para.className} style={{ ...para.style, display: 'flex', flexWrap: 'wrap', gap: '0 0.3em' }}>
               {elements}
             </p>
@@ -256,19 +257,19 @@ function Milestone({ stage, index, isLast }) {
         <div
           className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center flex-shrink-0 relative z-10"
           style={{
-            background: `rgba(251,191,36,${0.04 + index * 0.03})`,
-            border: `1px solid rgba(251,191,36,${0.1 + index * 0.08})`,
-            boxShadow: `0 0 ${20 + index * 10}px -6px rgba(251,191,36,${0.1 + index * 0.08})`,
+            background: `rgba(${colors.accent.rgb},${0.04 + index * 0.03})`,
+            border: `1px solid rgba(${colors.accent.rgb},${0.1 + index * 0.08})`,
+            boxShadow: `0 0 ${20 + index * 10}px -6px rgba(${colors.accent.rgb},${0.1 + index * 0.08})`,
           }}
         >
-          <stage.icon className="w-4 h-4 md:w-5 md:h-5 text-amber-400/70" strokeWidth={1.5} />
+          <stage.icon className="w-4 h-4 md:w-5 md:h-5" strokeWidth={1.5} style={{ color: `rgba(${colors.accent.rgb},0.7)` }} />
         </div>
         {!isLast && (
-          <div className="w-px flex-1 mt-4 min-h-[40px]" style={{ background: 'linear-gradient(to bottom, rgba(251,191,36,0.15), rgba(251,191,36,0.03))' }} />
+          <div className="w-px flex-1 mt-4 min-h-[40px]" style={{ background: `linear-gradient(to bottom, rgba(${colors.accent.rgb},0.15), rgba(${colors.accent.rgb},0.03))` }} />
         )}
       </div>
       <div className="pb-16 md:pb-20">
-        <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.25em] block mb-3">{stage.label}</span>
+        <span className={`font-mono text-[10px] ${accent.textMuted} uppercase tracking-[0.25em] block mb-3`}>{stage.label}</span>
         <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-semibold leading-[1.1] mb-4 text-zinc-200" style={{ letterSpacing: '-0.05em' }}>
           {stage.title}
         </h3>
@@ -373,8 +374,8 @@ export default function Landing() {
                 transition={{ delay: 0.3, duration: 1.2, ease: EASE }}
                 className="flex items-center gap-3 mb-10"
               >
-                <div className="h-px w-12 bg-gradient-to-r from-transparent to-amber-400/40" />
-                <span className="font-mono text-[10px] text-amber-400/50 uppercase tracking-[0.3em]">GitFable</span>
+                <div className="h-px w-12 bg-gradient-to-r from-transparent" style={{ backgroundImage: `linear-gradient(to right, transparent, rgba(${colors.accent.rgb},0.4))` }} />
+                <span className="font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: `rgba(${colors.accent.rgb},0.5)` }}>GitFable</span>
               </motion.div>
 
               <motion.h1
@@ -413,16 +414,16 @@ export default function Landing() {
                   onClick={handleCTA}
                   className="group relative flex items-center gap-3 px-9 py-4 rounded-full text-[12px] font-bold uppercase tracking-[0.2em] overflow-hidden font-mono"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(251,191,36,0.14), rgba(245,158,11,0.06))',
-                    border: '1px solid rgba(251,191,36,0.35)',
+                    background: `linear-gradient(135deg, rgba(${colors.accent.rgb},0.14), rgba(${colors.accent.rgb},0.06))`,
+                    border: `1px solid rgba(${colors.accent.rgb},0.35)`,
                     color: '#fef3c7',
-                    boxShadow: '0 0 50px -15px rgba(251,191,36,0.35), inset 0 1px 0 rgba(251,191,36,0.1)',
+                    boxShadow: `0 0 50px -15px rgba(${colors.accent.rgb},0.35), inset 0 1px 0 rgba(${colors.accent.rgb},0.1)`,
                   }}
                   data-testid="hero-cta-button"
                 >
                   <span className="relative z-10">Start Your Journey</span>
                   <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-1.5 duration-300" />
-                  <div className="absolute inset-0 bg-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `rgba(${colors.accent.rgb},0.1)` }} />
                 </button>
                 <button
                   onClick={() => navigate('/leaderboard')}
@@ -477,7 +478,7 @@ export default function Landing() {
               text: "What if your first contribution felt less like a chore — and more like the start of something?",
               className: 'font-display font-semibold leading-[1.3]',
               style: { fontSize: 'clamp(1.5rem, 3.2vw, 2.8rem)', letterSpacing: '-0.06em' },
-              colorFrom: 'rgba(251,191,36,0.1)',
+              colorFrom: `rgba(${colors.accent.rgb},0.1)`,
               colorTo: '#fbbf24',
               divider: true,
             },
@@ -487,7 +488,7 @@ export default function Landing() {
 
       {/* ═══ THE BRIDGE ═══ */}
       <section className="relative py-32 px-6 sm:px-8 lg:px-16">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/8 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, rgba(${colors.accent.rgb},0.08), transparent)` }} />
 
         <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
           <motion.div
@@ -496,7 +497,7 @@ export default function Landing() {
             viewport={{ once: true }}
             transition={{ duration: 0.9, ease: EASE }}
           >
-            <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-6">How It Works</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.3em] block mb-6" style={{ color: `rgba(${colors.accent.rgb},0.6)` }}>How It Works</span>
             <h2 className="font-display font-semibold leading-[0.98] mb-6" style={{ fontSize: 'clamp(1.7rem, 3.2vw, 2.8rem)', letterSpacing: '-0.06em' }}>
               GitFable matches you with{' '}
               <span style={{ color: '#fbbf24' }}>real issues</span>{' '}
@@ -514,7 +515,7 @@ export default function Landing() {
                 { icon: Users, val: `${stats.active_users || '\u2014'}`, label: 'Contributors' },
               ].map(s => (
                 <div key={s.label} className="flex items-center gap-2">
-                  <s.icon className="w-3 h-3 text-amber-400/50" strokeWidth={1.5} />
+                  <s.icon className="w-3 h-3" strokeWidth={1.5} style={{ color: `rgba(${colors.accent.rgb},0.5)` }} />
                   <span className="font-mono text-[12px] text-zinc-400">{s.val}</span>
                   <span className="text-[10px] text-zinc-500">{s.label}</span>
                 </div>
@@ -539,7 +540,7 @@ export default function Landing() {
       {/* ═══ THE JOURNEY ═══ */}
       <section className="relative py-32 px-6 sm:px-8 lg:px-16" data-testid="how-it-works">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 50%, rgba(251,191,36,0.03), transparent 50%)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 20% 50%, rgba(${colors.accent.rgb},0.03), transparent 50%)` }} />
 
         <div className="max-w-[1400px] mx-auto">
           <div className="grid lg:grid-cols-12 gap-16 lg:gap-20">
@@ -551,7 +552,7 @@ export default function Landing() {
                 transition={{ duration: 0.9, ease: EASE }}
                 className="lg:sticky lg:top-32"
               >
-                <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-6">Your Path</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.3em] block mb-6" style={{ color: `rgba(${colors.accent.rgb},0.6)` }}>Your Path</span>
                 <h2 className="font-display font-semibold leading-[0.98] mb-6" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 3rem)', letterSpacing: '-0.06em' }}>
                   From first commit to{' '}
                   <span style={{ color: '#fbbf24' }}>legend.</span>
@@ -574,8 +575,8 @@ export default function Landing() {
 
       {/* ═══ STATS ═══ */}
       <section className="relative py-36 px-6 sm:px-8 lg:px-16" data-testid="stats-section">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/8 to-transparent" />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(251,191,36,0.03), transparent 50%)' }} />
+        <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, rgba(${colors.accent.rgb},0.08), transparent)` }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 50%, rgba(${colors.accent.rgb},0.03), transparent 50%)` }} />
 
         <div className="relative max-w-[1400px] mx-auto">
           <motion.div
@@ -585,7 +586,7 @@ export default function Landing() {
             transition={{ duration: 0.9, ease: EASE }}
             className="text-center mb-20"
           >
-            <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-5">Community</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.3em] block mb-5" style={{ color: `rgba(${colors.accent.rgb},0.6)` }}>Community</span>
             <h2 className="font-display font-semibold" style={{ fontSize: 'clamp(1.7rem, 3.2vw, 2.8rem)', letterSpacing: '-0.06em' }}>
               A growing community of{' '}
               <span style={{ color: '#fbbf24' }}>contributors.</span>
@@ -630,7 +631,7 @@ export default function Landing() {
             style={{ background: 'rgba(9,9,11,0.5)', border: '1px solid rgba(255,255,255,0.03)' }}
             data-testid="signal-bento-primary"
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400/60 mb-5">Your Dashboard</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] mb-5" style={{ color: `rgba(${colors.accent.rgb},0.6)` }}>Your Dashboard</p>
             <h3 className="font-display text-xl md:text-2xl font-semibold leading-tight mb-4" style={{ letterSpacing: '-0.05em' }}>Track every step of your journey.</h3>
             <p className="text-[13px] text-zinc-500 mb-8">Contributions, streaks, XP progress — all in one place.</p>
             <div className="grid grid-cols-3 gap-3">
@@ -688,7 +689,7 @@ export default function Landing() {
               transition={{ duration: 0.8, ease: EASE }}
               className="mb-16"
             >
-              <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-6">Live</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.3em] block mb-6" style={{ color: `rgba(${colors.accent.rgb},0.6)` }}>Live</span>
               <h2 className="font-display font-semibold" style={{ fontSize: 'clamp(1.5rem, 2.8vw, 2.4rem)', letterSpacing: '-0.06em' }}>
                 Developers writing their stories{' '}
                 <span style={{ color: '#fbbf24' }}>right now.</span>
@@ -705,7 +706,7 @@ export default function Landing() {
                   transition={{ delay: i * 0.06, duration: 0.7, ease: EASE }}
                   className="group rounded-xl p-6 cursor-default"
                   style={{ background: 'rgba(9,9,11,0.4)', border: '1px solid rgba(255,255,255,0.025)' }}
-                  whileHover={{ y: -4, borderColor: 'rgba(251,191,36,0.1)' }}
+                  whileHover={{ y: -4, borderColor: `rgba(${colors.accent.rgb},0.1)` }}
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <img src={a.avatar_url} alt="" className="w-7 h-7 rounded-full border border-white/[0.05] bg-zinc-900" />
@@ -713,7 +714,7 @@ export default function Landing() {
                     <span className="text-[10px] text-zinc-600 font-mono ml-auto">{getTimeAgo(a.created_at)}</span>
                   </div>
                   <p className="text-[13px] text-zinc-500">
-                    contributed to <span className="text-amber-400/50 font-medium">{a.repo_owner}/{a.repo_name}</span>
+                    contributed to <span className="font-medium" style={{ color: `rgba(${colors.accent.rgb},0.5)` }}>{a.repo_owner}/{a.repo_name}</span>
                   </p>
                 </motion.div>
               ))}
@@ -724,8 +725,8 @@ export default function Landing() {
 
       {/* ═══ FINAL CTA ═══ */}
       <section className="relative py-44 px-6 sm:px-8 lg:px-16 overflow-hidden" data-testid="bottom-cta">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/6 to-transparent" />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(600px circle at 50% 60%, rgba(251,191,36,0.05), transparent)' }} />
+        <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, rgba(${colors.accent.rgb},0.06), transparent)` }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(600px circle at 50% 60%, rgba(${colors.accent.rgb},0.05), transparent)` }} />
         <Embers count={15} />
 
         <motion.div
@@ -735,7 +736,7 @@ export default function Landing() {
           transition={{ duration: 1.2, ease: EASE }}
           className="relative z-10 text-center max-w-5xl mx-auto"
         >
-          <div className="w-8 h-px bg-amber-400/30 mx-auto mb-12" />
+          <div className="w-8 h-px mx-auto mb-12" style={{ background: `rgba(${colors.accent.rgb},0.3)` }} />
 
           <h2 className="font-display font-semibold leading-[0.95] mb-8" style={{ fontSize: 'clamp(2.2rem, 5.5vw, 5rem)', letterSpacing: '-0.07em' }}>
             Your origin story<br />
@@ -754,16 +755,16 @@ export default function Landing() {
             onClick={handleCTA}
             className="group relative inline-flex items-center gap-3 px-10 py-5 rounded-full text-[12px] font-bold uppercase tracking-[0.2em] overflow-hidden font-mono"
             style={{
-              background: 'linear-gradient(135deg, rgba(251,191,36,0.14), rgba(245,158,11,0.06))',
-              border: '1px solid rgba(251,191,36,0.35)',
+              background: `linear-gradient(135deg, rgba(${colors.accent.rgb},0.14), rgba(${colors.accent.rgb},0.06))`,
+              border: `1px solid rgba(${colors.accent.rgb},0.35)`,
               color: '#fef3c7',
-              boxShadow: '0 0 60px -15px rgba(251,191,36,0.4), 0 0 120px -30px rgba(251,191,36,0.15), inset 0 1px 0 rgba(251,191,36,0.15)',
+              boxShadow: `0 0 60px -15px rgba(${colors.accent.rgb},0.4), 0 0 120px -30px rgba(${colors.accent.rgb},0.15), inset 0 1px 0 rgba(${colors.accent.rgb},0.15)`,
             }}
             data-testid="bottom-cta-button"
           >
             <span className="relative z-10">Start Your Journey</span>
             <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-2 duration-300" />
-            <div className="absolute inset-0 bg-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `rgba(${colors.accent.rgb},0.1)` }} />
           </button>
         </motion.div>
       </section>
@@ -773,7 +774,7 @@ export default function Landing() {
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.02] to-transparent" />
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BookOpen className="w-4 h-4 text-amber-400/40" strokeWidth={1.5} />
+            <BookOpen className="w-4 h-4" strokeWidth={1.5} style={{ color: `rgba(${colors.accent.rgb},0.4)` }} />
             <span className="font-display text-lg text-zinc-500 tracking-tight">GitFable</span>
           </div>
           <p className="font-mono text-[10px] text-zinc-600 tracking-wider">Every PR is a page in your legend.</p>

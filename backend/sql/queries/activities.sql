@@ -17,3 +17,6 @@ JOIN users u ON a.user_id = u.id
 WHERE (a.created_at < $1 OR (a.created_at = $1 AND a.id < sqlc.arg('cursor_id')::bigint))
 ORDER BY a.created_at DESC, a.id DESC
 LIMIT $2;
+
+-- name: DeleteActivitiesByUserID :exec
+DELETE FROM activities WHERE user_id = $1;
