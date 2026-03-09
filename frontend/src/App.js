@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import Leaderboard from "@/pages/Leaderboard";
 import History from "@/pages/History";
 import Profile from "@/pages/Profile";
+import Settings from "@/pages/Settings";
 
 
 function App() {
@@ -25,8 +26,8 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/history" element={<History />} />
-            <Route path="/u/:username" element={<Profile />} />
-
+             <Route path="/u/:username" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>
         <Toaster

@@ -343,8 +343,18 @@ export default function Landing() {
   }, []);
 
   useEffect(() => {
-    api.get('/stats').then(r => setStats(r._data)).catch(() => {});
-    api.get('/activity').then(r => setActivity(r._data || [])).catch(() => {});
+    api.get('/stats')
+      .then(r => setStats(r._data))
+      .catch((err) => {
+        console.error('Failed to load stats:', err);
+        // Silent fail - stats are decorative on landing page
+      });
+    api.get('/activity')
+      .then(r => setActivity(r._data || []))
+      .catch((err) => {
+        console.error('Failed to load activity:', err);
+        // Silent fail - activity feed is decorative on landing page
+      });
   }, []);
 
   const handleCTA = useCallback(() => {
