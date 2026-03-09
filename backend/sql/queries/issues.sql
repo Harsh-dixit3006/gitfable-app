@@ -129,3 +129,6 @@ WHERE state = 'open'
   )
 OFFSET $3
 LIMIT 1;
+
+-- name: GetIssueByGithubID :one
+SELECT * FROM issues WHERE github_id = $1;

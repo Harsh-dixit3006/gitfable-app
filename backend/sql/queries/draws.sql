@@ -150,3 +150,6 @@ FROM draws
 WHERE user_id = $1 AND created_at >= $2
 GROUP BY DATE(created_at)
 ORDER BY day;
+
+-- name: DeleteDrawsByUserID :exec
+DELETE FROM draws WHERE user_id = $1;

@@ -53,6 +53,28 @@ test: test-backend ## Run all tests
 test-backend: ## Run backend tests with verbose output
 	cd backend && go test ./... -v
 
+test-full-workflow: ## Run full E2E workflow test (requires GITHUB_TOKEN and TEST_GITHUB_USERNAME)
+	@test -f docker/.env.test || (echo "Error: docker/.env.test not found. Copy docker/.env.test.example to docker/.env.test and add your credentials." && exit 1)
+	@echo "Running full workflow tests in Docker..."
+	@docker compose -f docker/docker-compose.test.yml --env-file docker/.env.test up --abort-on-container-exit
+
+test-full-workflow-local: ## Run full E2E workflow test locally (requires env vars)
+	@test -n "$(GITHUB_TOKEN)" || (echo "Error: GITHUB_TOKEN not set" && exit 1)
+	@test -n "$(TEST_GITHUB_USERNAME)" || (echo "Error: TEST_GITHUB_USERNAME not set" && exit 1)
+	cd backend && GITHUB_TOKEN=$(GITHUB_TOKEN) TEST_GITHUB_USERNAME=$(TEST_GITHUB_USERNAME) go test -v ./internal/handler -run TestFullWorkflow
+
+test-docker: ## Run all tests in Docker container
+	@docker compose -f docker/docker-compose.test.yml --env-file docker/.env.test up --abort-on-container-exit
+
+test-docker-down: ## Stop test Docker containers
+	@docker compose -f docker/docker-compose.test.yml down -v
+
+test-cleanup: ## Clean up test database and containers
+	@docker compose -f docker/docker-compose.test.yml down -v
+	@docker volume rm gitfable_postgres_test_data gitfable_redis_test_data 2>/dev/null || true
+	env-test: ## Create docker/.env.test from example
+	@test -f docker/.env.test || (cp docker/.env.test.example docker/.env.test && echo "Created docker/.env.test from example. Edit it to add your credentials.")
+
 # ─── Code Quality ────────────────────────────────────────────────────
 
 lint: lint-backend ## Lint frontend and backend code
