@@ -102,7 +102,7 @@ func main() {
 
 	// 9c. Start issue sync service.
 	if cfg.SyncEnabled {
-		syncService := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncInterval, cfg.StaleInterval)
+		syncService := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncRepoAllowlist, cfg.SyncInterval, cfg.StaleInterval)
 		syncService.Start(ctx)
 		defer syncService.Stop()
 	}

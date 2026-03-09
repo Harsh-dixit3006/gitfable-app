@@ -615,14 +615,17 @@ func TestFilterIssue(t *testing.T) {
 
 	tests := []struct {
 		name            string
+		repoFullName    string
 		repoStars       int32
 		repoPushedAt    time.Time
 		minStars        int32
 		maxInactiveDays int
+		allowlist       []string
 		want            bool
 	}{
 		{
 			name:            "good repo",
+			repoFullName:    "acme/project",
 			repoStars:       500,
 			repoPushedAt:    now.AddDate(0, 0, -10),
 			minStars:        50,
@@ -631,6 +634,7 @@ func TestFilterIssue(t *testing.T) {
 		},
 		{
 			name:            "too few stars",
+			repoFullName:    "acme/project",
 			repoStars:       10,
 			repoPushedAt:    now.AddDate(0, 0, -10),
 			minStars:        50,
@@ -639,6 +643,7 @@ func TestFilterIssue(t *testing.T) {
 		},
 		{
 			name:            "inactive repo",
+			repoFullName:    "acme/project",
 			repoStars:       500,
 			repoPushedAt:    now.AddDate(0, 0, -200),
 			minStars:        50,
@@ -647,20 +652,31 @@ func TestFilterIssue(t *testing.T) {
 		},
 		{
 			name:            "borderline stars",
+			repoFullName:    "acme/project",
 			repoStars:       50,
 			repoPushedAt:    now.AddDate(0, 0, -10),
 			minStars:        50,
 			maxInactiveDays: 90,
 			want:            true,
 		},
+		{
+			name:            "allowlisted demo repo bypasses star filter",
+			repoFullName:    "nishantg96/git-demo-issues",
+			repoStars:       0,
+			repoPushedAt:    now.AddDate(0, 0, -10),
+			minStars:        50,
+			maxInactiveDays: 90,
+			allowlist:       []string{"nishantg96/git-demo-issues"},
+			want:            true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FilterIssue(tt.repoStars, tt.repoPushedAt, tt.minStars, tt.maxInactiveDays)
+			got := FilterIssue(tt.repoFullName, tt.repoStars, tt.repoPushedAt, tt.minStars, tt.maxInactiveDays, tt.allowlist)
 			if got != tt.want {
-				t.Errorf("FilterIssue(stars=%d, pushed=%v, min=%d, maxDays=%d) = %v, want %v",
-					tt.repoStars, tt.repoPushedAt, tt.minStars, tt.maxInactiveDays, got, tt.want)
+				t.Errorf("FilterIssue(repo=%q, stars=%d, pushed=%v, min=%d, maxDays=%d) = %v, want %v",
+					tt.repoFullName, tt.repoStars, tt.repoPushedAt, tt.minStars, tt.maxInactiveDays, got, tt.want)
 			}
 		})
 	}

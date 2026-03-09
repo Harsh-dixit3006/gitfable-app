@@ -49,6 +49,22 @@ func (q *Queries) BookmarkDraw(ctx context.Context, arg BookmarkDrawParams) (Dra
 	return i, err
 }
 
+const countActiveWorkForUser = `-- name: CountActiveWorkForUser :one
+SELECT COUNT(*) FROM draws
+WHERE user_id = $1
+  AND (
+    (status = 'bookmarked' AND (expires_at IS NULL OR expires_at > NOW()))
+    OR status = 'pr_submitted'
+  )
+`
+
+func (q *Queries) CountActiveWorkForUser(ctx context.Context, userID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveWorkForUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countDrawsToday = `-- name: CountDrawsToday :one
 SELECT COUNT(*) FROM draws
 WHERE user_id = $1 AND created_at >= CURRENT_DATE
@@ -546,6 +562,106 @@ func (q *Queries) GetUserMergedDrawsWithIssues(ctx context.Context, userID int64
 			&i.Language,
 			&i.Labels,
 			&i.Difficulty,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActiveWorkForUser = `-- name: ListActiveWorkForUser :many
+SELECT d.id, d.public_id, d.user_id, d.issue_id, d.status, d.source, d.pr_url, d.pr_submitted_at, d.merge_commit_sha, d.merged_at, d.expires_at, d.xp_awarded, d.created_at, d.updated_at, d.pr_owner_login, d.pr_repo_owner, d.pr_repo_name, d.pr_number, d.pr_verified_at, d.reward_processed_at, d.reward_source, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels
+FROM draws d
+JOIN issues i ON d.issue_id = i.id
+WHERE d.user_id = $1
+  AND (
+    (d.status = 'bookmarked' AND (d.expires_at IS NULL OR d.expires_at > NOW()))
+    OR d.status = 'pr_submitted'
+  )
+ORDER BY
+  CASE WHEN d.status = 'pr_submitted' THEN 0 ELSE 1 END,
+  COALESCE(d.expires_at, '9999-12-31'::timestamptz) ASC,
+  d.created_at DESC,
+  d.id DESC
+`
+
+type ListActiveWorkForUserRow struct {
+	ID                int64              `json:"id"`
+	PublicID          pgtype.UUID        `json:"public_id"`
+	UserID            int64              `json:"user_id"`
+	IssueID           int64              `json:"issue_id"`
+	Status            DrawStatus         `json:"status"`
+	Source            string             `json:"source"`
+	PrUrl             pgtype.Text        `json:"pr_url"`
+	PrSubmittedAt     pgtype.Timestamptz `json:"pr_submitted_at"`
+	MergeCommitSha    pgtype.Text        `json:"merge_commit_sha"`
+	MergedAt          pgtype.Timestamptz `json:"merged_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	XpAwarded         int32              `json:"xp_awarded"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	PrOwnerLogin      pgtype.Text        `json:"pr_owner_login"`
+	PrRepoOwner       pgtype.Text        `json:"pr_repo_owner"`
+	PrRepoName        pgtype.Text        `json:"pr_repo_name"`
+	PrNumber          pgtype.Int4        `json:"pr_number"`
+	PrVerifiedAt      pgtype.Timestamptz `json:"pr_verified_at"`
+	RewardProcessedAt pgtype.Timestamptz `json:"reward_processed_at"`
+	RewardSource      pgtype.Text        `json:"reward_source"`
+	IssuePublicID     pgtype.UUID        `json:"issue_public_id"`
+	RepoOwner         string             `json:"repo_owner"`
+	RepoName          string             `json:"repo_name"`
+	IssueTitle        string             `json:"issue_title"`
+	IssueUrl          string             `json:"issue_url"`
+	IssueLanguage     pgtype.Text        `json:"issue_language"`
+	IssueDifficulty   pgtype.Text        `json:"issue_difficulty"`
+	IssueRepoStars    int32              `json:"issue_repo_stars"`
+	IssueLabels       []string           `json:"issue_labels"`
+}
+
+func (q *Queries) ListActiveWorkForUser(ctx context.Context, userID int64) ([]ListActiveWorkForUserRow, error) {
+	rows, err := q.db.Query(ctx, listActiveWorkForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActiveWorkForUserRow{}
+	for rows.Next() {
+		var i ListActiveWorkForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicID,
+			&i.UserID,
+			&i.IssueID,
+			&i.Status,
+			&i.Source,
+			&i.PrUrl,
+			&i.PrSubmittedAt,
+			&i.MergeCommitSha,
+			&i.MergedAt,
+			&i.ExpiresAt,
+			&i.XpAwarded,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PrOwnerLogin,
+			&i.PrRepoOwner,
+			&i.PrRepoName,
+			&i.PrNumber,
+			&i.PrVerifiedAt,
+			&i.RewardProcessedAt,
+			&i.RewardSource,
+			&i.IssuePublicID,
+			&i.RepoOwner,
+			&i.RepoName,
+			&i.IssueTitle,
+			&i.IssueUrl,
+			&i.IssueLanguage,
+			&i.IssueDifficulty,
+			&i.IssueRepoStars,
+			&i.IssueLabels,
 		); err != nil {
 			return nil, err
 		}

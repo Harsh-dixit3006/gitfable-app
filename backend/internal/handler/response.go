@@ -33,6 +33,7 @@ const (
 	ErrCodeDrawLimitReached        = "DRAW_LIMIT_REACHED"
 	ErrCodeInvalidStatus           = "INVALID_STATUS_TRANSITION"
 	ErrCodeBookmarkExists          = "BOOKMARK_EXISTS"
+	ErrCodeBookmarkLimitReached    = "BOOKMARK_LIMIT_REACHED"
 	ErrCodeInvalidPRURL            = "INVALID_PR_URL"
 	ErrCodePRAuthorMismatch        = "PR_AUTHOR_MISMATCH"
 	ErrCodePRRepoMismatch          = "PR_REPO_MISMATCH"
