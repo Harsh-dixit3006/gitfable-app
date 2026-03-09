@@ -15,10 +15,8 @@ type Config struct {
 	DatabaseURL string
 	DBPoolSize  int
 
-	FirebaseCredentialsPath string
-	FirebaseProjectID       string
-	FirebasePrivateKey      string
-	FirebaseClientEmail     string
+	SupabaseURL            string
+	SupabaseServiceRoleKey string
 
 	RedisURL              string
 	RateLimitEnabled      bool
@@ -44,10 +42,8 @@ func Load() (*Config, error) {
 		DatabaseURL: getEnv("DATABASE_URL", "postgresql://gitfable:gitfable@localhost:5432/gitfable?sslmode=disable"),
 		DBPoolSize:  getEnvInt("DB_POOL_SIZE", 25),
 
-		FirebaseCredentialsPath: getEnv("FIREBASE_SERVICE_ACCOUNT_PATH", ""),
-		FirebaseProjectID:       getEnv("FIREBASE_PROJECT_ID", ""),
-		FirebasePrivateKey:      strings.ReplaceAll(getEnv("FIREBASE_PRIVATE_KEY", ""), "\\n", "\n"),
-		FirebaseClientEmail:     getEnv("FIREBASE_CLIENT_EMAIL", ""),
+		SupabaseURL:            getEnv("SUPABASE_URL", ""),
+		SupabaseServiceRoleKey: strings.TrimSpace(getEnv("SUPABASE_SERVICE_ROLE_KEY", "")),
 
 		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379"),
 		RateLimitEnabled:      getEnvBool("RATE_LIMIT_ENABLED", true),

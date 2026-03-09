@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
+	gotruetypes "github.com/supabase-community/gotrue-go/types"
 	sb "github.com/supabase-community/supabase-go"
 )
 
@@ -48,12 +50,12 @@ type TokenInfo struct {
 }
 
 func (c *Client) VerifyToken(ctx context.Context, jwt string) (*TokenInfo, error) {
-	// Supabase JWT verification is done via the auth admin API
-	// The JWT contains the user ID in the 'sub' claim
-	user, err := c.client.Auth.GetUser(jwt)
+	_ = ctx
+	userResp, err := c.client.Auth.WithToken(jwt).GetUser()
 	if err != nil {
 		return nil, fmt.Errorf("verify token: %w", err)
 	}
+	user := userResp.User
 
 	return &TokenInfo{
 		UID:           user.ID.String(),
@@ -73,16 +75,26 @@ type UserInfo struct {
 }
 
 func (c *Client) GetUser(ctx context.Context, uid string) (*UserInfo, error) {
-	user, err := c.client.Auth.GetUserByID(uid)
+	_ = ctx
+	parsedUID, err := uuid.Parse(uid)
+	if err != nil {
+		return nil, fmt.Errorf("parse user id: %w", err)
+	}
+
+	userResp, err := c.client.Auth.AdminGetUser(gotruetypes.AdminGetUserRequest{UserID: parsedUID})
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
+	user := userResp.User
+
+	displayName := getStringMetadata(user.UserMetadata, "full_name")
+	photoURL := getStringMetadata(user.UserMetadata, "avatar_url")
 
 	info := &UserInfo{
 		UID:         user.ID.String(),
 		Email:       user.Email,
-		DisplayName: user.UserMetadata["full_name"],
-		PhotoURL:    user.UserMetadata["avatar_url"],
+		DisplayName: displayName,
+		PhotoURL:    photoURL,
 	}
 
 	// Check if user has GitHub identity
@@ -95,4 +107,19 @@ func (c *Client) GetUser(ctx context.Context, uid string) (*UserInfo, error) {
 	}
 
 	return info, nil
+}
+
+func getStringMetadata(metadata map[string]interface{}, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	v, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
 }

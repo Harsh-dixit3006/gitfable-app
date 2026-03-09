@@ -76,8 +76,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const createUserWithAuthID = `-- name: CreateUserWithAuthID :one
-INSERT INTO users (auth_id, username, email, display_name, avatar_url, github_id, github_username)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO users (auth_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username)
+VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 

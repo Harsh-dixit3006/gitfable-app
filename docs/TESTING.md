@@ -382,7 +382,7 @@ Check if `TEST_GITHUB_USERNAME` is set. Full Workflow test needs:
 
 ### "Permission denied" on creds
 
-Test container needs read access to Firebase credentials:
+Test container needs read access to local credential files:
 ```bash
 chmod +r creds/*.json
 ```

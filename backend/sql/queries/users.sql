@@ -64,8 +64,8 @@ SELECT * FROM users WHERE github_username = $1;
 SELECT * FROM users WHERE auth_id = $1;
 
 -- name: CreateUserWithAuthID :one
-INSERT INTO users (auth_id, username, email, display_name, avatar_url, github_id, github_username)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO users (auth_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username)
+VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: UpdateUserAuthProfile :one

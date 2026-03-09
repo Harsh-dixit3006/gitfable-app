@@ -1,22 +1,21 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { signInWithPopup, onIdTokenChanged, signOut as firebaseSignOut } from 'firebase/auth';
-import { auth, githubProvider } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [firebaseUser, setFirebaseUser] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // Listen to Firebase auth + token refresh
+  // Listen to Supabase auth + token refresh
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setAuthUser(session.user);
 
         // Try to get user profile from backend
         try {
@@ -24,7 +23,7 @@ export function AuthProvider({ children }) {
           setUser(res._data);
         } catch (err) {
           if (err.response?.status === 404 || err.response?.status === 401) {
-            // User authenticated with Firebase but not registered in our DB
+            // User authenticated with Supabase but not registered in our DB
             setIsRegistering(true);
             setShowLogin(true);
           } else {
@@ -33,19 +32,22 @@ export function AuthProvider({ children }) {
           }
         }
       } else {
-        setFirebaseUser(null);
+        setAuthUser(null);
         setUser(null);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   // Sign in with GitHub
   const signInWithGithub = async () => {
     try {
-      await signInWithPopup(auth, githubProvider);
+      const { error } = await supabase.auth.signInWithOAuth({ provider: 'github' });
+      if (error) {
+        throw error;
+      }
 
       // Try to get existing user profile
       let needsRegistration = false;
@@ -74,9 +76,9 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Register new user after Firebase auth
+  // Register new user after Supabase auth
   const registerUser = async (username) => {
-    if (!firebaseUser) {
+    if (!authUser) {
       return { success: false, error: 'Not authenticated' };
     }
 
@@ -98,13 +100,13 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await firebaseSignOut(auth);
+    await supabase.auth.signOut();
     setUser(null);
-    setFirebaseUser(null);
+    setAuthUser(null);
   };
 
   const refreshUser = async () => {
-    if (!auth.currentUser) return;
+    if (!authUser) return;
     try {
       const res = await api.get('/auth/me');
       setUser(res._data);
@@ -125,7 +127,7 @@ export function AuthProvider({ children }) {
       refreshUser,
       setUser,
       isRegistering,
-      firebaseUser,
+      firebaseUser: authUser,
     }}>
       {children}
     </AuthContext.Provider>
