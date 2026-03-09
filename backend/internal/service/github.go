@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
 var prURLRegex = regexp.MustCompile(`^https://github\.com/([a-zA-Z0-9_.-]+)/([a-zA-Z0-9_.-]+)/pull/(\d+)$`)
+var issueReferenceRegex = regexp.MustCompile(`(?i)(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\s*#(\d+)`)
 
 // ParsePRURL extracts the owner, repo, and PR number from a GitHub pull request URL.
 func ParsePRURL(url string) (owner, repo string, number int, err error) {
@@ -38,6 +40,7 @@ type PRStatus struct {
 	MergeCommitSHA string `json:"merge_commit_sha"`
 	UserLogin      string `json:"user_login"`
 	Title          string `json:"title"`
+	Body           string `json:"body"`
 	HTMLURL        string `json:"html_url"`
 }
 
@@ -48,22 +51,29 @@ type GitHubClient interface {
 
 type githubClient struct {
 	httpClient *http.Client
+	baseURL    string
+	token      string
 }
 
 // NewGitHubClient creates a new GitHubClient with sensible defaults.
-func NewGitHubClient() GitHubClient {
+func NewGitHubClient(token string) GitHubClient {
 	return &githubClient{
 		httpClient: &http.Client{Timeout: 30 * time.Second},
+		baseURL:    "https://api.github.com",
+		token:      token,
 	}
 }
 
 func (c *githubClient) GetPRStatus(ctx context.Context, owner, repo string, number int) (*PRStatus, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d", owner, repo, number)
+	url := fmt.Sprintf("%s/repos/%s/%s/pulls/%d", strings.TrimRight(c.baseURL, "/"), owner, repo, number)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -90,6 +100,7 @@ func (c *githubClient) GetPRStatus(ctx context.Context, owner, repo string, numb
 			Login string `json:"login"`
 		} `json:"user"`
 		Title   string `json:"title"`
+		Body    string `json:"body"`
 		HTMLURL string `json:"html_url"`
 	}
 
@@ -104,8 +115,26 @@ func (c *githubClient) GetPRStatus(ctx context.Context, owner, repo string, numb
 		MergeCommitSHA: pr.MergeCommitSHA,
 		UserLogin:      pr.User.Login,
 		Title:          pr.Title,
+		Body:           pr.Body,
 		HTMLURL:        pr.HTMLURL,
 	}, nil
+}
+
+func PRReferencesIssue(pr PRStatus, issueNumber int32) bool {
+	needle := fmt.Sprintf("#%d", issueNumber)
+	if strings.Contains(strings.ToLower(pr.Title), strings.ToLower(needle)) {
+		return true
+	}
+	for _, match := range issueReferenceRegex.FindAllStringSubmatch(pr.Body, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		n, err := strconv.Atoi(match[1])
+		if err == nil && int32(n) == issueNumber {
+			return true
+		}
+	}
+	return false
 }
 
 // VerifyWebhookSignature checks that a GitHub webhook payload matches the expected HMAC-SHA256 signature.

@@ -82,7 +82,7 @@ func main() {
 	xpService := service.NewXPService(queries)
 	badgeService := service.NewBadgeService(queries)
 	streakService := service.NewStreakService(queries)
-	githubClient := service.NewGitHubClient()
+	githubClient := service.NewGitHubClient(cfg.GitHubToken)
 	issueChecker := service.NewIssueChecker(redisClient)
 
 	// 9. Initialize badges in DB.

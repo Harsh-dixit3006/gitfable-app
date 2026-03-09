@@ -528,7 +528,7 @@ func (h *DrawHandler) SubmitPR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate PR URL format.
-	_, _, _, err = service.ParsePRURL(req.PRURL)
+	prOwner, prRepo, prNumber, err := service.ParsePRURL(req.PRURL)
 	if err != nil {
 		BadRequest(w, ErrCodeInvalidPRURL, "Invalid GitHub PR URL")
 		return
@@ -553,9 +553,46 @@ func (h *DrawHandler) SubmitPR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	issue, err := h.queries.GetIssueByID(ctx, draw.IssueID)
+	if err != nil {
+		slog.Error("get issue for submit pr", "error", err)
+		InternalError(w)
+		return
+	}
+
+	prStatus, err := h.github.GetPRStatus(ctx, prOwner, prRepo, prNumber)
+	if err != nil {
+		slog.Error("get pr status for submit pr", "error", err)
+		apiErr := mapPRVerificationError(err)
+		Error(w, http.StatusBadRequest, apiErr.Code, apiErr.Message)
+		return
+	}
+
+	var conflictingClaim *database.Draw
+	claim, err := h.queries.GetActivePRClaimByIssue(ctx, database.GetActivePRClaimByIssueParams{
+		IssueID: issue.ID,
+		UserID:  user.ID,
+	})
+	if err == nil {
+		conflictingClaim = &claim
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		slog.Error("get active pr claim by issue", "error", err)
+		InternalError(w)
+		return
+	}
+
+	if validationErr := validateSubmittedPR(*user, issue, *prStatus, prOwner, prRepo, conflictingClaim); validationErr != nil {
+		BadRequest(w, validationErr.Code, validationErr.Message)
+		return
+	}
+
 	updatedDraw, err := h.queries.SubmitPR(ctx, database.SubmitPRParams{
-		ID:    draw.ID,
-		PrUrl: pgtype.Text{String: req.PRURL, Valid: true},
+		ID:           draw.ID,
+		PrUrl:        pgtype.Text{String: req.PRURL, Valid: true},
+		PrOwnerLogin: pgtype.Text{String: prStatus.UserLogin, Valid: prStatus.UserLogin != ""},
+		PrRepoOwner:  pgtype.Text{String: prOwner, Valid: prOwner != ""},
+		PrRepoName:   pgtype.Text{String: prRepo, Valid: prRepo != ""},
+		PrNumber:     pgtype.Int4{Int32: int32(prNumber), Valid: prNumber > 0},
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -674,6 +711,7 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		ID:             draw.ID,
 		MergeCommitSha: pgtype.Text{String: prStatus.MergeCommitSHA, Valid: prStatus.MergeCommitSHA != ""},
 		XpAwarded:      int32(mergeXP),
+		RewardSource:   pgtype.Text{String: "manual_verify", Valid: true},
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -758,6 +796,38 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		"draw":       drawToResponse(mergedDraw),
 		"new_badges": newBadges,
 	})
+}
+
+func validateSubmittedPR(user database.User, issue database.Issue, pr service.PRStatus, prOwner, prRepo string, conflictingClaim *database.Draw) *APIError {
+	if !user.GithubUsername.Valid || !strings.EqualFold(user.GithubUsername.String, pr.UserLogin) {
+		return &APIError{Code: ErrCodePRAuthorMismatch, Message: "PR author must match your linked GitHub account"}
+	}
+
+	if !strings.EqualFold(issue.RepoOwner, prOwner) || !strings.EqualFold(issue.RepoName, prRepo) {
+		return &APIError{Code: ErrCodePRRepoMismatch, Message: "PR must target the same repository as the drawn issue"}
+	}
+
+	if !service.PRReferencesIssue(pr, issue.GithubNumber) {
+		return &APIError{Code: ErrCodePRIssueReferenceMissing, Message: "PR title or body must reference the drawn issue number"}
+	}
+
+	if conflictingClaim != nil && conflictingClaim.UserID != user.ID {
+		return &APIError{Code: ErrCodeIssueAlreadyClaimed, Message: "Another GitFable user already has an active PR claim for this issue"}
+	}
+
+	return nil
+}
+
+func mapPRVerificationError(err error) *APIError {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "github API rate limited"):
+		return &APIError{Code: ErrCodeRateLimited, Message: "GitHub API rate limited while verifying PR"}
+	case strings.Contains(msg, "PR not found"):
+		return &APIError{Code: ErrCodeInvalidPRURL, Message: "GitHub PR not found or not accessible"}
+	default:
+		return &APIError{Code: ErrCodeInvalidPRURL, Message: "Unable to verify GitHub PR"}
+	}
 }
 
 // History handles GET /history — list draw history with cursor pagination.
