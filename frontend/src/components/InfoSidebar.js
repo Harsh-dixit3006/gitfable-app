@@ -73,7 +73,7 @@ export default function InfoSidebar({ redrawsRemaining, activeBookmarks, onSubmi
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-zinc-500">
+                <p className="text-xs font-mono uppercase tracking-[0.18em] text-zinc-500">
                   Viewing {activeIndex + 1} of {activeBookmarks.length}
                 </p>
                 <button
