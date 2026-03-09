@@ -3,24 +3,26 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { motion } from 'framer-motion';
-import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Zap, ListFilter as Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { colors, accent } from '@/lib/theme';
 import DrawAnimation, { RARITY, DIFF_COLORS, RarityBadge } from '@/components/DrawAnimation';
 import InfoSidebar from '@/components/InfoSidebar';
 import IssueCardRow from '@/components/IssueCardRow';
+import { applyIssueFilters } from '@/pages/discoverUtils';
 
 const LANGUAGES = ['JavaScript', 'TypeScript', 'Python', 'Rust', 'Go', 'Java', 'Ruby', 'C', 'Dart', 'Elixir'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
 const RARITIES = ['common', 'rare', 'epic'];
 const EASE = [0.22, 1, 0.36, 1];
+const DEFAULT_DAILY_DRAW_LIMIT = 3;
 
 function getRarity(issue) {
   return RARITY[issue?.rarity] || RARITY.common;
 }
 
-// Normalize issue from Go backend shape to flat UI shape
 function normalizeIssue(issue) {
   return {
     ...issue,
@@ -29,7 +31,6 @@ function normalizeIssue(issue) {
   };
 }
 
-// Normalize draw+issue response from draw/choose endpoints
 function normalizeDrawResponse(data) {
   const issue = normalizeIssue(data.issue);
   return {
@@ -42,7 +43,6 @@ function normalizeDrawResponse(data) {
   };
 }
 
-// Normalize a history draw row (has nested issue)
 function normalizeHistoryDraw(draw) {
   const issue = draw.issue || {};
   return {
@@ -58,6 +58,141 @@ function normalizeHistoryDraw(draw) {
   };
 }
 
+function sortActiveBookmarks(draws) {
+  return [...draws].sort((a, b) => {
+    if (a.status !== b.status) {
+      return a.status === 'pr_submitted' ? -1 : 1;
+    }
+    const aExpiry = a.expires_at ? new Date(a.expires_at).getTime() : Number.MAX_SAFE_INTEGER;
+    const bExpiry = b.expires_at ? new Date(b.expires_at).getTime() : Number.MAX_SAFE_INTEGER;
+    return aExpiry - bExpiry;
+  });
+}
+
+function FloatingOrb({ delay = 0, duration = 20, color = `rgba(${colors.accent.rgb},0.15)`, size = 300 }) {
+  return (
+    <motion.div
+      className="absolute rounded-full blur-3xl pointer-events-none"
+      style={{
+        width: size,
+        height: size,
+        background: `radial-gradient(circle, ${color}, transparent 70%)`,
+      }}
+      animate={{
+        x: [0, 100, -50, 0],
+        y: [0, -80, 100, 0],
+        scale: [1, 1.1, 0.9, 1],
+        opacity: [0.3, 0.5, 0.3, 0.3],
+      }}
+      transition={{
+        duration,
+        delay,
+        repeat: Infinity,
+        ease: "easeInOut",
+      }}
+    />
+  );
+}
+
+function AuroraBands() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div
+        className="aurora-band absolute -top-20 left-0 right-0 h-[300px] opacity-40"
+        style={{
+          background: `linear-gradient(135deg, rgba(${colors.accent.rgb},0.08) 0%, rgba(${colors.accent.rgb},0.04) 30%, transparent 60%)`,
+          filter: 'blur(60px)',
+          '--aurora-dur': '18s',
+          '--aurora-delay': '0s',
+        }}
+      />
+      <div
+        className="aurora-band absolute -top-10 left-0 right-0 h-[250px] opacity-30"
+        style={{
+          background: `linear-gradient(160deg, transparent 20%, rgba(${colors.accent.rgb},0.06) 50%, rgba(${colors.accent.rgb},0.03) 80%, transparent 100%)`,
+          filter: 'blur(50px)',
+          '--aurora-dur': '24s',
+          '--aurora-delay': '-6s',
+        }}
+      />
+      <div
+        className="aurora-band absolute top-0 left-0 right-0 h-[200px] opacity-25"
+        style={{
+          background: `linear-gradient(180deg, rgba(${colors.accent.rgb},0.05) 0%, transparent 100%)`,
+          filter: 'blur(40px)',
+          '--aurora-dur': '15s',
+          '--aurora-delay': '-3s',
+        }}
+      />
+    </div>
+  );
+}
+
+function ParticleMotes() {
+  const motes = useMemo(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      bottom: `${-10 - Math.random() * 20}%`,
+      size: 1.5 + Math.random() * 3,
+      dur: 10 + Math.random() * 15,
+      delay: Math.random() * 12,
+      driftX: (Math.random() - 0.5) * 60,
+      color: [
+        `rgba(${colors.accent.rgb},0.6)`,
+        `rgba(${colors.accent.rgb},0.5)`,
+        `rgba(${colors.accent.rgb},0.4)`,
+        `rgba(${colors.accent.rgb},0.5)`,
+      ][Math.floor(Math.random() * 4)],
+    })),
+  []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      {motes.map((m) => (
+        <div
+          key={m.id}
+          className="mote"
+          style={{
+            left: m.left,
+            bottom: m.bottom,
+            width: m.size,
+            height: m.size,
+            background: m.color,
+            boxShadow: `0 0 ${m.size * 2}px ${m.size}px ${m.color}`,
+            '--mote-dur': `${m.dur}s`,
+            '--mote-delay': `${m.delay}s`,
+            '--drift-x': `${m.driftX}px`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AnimatedCounter({ value, duration = 1.5 }) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    let start = 0;
+    const end = value;
+    if (end === 0) { setDisplay(0); return; }
+    const startTime = performance.now();
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / (duration * 1000), 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(eased * end));
+      if (progress < 1) ref.current = requestAnimationFrame(animate);
+    };
+    ref.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(ref.current);
+  }, [value, duration]);
+
+  return <>{display.toLocaleString()}</>;
+}
+
 export default function Discover() {
   const { user, setShowLogin, refreshUser } = useAuth();
   const [languages, setLanguages] = useState([]);
@@ -66,46 +201,58 @@ export default function Discover() {
   const [drawState, setDrawState] = useState('idle');
   const [drawnIssue, setDrawnIssue] = useState(null);
   const [currentDrawId, setCurrentDrawId] = useState(null);
-  const [redrawsRemaining, setRedrawsRemaining] = useState(3);
-  const [activeBookmark, setActiveBookmark] = useState(null);
+  const [redrawsRemaining, setRedrawsRemaining] = useState(null);
+  const [activeBookmarks, setActiveBookmarks] = useState([]);
   const [showPRDialog, setShowPRDialog] = useState(false);
   const [prUrl, setPrUrl] = useState('');
   const [prDrawId, setPrDrawId] = useState(null);
+  const [pendingSwapIssue, setPendingSwapIssue] = useState(null);
+  const [swapCandidates, setSwapCandidates] = useState([]);
   const [issues, setIssues] = useState([]);
   const [issuesLoading, setIssuesLoading] = useState(true);
   const [issueQuery, setIssueQuery] = useState('');
   const [choosingIssueId, setChoosingIssueId] = useState(null);
   const [xpAwarded, setXpAwarded] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
   const shuffleRef = useRef([]);
 
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Sort state
   const [sortField, setSortField] = useState('stars');
   const [sortDir, setSortDir] = useState('desc');
 
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const handleGlobalMouseMove = useCallback((e) => {
+    mouseX.set(e.clientX);
+    mouseY.set(e.clientY);
+  }, [mouseX, mouseY]);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [handleGlobalMouseMove]);
+
   useEffect(() => {
     if (user) {
-      loadActiveBookmark();
+      loadActiveBookmarks();
+      loadDrawBudget();
+    } else {
+      setRedrawsRemaining(3);
+      setActiveBookmarks([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const loadIdRef = useRef(0);
-
   useEffect(() => {
-    const id = ++loadIdRef.current;
     let cancelled = false;
 
     const load = async () => {
       setIssuesLoading(true);
       try {
         const params = { limit: 100 };
-        if (languages.length === 1) params.language = languages[0];
-        if (difficulties.length === 1) params.difficulty = difficulties[0];
-        if (rarities.length === 1) params.rarity = rarities[0];
 
         let all = [];
         let cursor = null;
@@ -127,33 +274,42 @@ export default function Discover() {
 
     load();
     return () => { cancelled = true; };
-  }, [languages, difficulties, rarities]);
+  }, []);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [languages, difficulties, rarities, issueQuery]);
 
-  const loadActiveBookmark = async () => {
+  const loadActiveBookmarks = async () => {
     try {
-      const res = await api.get('/draws/history', {
-        params: { status: 'bookmarked', limit: 1 },
-      });
-      const draws = res._data || [];
-      if (draws.length > 0) {
-        setActiveBookmark(normalizeHistoryDraw(draws[0]));
-      } else {
-        const res2 = await api.get('/draws/history', {
-          params: { status: 'pr_submitted', limit: 1 },
-        });
-        const draws2 = res2._data || [];
-        if (draws2.length > 0) {
-          setActiveBookmark(normalizeHistoryDraw(draws2[0]));
-        } else {
-          setActiveBookmark(null);
-        }
-      }
+      const [bookmarkedRes, submittedRes] = await Promise.all([
+        api.get('/draws/history', { params: { status: 'bookmarked', limit: 5 } }),
+        api.get('/draws/history', { params: { status: 'pr_submitted', limit: 5 } }),
+      ]);
+      const combined = [
+        ...(bookmarkedRes._data || []).map(normalizeHistoryDraw),
+        ...(submittedRes._data || []).map(normalizeHistoryDraw),
+      ];
+      setActiveBookmarks(sortActiveBookmarks(combined));
     } catch { /* ignore */ }
+  };
+
+  const loadDrawBudget = async () => {
+    try {
+      const maxDraws = user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT;
+      const res = await api.get('/draws/history', { params: { limit: maxDraws } });
+      const draws = res._data || [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const usedToday = draws.filter((draw) => {
+        if (!draw.created_at) return false;
+        const createdAt = new Date(draw.created_at);
+        return !Number.isNaN(createdAt.getTime()) && createdAt >= today;
+      }).length;
+      setRedrawsRemaining(Math.max(0, maxDraws - usedToday));
+    } catch {
+      setRedrawsRemaining(user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT);
+    }
   };
 
   const toggleLang = (lang) => setLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]);
@@ -193,17 +349,37 @@ export default function Discover() {
     try {
       const res = await api.post(
         '/draws/choose',
-        { issue_id: issueId },
+        { issue_id: issueId, bookmark_immediately: true },
       );
       const data = res._data;
       const normalized = normalizeDrawResponse(data);
-      setDrawnIssue(normalized);
-      setCurrentDrawId(data.draw.id);
-      setXpAwarded(0);
-      setDrawState('revealed');
-      toast.success('Issue selected! XP awarded on merge.');
+      if (data.draw.status === 'bookmarked') {
+        setActiveBookmarks(prev => sortActiveBookmarks([...prev, {
+          ...normalized,
+          id: data.draw.id,
+          status: data.draw.status,
+          expires_at: data.draw.expires_at,
+        }]));
+        setDrawnIssue(null);
+        setCurrentDrawId(null);
+        setXpAwarded(null);
+        setDrawState('idle');
+        toast.success('Issue chosen and bookmarked! You have 7 days.');
+      } else {
+        setDrawnIssue(normalized);
+        setCurrentDrawId(data.draw.id);
+        setXpAwarded(0);
+        setDrawState('revealed');
+        toast.success('Issue selected! XP awarded on merge.');
+      }
+      await loadDrawBudget();
       await refreshUser();
     } catch (err) {
+      if (err._code === 'BOOKMARK_LIMIT_REACHED') {
+        const selectedIssue = issues.find((issue) => issue.id === issueId) || null;
+        setPendingSwapIssue(selectedIssue);
+        setSwapCandidates(err.response?.data?.data?.active_work || []);
+      }
       toast.error(err._message || 'Choose issue failed');
     }
     setChoosingIssueId(null);
@@ -215,7 +391,7 @@ export default function Discover() {
       await api.put(`/draws/${currentDrawId}/status`, { status: 'bookmarked' });
       toast.success('Issue bookmarked! You have 7 days.');
       await refreshUser();
-      await loadActiveBookmark();
+      await loadActiveBookmarks();
       setDrawState('idle');
       setDrawnIssue(null);
       setCurrentDrawId(null);
@@ -223,11 +399,11 @@ export default function Discover() {
     } catch (err) { toast.error(err._message || 'Bookmark failed'); }
   };
 
-  const handleRelease = async () => {
-    if (!activeBookmark) return;
+  const handleRelease = async (drawId) => {
+    if (!drawId) return;
     try {
-      await api.put(`/draws/${activeBookmark.id}/status`, { status: 'expired' });
-      setActiveBookmark(null);
+      await api.put(`/draws/${drawId}/status`, { status: 'expired' });
+      setActiveBookmarks(prev => prev.filter((bookmark) => bookmark.id !== drawId));
       toast.success('Bookmark released');
       await refreshUser();
     } catch (err) { toast.error(err._message || 'Release failed'); }
@@ -240,7 +416,9 @@ export default function Discover() {
       toast.success('PR submitted! XP awarded on merge.');
       setShowPRDialog(false);
       setPrUrl('');
-      if (activeBookmark?.id === prDrawId) setActiveBookmark(prev => prev ? { ...prev, status: 'pr_submitted', pr_url: prUrl } : null);
+      setActiveBookmarks(prev => sortActiveBookmarks(prev.map((bookmark) => (
+        bookmark.id === prDrawId ? { ...bookmark, status: 'pr_submitted', pr_url: prUrl } : bookmark
+      ))));
     } catch (err) { toast.error(err._message || 'Submit failed'); }
   };
 
@@ -249,9 +427,38 @@ export default function Discover() {
       const res = await api.post(`/draws/${drawId}/verify`, {});
       const data = res._data;
       toast.success(`PR merged! ${data.new_badges?.length ? '+ New badge!' : ''}`);
-      setActiveBookmark(null);
+      setActiveBookmarks(prev => prev.filter((bookmark) => bookmark.id !== drawId));
       await refreshUser();
     } catch (err) { toast.error(err._message || 'Verification failed'); }
+  };
+
+  const handleSwapBookmark = async (replaceDrawId) => {
+    if (!pendingSwapIssue) return;
+    try {
+      const res = await api.post('/draws/choose', {
+        issue_id: pendingSwapIssue.id,
+        bookmark_immediately: true,
+        replace_draw_id: replaceDrawId,
+      });
+      const data = res._data;
+      const normalized = normalizeDrawResponse(data);
+      setActiveBookmarks(prev => sortActiveBookmarks([
+        ...prev.filter((bookmark) => bookmark.id !== replaceDrawId),
+        {
+          ...normalized,
+          id: data.draw.id,
+          status: data.draw.status,
+          expires_at: data.draw.expires_at,
+        },
+      ]));
+      setPendingSwapIssue(null);
+      setSwapCandidates([]);
+      toast.success('Swapped into active work.');
+      await loadDrawBudget();
+      await refreshUser();
+    } catch (err) {
+      toast.error(err._message || 'Swap failed');
+    }
   };
 
   const getCountdown = (expiresAt) => {
@@ -261,41 +468,26 @@ export default function Discover() {
     return `${Math.floor(diff / 86400000)}d ${Math.floor((diff % 86400000) / 3600000)}h`;
   };
 
-  // Client-side filtering for multi-select + text (server handles single-value filters).
-  const tableData = useMemo(() => {
-    return issues.filter((issue) => {
-      const byLang = languages.length <= 1 || languages.includes(issue.language);
-      const byDiff = difficulties.length <= 1 || difficulties.includes(issue.difficulty);
-      const byRarity = rarities.length <= 1 || rarities.includes(issue.rarity);
-      return byLang && byDiff && byRarity;
-    });
-  }, [issues, languages, difficulties, rarities]);
-
-  // Filtered issues: text search applied on top of tableData
   const filteredIssues = useMemo(() => {
-    let filtered = tableData;
-    if (issueQuery) {
-      const term = issueQuery.toLowerCase();
-      filtered = filtered.filter(issue =>
-        `${issue.repo} ${issue.title} ${(issue.labels || []).join(' ')}`.toLowerCase().includes(term)
-      );
-    }
-    // Sort
-    filtered = [...filtered].sort((a, b) => {
-      const aVal = a[sortField] ?? 0;
-      const bVal = b[sortField] ?? 0;
-      if (typeof aVal === 'string') {
-        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      }
-      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+    return applyIssueFilters(issues, {
+      languages,
+      difficulties,
+      rarities,
+      query: issueQuery,
+      sortField,
+      sortDir,
     });
-    return filtered;
-  }, [tableData, issueQuery, sortField, sortDir]);
+  }, [issues, languages, difficulties, rarities, issueQuery, sortField, sortDir]);
+
+  const activeIssueIds = useMemo(() => new Set(
+    activeBookmarks
+      .map((bookmark) => bookmark.issue?.id)
+      .filter(Boolean)
+  ), [activeBookmarks]);
 
   const totalPages = Math.ceil(filteredIssues.length / pageSize) || 1;
   const paginatedIssues = filteredIssues.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Generate page numbers to show
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -306,226 +498,528 @@ export default function Discover() {
     return pages;
   };
 
+  const activeFilterCount = languages.length + difficulties.length + rarities.length;
+
   return (
-    <div className="pt-20 pb-16 relative" data-testid="discover-page">
-      {/* Ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] pointer-events-none animate-soft-glow" style={{ background: 'radial-gradient(ellipse, rgba(251,191,36,0.08) 0%, transparent 70%)' }} />
-
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
-        {/* Page Header */}
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease: EASE }}>
-          <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-[0.3em] block mb-4">Discover</span>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-3 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
-            Draw your next contribution.
-          </h1>
-          <p className="text-zinc-500 text-base md:text-lg mb-8">Find the issue that was meant for you.</p>
-        </motion.div>
-
-        {/* Hero Draw Area — sidebar + draw animation */}
-        <div className="flex gap-6 items-start justify-center mb-16">
-          <InfoSidebar
-            redrawsRemaining={redrawsRemaining}
-            activeBookmark={activeBookmark}
-            onSubmitPR={(drawId) => { setPrDrawId(drawId); setShowPRDialog(true); }}
-            onVerify={(drawId) => handleVerify(drawId)}
-            onRelease={handleRelease}
-            getCountdown={getCountdown}
-          />
-          <div className="flex-1 flex flex-col items-center">
-            <DrawAnimation
-              state={drawState}
-              issue={drawnIssue}
-              onDraw={handleDraw}
-              onBookmark={handleBookmark}
-              onRedraw={() => { setDrawState('idle'); setDrawnIssue(null); setCurrentDrawId(null); setXpAwarded(null); }}
-              xpAwarded={xpAwarded || (drawnIssue ? (RARITY[drawnIssue.rarity || 'common']?.drawXP || 5) : 0)}
-              drawSource={drawnIssue?.draw_source || 'draw'}
-              redrawsRemaining={redrawsRemaining}
-            />
-          </div>
-        </div>
-
-        {/* Browse Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.72, ease: EASE, delay: 0.2 }}
-          data-testid="issues-table-section"
-        >
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
-            <div>
-              <h2 className="font-display text-xl md:text-2xl font-semibold tracking-tight" style={{ letterSpacing: '-0.05em' }} data-testid="issues-table-title">
-                Browse Issues
-              </h2>
-              <p className="text-zinc-500 text-sm" data-testid="issues-table-subtitle">
-                Choose directly — XP on merge. Or <span className="text-amber-400">Draw</span> for 3× rarity-scaled rewards.
-                <span className="text-amber-400/60 ml-1">Legendary issues are draw-exclusive.</span>
-              </p>
-            </div>
-            <div className="relative w-full md:w-[340px]">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <Input
-                value={issueQuery}
-                onChange={(e) => setIssueQuery(e.target.value)}
-                placeholder="Search by repo, title, or label..."
-                className="pl-10 bg-zinc-900/60 border-white/10"
-                data-testid="issues-table-search-input"
-              />
-            </div>
-          </div>
-
-          {/* Inline filter chips */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {LANGUAGES.map(lang => (
-              <button key={lang} onClick={() => toggleLang(lang)} data-testid={`filter-lang-${lang.toLowerCase()}`}
-                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  languages.includes(lang) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                {lang}
-              </button>
-            ))}
-            <div className="w-px h-6 bg-white/10 self-center mx-1" />
-            {DIFFICULTIES.map(diff => (
-              <button key={diff} onClick={() => toggleDiff(diff)} data-testid={`filter-diff-${diff.toLowerCase()}`}
-                className={`px-3 py-1.5 rounded-md text-xs font-mono border ${
-                  difficulties.includes(diff) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                {diff}
-              </button>
-            ))}
-            <div className="w-px h-6 bg-white/10 self-center mx-1" />
-            {RARITIES.map(r => {
-              const Icon = RARITY[r].icon;
-              return (
-                <button key={r} onClick={() => toggleRarity(r)} data-testid={`filter-rarity-${r}`}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono border inline-flex items-center gap-1.5 ${
-                    rarities.includes(r) ? 'bg-amber-400/10 border-amber-400/30 text-amber-200 shadow-[0_0_12px_-6px_rgba(251,191,36,0.6)]' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10'
-                  }`} style={{ transition: 'color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s' }}>
-                  {Icon && <Icon className="w-3 h-3" />}
-                  {RARITY[r].label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Issue card list */}
-          {issuesLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-lg shimmer" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {paginatedIssues.map(issue => (
-                <IssueCardRow key={issue.id} issue={issue} onChoose={handleChooseIssue} choosingIssueId={choosingIssueId} />
-              ))}
-              {filteredIssues.length === 0 && (
-                <p className="text-center text-zinc-500 py-12 font-mono text-sm">No issues match your filters.</p>
-              )}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {!issuesLoading && filteredIssues.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-zinc-600 font-mono">{filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}</span>
-                <div className="w-px h-3 bg-white/10" />
-                <select
-                  data-testid="page-size-select"
-                  value={pageSize}
-                  onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                  className="text-xs font-mono bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md px-2 py-1 outline-none focus:border-amber-400/30"
-                >
-                  {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronsLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                {getPageNumbers().map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setCurrentPage(p)}
-                    className={`min-w-[28px] h-7 rounded-md text-xs font-mono ${
-                      p === currentPage
-                        ? 'bg-amber-400/10 border border-amber-400/30 text-amber-200'
-                        : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="min-w-[28px] h-7 rounded-md text-xs font-mono text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center"
-                >
-                  <ChevronsRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-zinc-600">Go to</span>
-                <input
-                  data-testid="page-jump-input"
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  className="w-14 h-7 text-xs font-mono text-center bg-zinc-900/60 border border-white/10 text-zinc-400 rounded-md outline-none focus:border-amber-400/30"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const val = parseInt(e.target.value, 10);
-                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
-                      e.target.value = '';
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </motion.section>
+    <div className="relative min-h-screen overflow-hidden" data-testid="discover-page">
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950" />
+        <FloatingOrb delay={0} duration={25} color={`rgba(${colors.accent.rgb},0.08)`} size={400} />
+        <FloatingOrb delay={3} duration={30} color={`rgba(${colors.accent.rgb},0.05)`} size={350} />
+        <FloatingOrb delay={6} duration={28} color={`rgba(${colors.accent.rgb},0.04)`} size={300} />
       </div>
 
-      {/* PR Dialog */}
-      <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
-        <DialogContent className="bg-zinc-950 border-white/10" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
+      <AuroraBands />
+
+      <div className="fixed inset-0 -z-10 opacity-20">
+        <div className="absolute inset-0 grid-bg-animated" />
+      </div>
+
+      <ParticleMotes />
+
+      <div className="relative pt-24 pb-20">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: EASE }}
+            className="text-center mb-16"
+          >
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                className={`text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight bg-gradient-to-br ${accent.gradient} bg-clip-text text-transparent`}
+              >
+                Draw an Issue
+              </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
+              className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed"
+            >
+              Experience the thrill of discovering perfect open-source issues.
+              <br />
+              Each draw is a new adventure waiting to unfold.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, scaleX: 0 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+              className={`mt-8 mx-auto w-48 h-px bg-gradient-to-r from-transparent ${accent.divider} to-transparent`}
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.7, ease: EASE }}
+            className="flex flex-col lg:flex-row gap-8 items-start justify-center mb-24"
+          >
+            <InfoSidebar
+              redrawsRemaining={redrawsRemaining}
+              activeBookmarks={activeBookmarks}
+              onSubmitPR={(drawId) => { setPrDrawId(drawId); setShowPRDialog(true); }}
+              onVerify={(drawId) => handleVerify(drawId)}
+              onRelease={(drawId) => handleRelease(drawId)}
+              getCountdown={getCountdown}
+            />
+
+            <div className="flex-1 w-full max-w-2xl">
+              <DrawAnimation
+                state={drawState}
+                issue={drawnIssue}
+                onDraw={handleDraw}
+                onBookmark={handleBookmark}
+                onRedraw={() => { setDrawState('idle'); setDrawnIssue(null); setCurrentDrawId(null); setXpAwarded(null); }}
+                xpAwarded={xpAwarded || (drawnIssue ? (RARITY[drawnIssue.rarity || 'common']?.drawXP || 5) : 0)}
+                drawSource={drawnIssue?.draw_source || 'draw'}
+                redrawsRemaining={redrawsRemaining}
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scaleX: 0 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+            className="relative mb-16"
+          >
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            </div>
+            <div className="relative flex justify-center">
+              <motion.div
+                className="px-6 py-2 rounded-full bg-zinc-950/90 border border-white/10 backdrop-blur-sm"
+                whileHover={{ scale: 1.05, borderColor: `rgba(${colors.accent.rgb},0.3)` }}
+                transition={{ type: 'spring', stiffness: 300 }}
+              >
+                <span className="text-sm font-mono text-zinc-500 uppercase tracking-wider">Browse Collection</span>
+              </motion.div>
+            </div>
+          </motion.div>
+
+          <motion.section
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.6, ease: EASE }}
+            data-testid="issues-table-section"
+          >
+            <div className="flex flex-col gap-6 mb-8">
+              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2 bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent" data-testid="issues-table-title">
+                    All Issues
+                  </h2>
+                  <p className="text-base text-zinc-500" data-testid="issues-table-subtitle">
+                    <AnimatedCounter value={filteredIssues.length} duration={0.8} /> issues available
+                  </p>
+                </div>
+
+                <div className="flex gap-3 w-full md:w-auto">
+                  <div className="relative flex-1 md:w-80">
+                    <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Input
+                      value={issueQuery}
+                      onChange={(e) => setIssueQuery(e.target.value)}
+                      placeholder="Search issues..."
+                      className={`pl-11 pr-4 py-3 bg-zinc-900/40 border-white/[0.08] rounded-xl hover:border-white/15 ${accent.focusBorder} transition-all backdrop-blur-sm`}
+                      data-testid="issues-table-search-input"
+                    />
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`relative px-4 py-3 rounded-xl border backdrop-blur-sm transition-all ${
+                      showFilters || activeFilterCount > 0
+                        ? accent.activeBtn
+                        : 'bg-zinc-900/40 border-white/[0.08] text-zinc-400 hover:border-white/15'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <motion.div
+                        animate={showFilters ? { rotate: 180 } : { rotate: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Filter className="w-4 h-4" />
+                      </motion.div>
+                      <span className="font-mono text-sm hidden sm:inline">Filters</span>
+                    </div>
+                    <AnimatePresence>
+                      {activeFilterCount > 0 && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          className={`absolute -top-2 -right-2 w-6 h-6 rounded-full ${accent.badgeCount} text-zinc-950 text-xs font-bold flex items-center justify-center`}
+                        >
+                          {activeFilterCount}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: EASE }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-6 rounded-xl bg-zinc-900/40 border border-white/[0.08] backdrop-blur-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Filter className="w-4 h-4 text-zinc-500" />
+                          <span className="text-base font-mono text-zinc-400 uppercase tracking-wider">Active Filters</span>
+                        </div>
+                        <AnimatePresence>
+                          {activeFilterCount > 0 && (
+                            <motion.button
+                              initial={{ opacity: 0, x: 10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 10 }}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => {
+                                setLanguages([]);
+                                setDifficulties([]);
+                                setRarities([]);
+                              }}
+                              className="text-xs font-mono text-red-400/80 hover:text-red-400 flex items-center gap-1.5"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Clear all
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                              <label className="text-sm font-mono text-zinc-500 uppercase tracking-wider block mb-2">Languages</label>
+                          <div className="flex flex-wrap gap-2">
+                            {LANGUAGES.map((lang) => (
+                              <motion.button
+                                key={lang}
+                                whileHover={{ scale: 1.08, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => toggleLang(lang)}
+                                data-testid={`filter-lang-${lang.toLowerCase()}`}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-mono border backdrop-blur-sm transition-all ${
+                                  languages.includes(lang)
+                                    ? accent.activeBtn
+                                    : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
+                                }`}
+                              >
+                                {lang}
+                              </motion.button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                              <label className="text-sm font-mono text-zinc-500 uppercase tracking-wider block mb-2">Difficulty</label>
+                          <div className="flex flex-wrap gap-2">
+                            {DIFFICULTIES.map((diff) => (
+                              <motion.button
+                                key={diff}
+                                whileHover={{ scale: 1.08, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => toggleDiff(diff)}
+                                data-testid={`filter-diff-${diff.toLowerCase()}`}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-mono border backdrop-blur-sm transition-all ${
+                                  difficulties.includes(diff)
+                                    ? accent.activeBtn
+                                    : 'bg-zinc-900/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/15'
+                                }`}
+                              >
+                                {diff}
+                              </motion.button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                              <label className="text-sm font-mono text-zinc-500 uppercase tracking-wider block mb-2">Rarity</label>
+                          <div className="flex flex-wrap gap-2">
+                            {RARITIES.map((r) => {
+                              const Icon = RARITY[r].icon;
+                              const rarityData = RARITY[r];
+                              return (
+                                <motion.button
+                                  key={r}
+                                  whileHover={{ scale: 1.08, y: -2 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => toggleRarity(r)}
+                                  data-testid={`filter-rarity-${r}`}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-mono border backdrop-blur-sm inline-flex items-center gap-1.5 transition-all`}
+                                  style={rarities.includes(r) ? {
+                                    background: `${rarityData.accent}0.08)`,
+                                    borderColor: `${rarityData.accent}0.4)`,
+                                    color: `${rarityData.accent}0.95)`,
+                                    boxShadow: `0 0 12px -4px ${rarityData.accent}0.4)`,
+                                  } : {
+                                    background: 'rgba(24,24,27,0.6)',
+                                    borderColor: 'rgba(255,255,255,0.06)',
+                                    color: 'rgb(161,161,170)',
+                                  }}
+                                >
+                                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                                  {rarityData.label}
+                                </motion.button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {issuesLoading ? (
+              <div className="grid gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08, duration: 0.5 }}
+                    className="h-28 rounded-2xl shimmer"
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4">
+                  <AnimatePresence mode="popLayout">
+                    {paginatedIssues.map((issue, idx) => (
+                      <motion.div
+                        key={issue.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                        transition={{ delay: idx * 0.03, duration: 0.35, ease: EASE }}
+                      >
+                            <IssueCardRow
+                              issue={issue}
+                              onChoose={handleChooseIssue}
+                              choosingIssueId={choosingIssueId}
+                              isAlreadyBookmarked={activeIssueIds.has(issue.id)}
+                            />
+                          </motion.div>
+                        ))}
+                  </AnimatePresence>
+
+                  {filteredIssues.length === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col items-center justify-center py-24 px-6"
+                    >
+                      <motion.div
+                        animate={{
+                          rotate: [0, 5, -5, 0],
+                          y: [0, -8, 0],
+                        }}
+                        transition={{
+                          duration: 3,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className="w-20 h-20 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/[0.06] flex items-center justify-center mb-6"
+                      >
+                        <Search className="w-9 h-9 text-zinc-600" />
+                      </motion.div>
+                      <p className="text-xl font-semibold text-zinc-300 mb-2">No issues found</p>
+                      <p className="text-zinc-500 text-center max-w-md">Try adjusting your search or filters to discover more open-source opportunities</p>
+                    </motion.div>
+                  )}
+                </div>
+
+                {filteredIssues.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex flex-wrap items-center justify-between gap-4 mt-8 p-4 rounded-xl bg-zinc-900/40 border border-white/[0.06] backdrop-blur-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-zinc-400 font-mono">
+                        <AnimatedCounter value={filteredIssues.length} duration={0.5} /> issue{filteredIssues.length !== 1 ? 's' : ''}
+                      </span>
+                      <div className="w-px h-4 bg-white/10" />
+                      <select
+                        data-testid="page-size-select"
+                        value={pageSize}
+                        onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        className={`text-sm font-mono bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg px-3 py-1.5 outline-none ${accent.focusBorder} transition-colors`}
+                      >
+                        {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / page</option>)}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </motion.button>
+
+                      <div className="flex items-center gap-1">
+                        {getPageNumbers().map(p => (
+                          <motion.button
+                            key={p}
+                            whileHover={{ scale: 1.1, y: -1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setCurrentPage(p)}
+                            className={`min-w-[36px] h-9 rounded-lg text-sm font-mono transition-all ${
+                              p === currentPage
+                                ? `${accent.activeBtn} border`
+                                : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'
+                            }`}
+                          >
+                            {p}
+                          </motion.button>
+                        ))}
+                      </div>
+
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-all"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-zinc-500">Jump to</span>
+                      <input
+                        data-testid="page-jump-input"
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        placeholder={currentPage.toString()}
+                        className={`w-16 h-9 text-sm font-mono text-center bg-zinc-950/60 border border-white/10 text-zinc-400 rounded-lg outline-none ${accent.focusBorder} transition-colors`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = parseInt(e.target.value, 10);
+                            if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            )}
+          </motion.section>
+        </div>
+      </div>
+
+        <Dialog open={showPRDialog} onOpenChange={setShowPRDialog}>
+        <DialogContent className="bg-zinc-950 border-white/10 backdrop-blur-xl" data-testid="pr-dialog" aria-describedby="pr-dialog-description">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Submit Pull Request</DialogTitle>
-            <DialogDescription id="pr-dialog-description" className="text-zinc-500 text-sm">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">Submit Pull Request</DialogTitle>
+            <DialogDescription id="pr-dialog-description" className="text-zinc-400 text-sm mt-2">
               Paste your pull request URL to track and verify merge progress.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <Input placeholder="https://github.com/.../pull/123" value={prUrl} onChange={e => setPrUrl(e.target.value)}
-              className="bg-zinc-900 border-white/10 font-mono text-sm" data-testid="pr-url-input" />
-            <button onClick={handleSubmitPR} className="rune-btn w-full py-3 rounded-lg text-center" data-testid="pr-submit-confirm">
+          <div className="space-y-4 mt-4">
+            <Input
+              placeholder="https://github.com/.../pull/123"
+              value={prUrl}
+              onChange={e => setPrUrl(e.target.value)}
+              className={`bg-zinc-900/60 border-white/10 font-mono text-sm py-3 rounded-xl ${accent.focusBorder} transition-colors`}
+              data-testid="pr-url-input"
+            />
+            <motion.button
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSubmitPR}
+              className="rune-btn w-full py-3 rounded-xl text-center font-semibold"
+              data-testid="pr-submit-confirm"
+            >
               Submit PR
-            </button>
+            </motion.button>
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!pendingSwapIssue} onOpenChange={(open) => { if (!open) { setPendingSwapIssue(null); setSwapCandidates([]); } }}>
+          <DialogContent className="bg-zinc-950 border-white/10 backdrop-blur-xl" data-testid="swap-dialog">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">Bookmark Queue Full</DialogTitle>
+              <DialogDescription className="text-zinc-400 text-sm mt-2">
+                Choose an existing active item to replace with this issue.
+              </DialogDescription>
+            </DialogHeader>
+            {pendingSwapIssue && (
+              <div className="space-y-4 mt-4">
+                <div className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
+                  <p className="text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">New Issue</p>
+                  <p className="text-sm font-mono text-zinc-400 truncate">{pendingSwapIssue.repo}</p>
+                  <p className="text-base text-zinc-100 font-medium mt-1">{pendingSwapIssue.title}</p>
+                </div>
+                    <div className="space-y-2">
+                      {swapCandidates.map((bookmark) => (
+                        <div key={bookmark.id} className="rounded-xl border border-white/10 bg-zinc-900/40 p-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                          <div className="min-w-0 pr-2">
+                            <p className="text-xs font-mono uppercase tracking-wider text-zinc-500">{bookmark.issue.repo_owner}/{bookmark.issue.repo_name}</p>
+                            <p className="text-sm text-zinc-100 font-medium truncate">{bookmark.issue.title}</p>
+                          </div>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleSwapBookmark(bookmark.id)}
+                            className="min-w-[140px] px-3 py-2 rounded-lg text-sm font-mono uppercase tracking-wider border border-white/10 bg-zinc-950/85 text-zinc-100 hover:bg-white/[0.04] hover:border-white/25 transition-all duration-200"
+                          >
+                            Replace this
+                          </motion.button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
   );
 }

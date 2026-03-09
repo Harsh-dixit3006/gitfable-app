@@ -205,20 +205,27 @@ type Badge struct {
 }
 
 type Draw struct {
-	ID             int64              `json:"id"`
-	PublicID       pgtype.UUID        `json:"public_id"`
-	UserID         int64              `json:"user_id"`
-	IssueID        int64              `json:"issue_id"`
-	Status         DrawStatus         `json:"status"`
-	Source         string             `json:"source"`
-	PrUrl          pgtype.Text        `json:"pr_url"`
-	PrSubmittedAt  pgtype.Timestamptz `json:"pr_submitted_at"`
-	MergeCommitSha pgtype.Text        `json:"merge_commit_sha"`
-	MergedAt       pgtype.Timestamptz `json:"merged_at"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
-	XpAwarded      int32              `json:"xp_awarded"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID                int64              `json:"id"`
+	PublicID          pgtype.UUID        `json:"public_id"`
+	UserID            int64              `json:"user_id"`
+	IssueID           int64              `json:"issue_id"`
+	Status            DrawStatus         `json:"status"`
+	Source            string             `json:"source"`
+	PrUrl             pgtype.Text        `json:"pr_url"`
+	PrSubmittedAt     pgtype.Timestamptz `json:"pr_submitted_at"`
+	MergeCommitSha    pgtype.Text        `json:"merge_commit_sha"`
+	MergedAt          pgtype.Timestamptz `json:"merged_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	XpAwarded         int32              `json:"xp_awarded"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	PrOwnerLogin      pgtype.Text        `json:"pr_owner_login"`
+	PrRepoOwner       pgtype.Text        `json:"pr_repo_owner"`
+	PrRepoName        pgtype.Text        `json:"pr_repo_name"`
+	PrNumber          pgtype.Int4        `json:"pr_number"`
+	PrVerifiedAt      pgtype.Timestamptz `json:"pr_verified_at"`
+	RewardProcessedAt pgtype.Timestamptz `json:"reward_processed_at"`
+	RewardSource      pgtype.Text        `json:"reward_source"`
 }
 
 type Event struct {
@@ -271,6 +278,7 @@ type User struct {
 	Status               UserStatus         `json:"status"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DailyDrawLimit       pgtype.Int4        `json:"daily_draw_limit"`
 }
 
 type UserBadge struct {

@@ -49,6 +49,15 @@ func (q *Queries) CreateActivity(ctx context.Context, arg CreateActivityParams) 
 	return i, err
 }
 
+const deleteActivitiesByUserID = `-- name: DeleteActivitiesByUserID :exec
+DELETE FROM activities WHERE user_id = $1
+`
+
+func (q *Queries) DeleteActivitiesByUserID(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteActivitiesByUserID, userID)
+	return err
+}
+
 const listRecentActivities = `-- name: ListRecentActivities :many
 SELECT a.id, a.user_id, a.draw_id, a.action, a.repo_owner, a.repo_name, a.title, a.created_at, u.username, u.avatar_url, u.public_id AS user_public_id
 FROM activities a

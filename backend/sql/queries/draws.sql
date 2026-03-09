@@ -15,6 +15,15 @@ SELECT * FROM draws WHERE public_id = $1 AND user_id = $2;
 -- name: GetDrawByPRURL :one
 SELECT * FROM draws WHERE pr_url = $1 AND status = 'pr_submitted';
 
+-- name: GetDrawByPRIdentity :one
+SELECT * FROM draws
+WHERE pr_repo_owner = $1 AND pr_repo_name = $2 AND pr_number = $3 AND status = 'pr_submitted';
+
+-- name: GetActivePRClaimByIssue :one
+SELECT * FROM draws
+WHERE issue_id = $1 AND status = 'pr_submitted' AND user_id <> $2
+LIMIT 1;
+
 -- name: UpdateDrawStatus :one
 UPDATE draws SET status = $2 WHERE id = $1 AND status = sqlc.arg('current_status') RETURNING *;
 
@@ -22,10 +31,30 @@ UPDATE draws SET status = $2 WHERE id = $1 AND status = sqlc.arg('current_status
 UPDATE draws SET status = 'bookmarked', expires_at = $2 WHERE id = $1 AND status = 'drawn' RETURNING *;
 
 -- name: SubmitPR :one
-UPDATE draws SET status = 'pr_submitted', pr_url = $2, pr_submitted_at = NOW() WHERE id = $1 AND status = 'bookmarked' RETURNING *;
+UPDATE draws
+SET
+  status = 'pr_submitted',
+  pr_url = $2,
+  pr_submitted_at = NOW(),
+  pr_owner_login = $3,
+  pr_repo_owner = $4,
+  pr_repo_name = $5,
+  pr_number = $6,
+  pr_verified_at = NOW()
+WHERE id = $1 AND status = 'bookmarked'
+RETURNING *;
 
 -- name: MergeDraw :one
-UPDATE draws SET status = 'merged', merged_at = NOW(), merge_commit_sha = $2, xp_awarded = $3 WHERE id = $1 AND status = 'pr_submitted' RETURNING *;
+UPDATE draws
+SET
+  status = 'merged',
+  merged_at = NOW(),
+  merge_commit_sha = $2,
+  xp_awarded = $3,
+  reward_processed_at = NOW(),
+  reward_source = $4
+WHERE id = $1 AND status = 'pr_submitted' AND reward_processed_at IS NULL
+RETURNING *;
 
 -- name: CountDrawsToday :one
 SELECT COUNT(*) FROM draws
@@ -35,6 +64,29 @@ WHERE user_id = $1 AND created_at >= CURRENT_DATE;
 SELECT * FROM draws
 WHERE user_id = $1 AND status = 'bookmarked' AND (expires_at IS NULL OR expires_at > NOW())
 LIMIT 1;
+
+-- name: CountActiveWorkForUser :one
+SELECT COUNT(*) FROM draws
+WHERE user_id = $1
+  AND (
+    (status = 'bookmarked' AND (expires_at IS NULL OR expires_at > NOW()))
+    OR status = 'pr_submitted'
+  );
+
+-- name: ListActiveWorkForUser :many
+SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels
+FROM draws d
+JOIN issues i ON d.issue_id = i.id
+WHERE d.user_id = $1
+  AND (
+    (d.status = 'bookmarked' AND (d.expires_at IS NULL OR d.expires_at > NOW()))
+    OR d.status = 'pr_submitted'
+  )
+ORDER BY
+  CASE WHEN d.status = 'pr_submitted' THEN 0 ELSE 1 END,
+  COALESCE(d.expires_at, '9999-12-31'::timestamptz) ASC,
+  d.created_at DESC,
+  d.id DESC;
 
 -- name: ListUserDraws :many
 SELECT d.*, i.public_id AS issue_public_id, i.repo_owner, i.repo_name, i.title AS issue_title, i.url AS issue_url, i.language AS issue_language, i.difficulty AS issue_difficulty, i.repo_stars AS issue_repo_stars, i.labels AS issue_labels
@@ -98,3 +150,6 @@ FROM draws
 WHERE user_id = $1 AND created_at >= $2
 GROUP BY DATE(created_at)
 ORDER BY day;
+
+-- name: DeleteDrawsByUserID :exec
+DELETE FROM draws WHERE user_id = $1;

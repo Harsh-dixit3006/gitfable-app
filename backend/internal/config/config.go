@@ -20,18 +20,20 @@ type Config struct {
 	FirebasePrivateKey      string
 	FirebaseClientEmail     string
 
-	RedisURL         string
-	RateLimitEnabled bool
+	RedisURL              string
+	RateLimitEnabled      bool
+	DefaultDailyDrawLimit int
 
 	GitHubWebhookSecret string
 
 	CORSOrigins []string
 	FrontendURL string
 
-	GitHubToken   string
-	SyncInterval  time.Duration
-	StaleInterval time.Duration
-	SyncEnabled   bool
+	GitHubToken       string
+	SyncRepoAllowlist []string
+	SyncInterval      time.Duration
+	StaleInterval     time.Duration
+	SyncEnabled       bool
 }
 
 func Load() (*Config, error) {
@@ -47,18 +49,20 @@ func Load() (*Config, error) {
 		FirebasePrivateKey:      strings.ReplaceAll(getEnv("FIREBASE_PRIVATE_KEY", ""), "\\n", "\n"),
 		FirebaseClientEmail:     getEnv("FIREBASE_CLIENT_EMAIL", ""),
 
-		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
-		RateLimitEnabled: getEnvBool("RATE_LIMIT_ENABLED", true),
+		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379"),
+		RateLimitEnabled:      getEnvBool("RATE_LIMIT_ENABLED", true),
+		DefaultDailyDrawLimit: getEnvInt("DEFAULT_DAILY_DRAW_LIMIT", 3),
 
 		GitHubWebhookSecret: getEnv("GITHUB_WEBHOOK_SECRET", ""),
 
 		CORSOrigins: parseCSV(getEnv("CORS_ORIGINS", "")),
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:3000"),
 
-		GitHubToken:   getEnv("GITHUB_TOKEN", ""),
-		SyncInterval:  getEnvDuration("SYNC_INTERVAL", 6*time.Hour),
-		StaleInterval: getEnvDuration("STALE_INTERVAL", 12*time.Hour),
-		SyncEnabled:   getEnvBool("SYNC_ENABLED", true),
+		GitHubToken:       getEnv("GITHUB_TOKEN", ""),
+		SyncRepoAllowlist: parseCSV(getEnv("SYNC_REPO_ALLOWLIST", "")),
+		SyncInterval:      getEnvDuration("SYNC_INTERVAL", 6*time.Hour),
+		StaleInterval:     getEnvDuration("STALE_INTERVAL", 12*time.Hour),
+		SyncEnabled:       getEnvBool("SYNC_ENABLED", true),
 	}
 
 	if cfg.IsProduction() && len(cfg.CORSOrigins) == 0 {

@@ -22,10 +22,11 @@ var usernameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 var consecutiveHyphens = regexp.MustCompile(`--`)
 
 type AuthHandler struct {
-	Queries         *database.Queries
-	FB              *firebase.Client
-	RequireAuth     func(http.Handler) http.Handler
-	UserFromContext func(context.Context) *database.User
+	Queries               *database.Queries
+	FB                    *firebase.Client
+	RequireAuth           func(http.Handler) http.Handler
+	UserFromContext       func(context.Context) *database.User
+	DefaultDailyDrawLimit int
 }
 
 func (h *AuthHandler) Routes() chi.Router {
@@ -60,6 +61,7 @@ type userResponse struct {
 	CurrentStreak        int32   `json:"current_streak"`
 	LongestStreak        int32   `json:"longest_streak"`
 	TotalContributions   int32   `json:"total_contributions"`
+	DailyDrawLimit       int32   `json:"daily_draw_limit"`
 	LastContributionDate *string `json:"last_contribution_date"`
 	CreatedAt            string  `json:"created_at"`
 	UpdatedAt            string  `json:"updated_at"`
@@ -94,7 +96,7 @@ func pgTimestamptzToPtr(t pgtype.Timestamptz) *string {
 	return &s
 }
 
-func userToResponse(u database.User) userResponse {
+func userToResponse(u database.User, defaultDailyDrawLimit int) userResponse {
 	return userResponse{
 		ID:                   uuidToString(u.PublicID),
 		Username:             u.Username,
@@ -107,6 +109,7 @@ func userToResponse(u database.User) userResponse {
 		CurrentStreak:        u.CurrentStreak,
 		LongestStreak:        u.LongestStreak,
 		TotalContributions:   u.TotalContributions,
+		DailyDrawLimit:       int32(effectiveDailyDrawLimit(u, defaultDailyDrawLimit)),
 		LastContributionDate: pgTimestamptzToPtr(u.LastContributionDate),
 		CreatedAt:            pgTimestamptzToString(u.CreatedAt),
 		UpdatedAt:            pgTimestamptzToString(u.UpdatedAt),
@@ -227,7 +230,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Created(w, userToResponse(user))
+	Created(w, userToResponse(user, h.DefaultDailyDrawLimit))
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
@@ -237,7 +240,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	OK(w, userToResponse(*user))
+	OK(w, userToResponse(*user, h.DefaultDailyDrawLimit))
 }
 
 func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
@@ -273,5 +276,5 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	OK(w, userToResponse(updated))
+	OK(w, userToResponse(updated, h.DefaultDailyDrawLimit))
 }

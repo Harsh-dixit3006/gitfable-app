@@ -24,13 +24,13 @@ import (
 )
 
 const (
-	maxDrawsPerDay = 3
-	maxDrawRetries = 3
-	defaultLimit   = 20
-	maxLimit       = 100
-	bookmarkXP     = 5
-	submitPRXP     = 25
-	bookmarkDays   = 7
+	maxDrawRetries     = 3
+	defaultLimit       = 20
+	maxLimit           = 100
+	bookmarkXP         = 5
+	submitPRXP         = 25
+	bookmarkDays       = 7
+	maxActiveBookmarks = 5
 )
 
 // Browse — choose is free, XP only on merge.
@@ -59,14 +59,15 @@ var rarityWeights = []struct {
 }
 
 type DrawHandler struct {
-	pool         *pgxpool.Pool
-	queries      *database.Queries
-	requireAuth  func(http.Handler) http.Handler
-	xp           *service.XPService
-	badges       *service.BadgeService
-	streaks      *service.StreakService
-	github       service.GitHubClient
-	issueChecker *service.IssueChecker
+	pool                  *pgxpool.Pool
+	queries               *database.Queries
+	requireAuth           func(http.Handler) http.Handler
+	xp                    *service.XPService
+	badges                *service.BadgeService
+	streaks               *service.StreakService
+	github                service.GitHubClient
+	issueChecker          *service.IssueChecker
+	defaultDailyDrawLimit int
 }
 
 func NewDrawHandler(
@@ -78,17 +79,34 @@ func NewDrawHandler(
 	streaks *service.StreakService,
 	github service.GitHubClient,
 	issueChecker *service.IssueChecker,
+	defaultDailyDrawLimit int,
 ) *DrawHandler {
 	return &DrawHandler{
-		pool:         pool,
-		queries:      queries,
-		requireAuth:  requireAuth,
-		xp:           xp,
-		badges:       badges,
-		streaks:      streaks,
-		github:       github,
-		issueChecker: issueChecker,
+		pool:                  pool,
+		queries:               queries,
+		requireAuth:           requireAuth,
+		xp:                    xp,
+		badges:                badges,
+		streaks:               streaks,
+		github:                github,
+		issueChecker:          issueChecker,
+		defaultDailyDrawLimit: defaultDailyDrawLimit,
 	}
+}
+
+func effectiveDailyDrawLimit(user database.User, fallback int) int {
+	if user.DailyDrawLimit.Valid && user.DailyDrawLimit.Int32 > 0 {
+		return int(user.DailyDrawLimit.Int32)
+	}
+	return fallback
+}
+
+func remainingDraws(limit, used int) int {
+	remaining := limit - used
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
 }
 
 func (h *DrawHandler) Routes() chi.Router {
@@ -112,6 +130,8 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dailyDrawLimit := effectiveDailyDrawLimit(*user, h.defaultDailyDrawLimit)
+
 	// Check daily draw limit.
 	count, err := h.queries.CountDrawsToday(ctx, user.ID)
 	if err != nil {
@@ -119,8 +139,8 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		InternalError(w)
 		return
 	}
-	if count >= maxDrawsPerDay {
-		BadRequest(w, ErrCodeDrawLimitReached, "Daily draw limit reached (3 per day)")
+	if count >= int64(dailyDrawLimit) {
+		BadRequest(w, ErrCodeDrawLimitReached, fmt.Sprintf("Daily draw limit reached (%d per day)", dailyDrawLimit))
 		return
 	}
 
@@ -237,12 +257,13 @@ func (h *DrawHandler) Draw(w http.ResponseWriter, r *http.Request) {
 		slog.Error("award draw xp", "error", err)
 	}
 
-	remaining := maxDrawsPerDay - int(count) - 1
+	remaining := remainingDraws(dailyDrawLimit, int(count)+1)
 	Created(w, map[string]any{
-		"draw":            drawToResponse(draw),
-		"issue":           issueToResponse(issue),
-		"remaining_draws": remaining,
-		"xp_awarded":      xpReward,
+		"draw":              drawToResponse(draw),
+		"issue":             issueToResponse(issue),
+		"remaining_draws":   remaining,
+		"max_draws_per_day": dailyDrawLimit,
+		"xp_awarded":        xpReward,
 	})
 }
 
@@ -300,6 +321,8 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dailyDrawLimit := effectiveDailyDrawLimit(*user, h.defaultDailyDrawLimit)
+
 	// Check daily draw limit (shared with Draw).
 	count, err := h.queries.CountDrawsToday(ctx, user.ID)
 	if err != nil {
@@ -307,13 +330,15 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		InternalError(w)
 		return
 	}
-	if count >= maxDrawsPerDay {
-		BadRequest(w, ErrCodeDrawLimitReached, "Daily draw limit reached (3 per day)")
+	if count >= int64(dailyDrawLimit) {
+		BadRequest(w, ErrCodeDrawLimitReached, fmt.Sprintf("Daily draw limit reached (%d per day)", dailyDrawLimit))
 		return
 	}
 
 	var req struct {
-		IssueID string `json:"issue_id"`
+		IssueID             string `json:"issue_id"`
+		BookmarkImmediately bool   `json:"bookmark_immediately"`
+		ReplaceDrawID       string `json:"replace_draw_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		BadRequest(w, ErrCodeBadRequest, "Invalid request body")
@@ -346,21 +371,151 @@ func (h *DrawHandler) Choose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	draw, err := h.queries.CreateDraw(ctx, database.CreateDrawParams{
-		UserID:  user.ID,
-		IssueID: issue.ID,
-		Source:  "choose",
-	})
+	open, err := h.issueChecker.IsOpen(ctx, issue.RepoOwner, issue.RepoName, issue.GithubNumber)
 	if err != nil {
-		slog.Error("create draw", "error", err)
-		InternalError(w)
+		slog.Warn("choose-time freshness check failed, proceeding anyway", "error", err, "url", issue.Url)
+	} else if !open {
+		BadRequest(w, ErrCodeBadRequest, "Issue is no longer available")
 		return
 	}
 
+	var draw database.Draw
+	if req.BookmarkImmediately {
+		activeWork, err := h.queries.ListActiveWorkForUser(ctx, user.ID)
+		if err != nil {
+			slog.Error("list active work", "error", err)
+			InternalError(w)
+			return
+		}
+		if hasDuplicateActiveIssue(issue.ID, activeWork) {
+			BadRequest(w, ErrCodeBookmarkExists, "This issue is already in your active work queue")
+			return
+		}
+
+		activeCount, err := h.queries.CountActiveWorkForUser(ctx, user.ID)
+		if err != nil {
+			slog.Error("count active work", "error", err)
+			InternalError(w)
+			return
+		}
+
+		if activeBookmarkLimitReached(activeCount) && req.ReplaceDrawID == "" {
+			respondBookmarkLimitReached(w, activeWork)
+			return
+		}
+
+		tx, err := h.pool.Begin(ctx)
+		if err != nil {
+			slog.Error("begin choose tx", "error", err)
+			InternalError(w)
+			return
+		}
+		defer tx.Rollback(ctx)
+
+		qtx := h.queries.WithTx(tx)
+		draw, err = qtx.CreateDraw(ctx, database.CreateDrawParams{
+			UserID:  user.ID,
+			IssueID: issue.ID,
+			Source:  "choose",
+		})
+		if err != nil {
+			slog.Error("create draw", "error", err)
+			InternalError(w)
+			return
+		}
+
+		if req.ReplaceDrawID != "" {
+			replacePublicID, err := parseUUID(req.ReplaceDrawID)
+			if err != nil {
+				BadRequest(w, ErrCodeBadRequest, "Invalid replace_draw_id format")
+				return
+			}
+			replaceDraw, err := qtx.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{PublicID: replacePublicID, UserID: user.ID})
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					NotFound(w, "Replacement draw not found")
+					return
+				}
+				slog.Error("get replacement draw", "error", err)
+				InternalError(w)
+				return
+			}
+			if !isSwappableActiveStatus(replaceDraw.Status) {
+				BadRequest(w, ErrCodeInvalidStatus, "Replacement draw is not swappable")
+				return
+			}
+			if _, err := qtx.UpdateDrawStatus(ctx, database.UpdateDrawStatusParams{ID: replaceDraw.ID, Status: database.DrawStatusExpired, CurrentStatus: replaceDraw.Status}); err != nil {
+				slog.Error("expire replacement draw", "error", err)
+				InternalError(w)
+				return
+			}
+		}
+
+		_, expiresAt := chooseStatusAndExpiry(true, time.Now())
+		draw, err = qtx.BookmarkDraw(ctx, database.BookmarkDrawParams{ID: draw.ID, ExpiresAt: expiresAt})
+		if err != nil {
+			slog.Error("bookmark chosen draw", "error", err)
+			InternalError(w)
+			return
+		}
+		if err := tx.Commit(ctx); err != nil {
+			slog.Error("commit choose tx", "error", err)
+			InternalError(w)
+			return
+		}
+	} else {
+		draw, err = h.queries.CreateDraw(ctx, database.CreateDrawParams{
+			UserID:  user.ID,
+			IssueID: issue.ID,
+			Source:  "choose",
+		})
+		if err != nil {
+			slog.Error("create draw", "error", err)
+			InternalError(w)
+			return
+		}
+	}
+
 	Created(w, map[string]any{
-		"draw":       drawToResponse(draw),
-		"issue":      issueToResponse(issue),
-		"xp_awarded": 0,
+		"draw":              drawToResponse(draw),
+		"issue":             issueToResponse(issue),
+		"remaining_draws":   remainingDraws(dailyDrawLimit, int(count)+1),
+		"max_draws_per_day": dailyDrawLimit,
+		"xp_awarded":        0,
+	})
+}
+
+func chooseStatusAndExpiry(bookmarkImmediately bool, now time.Time) (database.DrawStatus, pgtype.Timestamptz) {
+	if bookmarkImmediately {
+		return database.DrawStatusBookmarked, pgtype.Timestamptz{Time: now.AddDate(0, 0, bookmarkDays), Valid: true}
+	}
+	return database.DrawStatusDrawn, pgtype.Timestamptz{}
+}
+
+func activeBookmarkLimitReached(activeCount int64) bool {
+	return activeCount >= maxActiveBookmarks
+}
+
+func isSwappableActiveStatus(status database.DrawStatus) bool {
+	return status == database.DrawStatusBookmarked || status == database.DrawStatusPrSubmitted
+}
+
+func hasDuplicateActiveIssue(issueID int64, activeWork []database.ListActiveWorkForUserRow) bool {
+	for _, item := range activeWork {
+		if item.IssueID == issueID {
+			return true
+		}
+	}
+	return false
+}
+
+func respondBookmarkLimitReached(w http.ResponseWriter, activeWork []database.ListActiveWorkForUserRow) {
+	writeJSON(w, http.StatusBadRequest, Response{
+		Data: map[string]any{
+			"active_work": drawActiveWorkRowsToResponse(activeWork),
+			"limit":       maxActiveBookmarks,
+		},
+		Error: &APIError{Code: ErrCodeBookmarkLimitReached, Message: fmt.Sprintf("Active bookmark limit reached (%d max)", maxActiveBookmarks)},
 	})
 }
 
@@ -389,7 +544,7 @@ func (h *DrawHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	draw, err := h.queries.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
 		PublicID: drawPublicID,
-		UserID:  user.ID,
+		UserID:   user.ID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -414,15 +569,25 @@ func (h *DrawHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	switch targetStatus {
 	case database.DrawStatusBookmarked:
-		// Check no existing active bookmark.
-		_, err := h.queries.GetActiveBookmark(ctx, user.ID)
-		if err == nil {
-			BadRequest(w, ErrCodeBookmarkExists, "You already have an active bookmark")
+		activeWork, err := h.queries.ListActiveWorkForUser(ctx, user.ID)
+		if err != nil {
+			slog.Error("list active work", "error", err)
+			InternalError(w)
 			return
 		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			slog.Error("get active bookmark", "error", err)
+		if hasDuplicateActiveIssue(draw.IssueID, activeWork) {
+			BadRequest(w, ErrCodeBookmarkExists, "This issue is already in your active work queue")
+			return
+		}
+
+		activeCount, err := h.queries.CountActiveWorkForUser(ctx, user.ID)
+		if err != nil {
+			slog.Error("count active work", "error", err)
 			InternalError(w)
+			return
+		}
+		if activeBookmarkLimitReached(activeCount) {
+			respondBookmarkLimitReached(w, activeWork)
 			return
 		}
 
@@ -496,7 +661,7 @@ func (h *DrawHandler) SubmitPR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate PR URL format.
-	_, _, _, err = service.ParsePRURL(req.PRURL)
+	prOwner, prRepo, prNumber, err := service.ParsePRURL(req.PRURL)
 	if err != nil {
 		BadRequest(w, ErrCodeInvalidPRURL, "Invalid GitHub PR URL")
 		return
@@ -504,7 +669,7 @@ func (h *DrawHandler) SubmitPR(w http.ResponseWriter, r *http.Request) {
 
 	draw, err := h.queries.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
 		PublicID: drawPublicID,
-		UserID:  user.ID,
+		UserID:   user.ID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -521,9 +686,46 @@ func (h *DrawHandler) SubmitPR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	issue, err := h.queries.GetIssueByID(ctx, draw.IssueID)
+	if err != nil {
+		slog.Error("get issue for submit pr", "error", err)
+		InternalError(w)
+		return
+	}
+
+	prStatus, err := h.github.GetPRStatus(ctx, prOwner, prRepo, prNumber)
+	if err != nil {
+		slog.Error("get pr status for submit pr", "error", err)
+		apiErr := mapPRVerificationError(err)
+		Error(w, http.StatusBadRequest, apiErr.Code, apiErr.Message)
+		return
+	}
+
+	var conflictingClaim *database.Draw
+	claim, err := h.queries.GetActivePRClaimByIssue(ctx, database.GetActivePRClaimByIssueParams{
+		IssueID: issue.ID,
+		UserID:  user.ID,
+	})
+	if err == nil {
+		conflictingClaim = &claim
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		slog.Error("get active pr claim by issue", "error", err)
+		InternalError(w)
+		return
+	}
+
+	if validationErr := validateSubmittedPR(*user, issue, *prStatus, prOwner, prRepo, conflictingClaim); validationErr != nil {
+		BadRequest(w, validationErr.Code, validationErr.Message)
+		return
+	}
+
 	updatedDraw, err := h.queries.SubmitPR(ctx, database.SubmitPRParams{
-		ID:    draw.ID,
-		PrUrl: pgtype.Text{String: req.PRURL, Valid: true},
+		ID:           draw.ID,
+		PrUrl:        pgtype.Text{String: req.PRURL, Valid: true},
+		PrOwnerLogin: pgtype.Text{String: prStatus.UserLogin, Valid: prStatus.UserLogin != ""},
+		PrRepoOwner:  pgtype.Text{String: prOwner, Valid: prOwner != ""},
+		PrRepoName:   pgtype.Text{String: prRepo, Valid: prRepo != ""},
+		PrNumber:     pgtype.Int4{Int32: int32(prNumber), Valid: prNumber > 0},
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -563,7 +765,7 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 
 	draw, err := h.queries.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
 		PublicID: drawPublicID,
-		UserID:  user.ID,
+		UserID:   user.ID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -642,6 +844,7 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		ID:             draw.ID,
 		MergeCommitSha: pgtype.Text{String: prStatus.MergeCommitSHA, Valid: prStatus.MergeCommitSHA != ""},
 		XpAwarded:      int32(mergeXP),
+		RewardSource:   pgtype.Text{String: "manual_verify", Valid: true},
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -726,6 +929,38 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		"draw":       drawToResponse(mergedDraw),
 		"new_badges": newBadges,
 	})
+}
+
+func validateSubmittedPR(user database.User, issue database.Issue, pr service.PRStatus, prOwner, prRepo string, conflictingClaim *database.Draw) *APIError {
+	if !user.GithubUsername.Valid || !strings.EqualFold(user.GithubUsername.String, pr.UserLogin) {
+		return &APIError{Code: ErrCodePRAuthorMismatch, Message: "PR author must match your linked GitHub account"}
+	}
+
+	if !strings.EqualFold(issue.RepoOwner, prOwner) || !strings.EqualFold(issue.RepoName, prRepo) {
+		return &APIError{Code: ErrCodePRRepoMismatch, Message: "PR must target the same repository as the drawn issue"}
+	}
+
+	if !service.PRReferencesIssue(pr, issue.GithubNumber) {
+		return &APIError{Code: ErrCodePRIssueReferenceMissing, Message: "PR title or body must reference the drawn issue number"}
+	}
+
+	if conflictingClaim != nil && conflictingClaim.UserID != user.ID {
+		return &APIError{Code: ErrCodeIssueAlreadyClaimed, Message: "Another GitFable user already has an active PR claim for this issue"}
+	}
+
+	return nil
+}
+
+func mapPRVerificationError(err error) *APIError {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "github API rate limited"):
+		return &APIError{Code: ErrCodeRateLimited, Message: "GitHub API rate limited while verifying PR"}
+	case strings.Contains(msg, "PR not found"):
+		return &APIError{Code: ErrCodeInvalidPRURL, Message: "GitHub PR not found or not accessible"}
+	default:
+		return &APIError{Code: ErrCodeInvalidPRURL, Message: "Unable to verify GitHub PR"}
+	}
 }
 
 // History handles GET /history — list draw history with cursor pagination.
@@ -1027,6 +1262,46 @@ func drawAfterCursorRowsToResponse(draws []database.ListUserDrawsAfterCursorRow)
 	items := make([]map[string]any, len(draws))
 	for i, d := range draws {
 		items[i] = drawAfterCursorRowToResponse(d)
+	}
+	return items
+}
+
+func drawActiveWorkRowToResponse(d database.ListActiveWorkForUserRow) map[string]any {
+	resp := map[string]any{
+		"id":         uuidToString(d.PublicID),
+		"status":     string(d.Status),
+		"source":     d.Source,
+		"xp_awarded": d.XpAwarded,
+		"created_at": timestampToPtr(d.CreatedAt),
+		"updated_at": timestampToPtr(d.UpdatedAt),
+		"issue": map[string]any{
+			"id":         uuidToString(d.IssuePublicID),
+			"repo_owner": d.RepoOwner,
+			"repo_name":  d.RepoName,
+			"title":      d.IssueTitle,
+			"url":        d.IssueUrl,
+			"language":   textToPtr(d.IssueLanguage),
+			"difficulty": textToPtr(d.IssueDifficulty),
+			"repo_stars": d.IssueRepoStars,
+			"labels":     d.IssueLabels,
+		},
+	}
+	if d.PrUrl.Valid {
+		resp["pr_url"] = d.PrUrl.String
+	}
+	if d.ExpiresAt.Valid {
+		resp["expires_at"] = d.ExpiresAt.Time.Format(time.RFC3339)
+	}
+	if d.MergedAt.Valid {
+		resp["merged_at"] = d.MergedAt.Time.Format(time.RFC3339)
+	}
+	return resp
+}
+
+func drawActiveWorkRowsToResponse(draws []database.ListActiveWorkForUserRow) []map[string]any {
+	items := make([]map[string]any, len(draws))
+	for i, d := range draws {
+		items[i] = drawActiveWorkRowToResponse(d)
 	}
 	return items
 }

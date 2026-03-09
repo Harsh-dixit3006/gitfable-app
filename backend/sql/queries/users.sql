@@ -21,6 +21,9 @@ UPDATE users SET display_name = $2, avatar_url = $3 WHERE id = $1 RETURNING *;
 -- name: UpdateUserFilters :one
 UPDATE users SET filters = $2 WHERE id = $1 RETURNING *;
 
+-- name: UpdateUserDailyDrawLimitByUsername :one
+UPDATE users SET daily_draw_limit = $2 WHERE LOWER(username) = LOWER($1) RETURNING *;
+
 -- name: UpdateUserXP :one
 UPDATE users SET xp = $2, level = $3 WHERE id = $1 RETURNING *;
 
@@ -49,3 +52,9 @@ SELECT COUNT(*) FROM users WHERE status = 'active';
 
 -- name: SyncUserFromFirebase :one
 UPDATE users SET email = $2, display_name = $3, avatar_url = $4 WHERE firebase_uid = $1 RETURNING *;
+
+-- name: DeleteUserByGithubUsername :exec
+DELETE FROM users WHERE github_username = $1;
+
+-- name: GetUserByGithubUsername :one
+SELECT * FROM users WHERE github_username = $1;
