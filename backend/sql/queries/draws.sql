@@ -30,6 +30,9 @@ UPDATE draws SET status = $2 WHERE id = $1 AND status = sqlc.arg('current_status
 -- name: BookmarkDraw :one
 UPDATE draws SET status = 'bookmarked', expires_at = $2 WHERE id = $1 AND status = 'drawn' RETURNING *;
 
+-- name: ReactivateExpiredDraw :one
+UPDATE draws SET status = 'bookmarked', expires_at = $2 WHERE id = $1 AND user_id = $3 AND status = 'expired' RETURNING *;
+
 -- name: SubmitPR :one
 UPDATE draws
 SET

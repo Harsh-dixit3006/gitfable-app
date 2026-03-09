@@ -1038,6 +1038,45 @@ func (q *Queries) MergeDraw(ctx context.Context, arg MergeDrawParams) (Draw, err
 	return i, err
 }
 
+const reactivateExpiredDraw = `-- name: ReactivateExpiredDraw :one
+UPDATE draws SET status = 'bookmarked', expires_at = $2 WHERE id = $1 AND user_id = $3 AND status = 'expired' RETURNING id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at, pr_owner_login, pr_repo_owner, pr_repo_name, pr_number, pr_verified_at, reward_processed_at, reward_source
+`
+
+type ReactivateExpiredDrawParams struct {
+	ID        int64              `json:"id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	UserID    int64              `json:"user_id"`
+}
+
+func (q *Queries) ReactivateExpiredDraw(ctx context.Context, arg ReactivateExpiredDrawParams) (Draw, error) {
+	row := q.db.QueryRow(ctx, reactivateExpiredDraw, arg.ID, arg.ExpiresAt, arg.UserID)
+	var i Draw
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.UserID,
+		&i.IssueID,
+		&i.Status,
+		&i.Source,
+		&i.PrUrl,
+		&i.PrSubmittedAt,
+		&i.MergeCommitSha,
+		&i.MergedAt,
+		&i.ExpiresAt,
+		&i.XpAwarded,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PrOwnerLogin,
+		&i.PrRepoOwner,
+		&i.PrRepoName,
+		&i.PrNumber,
+		&i.PrVerifiedAt,
+		&i.RewardProcessedAt,
+		&i.RewardSource,
+	)
+	return i, err
+}
+
 const submitPR = `-- name: SubmitPR :one
 UPDATE draws
 SET

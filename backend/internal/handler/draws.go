@@ -117,6 +117,7 @@ func (h *DrawHandler) Routes() chi.Router {
 	r.Put("/{id}/status", h.UpdateStatus)
 	r.Put("/{id}/pr", h.SubmitPR)
 	r.Post("/{id}/verify", h.Verify)
+	r.Post("/{id}/reactivate", h.Reactivate)
 	r.Get("/history", h.History)
 	return r
 }
@@ -961,6 +962,185 @@ func mapPRVerificationError(err error) *APIError {
 	default:
 		return &APIError{Code: ErrCodeInvalidPRURL, Message: "Unable to verify GitHub PR"}
 	}
+}
+
+// Reactivate handles POST /{id}/reactivate — reactivate an expired bookmark.
+func (h *DrawHandler) Reactivate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := ctxutil.UserFromContext(ctx)
+	if user == nil {
+		Unauthorized(w)
+		return
+	}
+
+	drawPublicID, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		BadRequest(w, ErrCodeBadRequest, "Invalid draw ID")
+		return
+	}
+
+	// Parse optional replace_draw_id from request body.
+	var req struct {
+		ReplaceDrawID string `json:"replace_draw_id,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Body is optional, ignore decode errors
+		req.ReplaceDrawID = ""
+	}
+
+	// Get the expired draw with user check.
+	draw, err := h.queries.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
+		PublicID: drawPublicID,
+		UserID:   user.ID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			NotFound(w, "Draw not found")
+			return
+		}
+		slog.Error("get draw for reactivation", "error", err)
+		InternalError(w)
+		return
+	}
+
+	// Only expired draws can be reactivated.
+	if draw.Status != database.DrawStatusExpired {
+		BadRequest(w, ErrCodeInvalidStatus, "Only expired bookmarks can be reactivated")
+		return
+	}
+
+	// Check if user has room for another active bookmark.
+	activeCount, err := h.queries.CountActiveWorkForUser(ctx, user.ID)
+	if err != nil {
+		slog.Error("count active work", "error", err)
+		InternalError(w)
+		return
+	}
+
+	// If bookmark limit reached and no replacement specified, return active work list.
+	if activeBookmarkLimitReached(activeCount) && req.ReplaceDrawID == "" {
+		activeWork, err := h.queries.ListActiveWorkForUser(ctx, user.ID)
+		if err != nil {
+			slog.Error("list active work for error response", "error", err)
+			InternalError(w)
+			return
+		}
+
+		writeJSON(w, http.StatusBadRequest, Response{
+			Data: map[string]any{
+				"active_work": drawActiveWorkRowsToResponse(activeWork),
+				"limit":       maxActiveBookmarks,
+			},
+			Error: &APIError{
+				Code:    ErrCodeBookmarkLimitReached,
+				Message: fmt.Sprintf("Active bookmark limit reached (%d max). Choose one to replace.", maxActiveBookmarks),
+			},
+		})
+		return
+	}
+
+	// Get the issue to verify it's still available.
+	issue, err := h.queries.GetIssueByID(ctx, draw.IssueID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			BadRequest(w, ErrCodeBadRequest, "Issue no longer exists")
+			return
+		}
+		slog.Error("get issue for reactivation", "error", err)
+		InternalError(w)
+		return
+	}
+
+	// Verify issue is still open.
+	if issue.State != database.IssueStateOpen {
+		BadRequest(w, ErrCodeBadRequest, "Issue is no longer open")
+		return
+	}
+
+	// Check if issue is still available (no assignee, no open PRs).
+	open, err := h.issueChecker.IsOpen(ctx, issue.RepoOwner, issue.RepoName, issue.GithubNumber)
+	if err != nil {
+		slog.Warn("reactivation freshness check failed, proceeding anyway", "error", err, "url", issue.Url)
+	} else if !open {
+		BadRequest(w, ErrCodeBadRequest, "Issue is no longer available (may have been claimed or closed)")
+		return
+	}
+
+	// Start transaction for reactivation (with optional swap).
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		slog.Error("begin reactivation tx", "error", err)
+		InternalError(w)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := h.queries.WithTx(tx)
+
+	// If replacing a bookmark, expire it first.
+	if req.ReplaceDrawID != "" {
+		replacePublicID, err := parseUUID(req.ReplaceDrawID)
+		if err != nil {
+			BadRequest(w, ErrCodeBadRequest, "Invalid replace_draw_id format")
+			return
+		}
+
+		replaceDraw, err := qtx.GetDrawByPublicIDAndUser(ctx, database.GetDrawByPublicIDAndUserParams{
+			PublicID: replacePublicID,
+			UserID:   user.ID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				NotFound(w, "Replacement draw not found")
+				return
+			}
+			slog.Error("get replacement draw", "error", err)
+			InternalError(w)
+			return
+		}
+
+		if !isSwappableActiveStatus(replaceDraw.Status) {
+			BadRequest(w, ErrCodeInvalidStatus, "Replacement draw is not swappable")
+			return
+		}
+
+		if _, err := qtx.UpdateDrawStatus(ctx, database.UpdateDrawStatusParams{
+			ID:            replaceDraw.ID,
+			Status:        database.DrawStatusExpired,
+			CurrentStatus: replaceDraw.Status,
+		}); err != nil {
+			slog.Error("expire replacement draw", "error", err)
+			InternalError(w)
+			return
+		}
+	}
+
+	// Reactivate the draw with new expiration date.
+	_, expiresAt := chooseStatusAndExpiry(true, time.Now())
+	reactivatedDraw, err := qtx.ReactivateExpiredDraw(ctx, database.ReactivateExpiredDrawParams{
+		ID:        draw.ID,
+		UserID:    user.ID,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			BadRequest(w, ErrCodeInvalidStatus, "Draw has already been reactivated or status changed")
+			return
+		}
+		slog.Error("reactivate draw", "error", err)
+		InternalError(w)
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		slog.Error("commit reactivation tx", "error", err)
+		InternalError(w)
+		return
+	}
+
+	OK(w, map[string]any{
+		"draw": drawToResponse(reactivatedDraw),
+	})
 }
 
 // History handles GET /history — list draw history with cursor pagination.
