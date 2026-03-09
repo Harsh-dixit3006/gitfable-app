@@ -1,0 +1,61 @@
+# Docker Compose for Testing
+# Usage: docker compose -f docker-compose.test.yml up --abort-on-container-exit
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gitfable-postgres-test
+    environment:
+      POSTGRES_USER: gitfable
+      POSTGRES_PASSWORD: gitfable
+      POSTGRES_DB: gitfable_test
+    ports:
+      - "5433:5432"  # Use different port to avoid conflict
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitfable -d gitfable_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: gitfable-redis-test
+    ports:
+      - "6380:6379"  # Use different port to avoid conflict
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  test-runner:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.test
+    container_name: gitfable-test-runner
+    environment:
+      - ENVIRONMENT=test
+      - DATABASE_URL=${DATABASE_URL:-postgresql://gitfable:gitfable@postgres:5432/gitfable_test?sslmode=disable}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TEST_GITHUB_USERNAME=${TEST_GITHUB_USERNAME}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-gitfable-app}
+      - RATE_LIMIT_ENABLED=false
+      - SYNC_ENABLED=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../creds:/creds:ro
+      - ../backend:/app:ro
+    command: ["sh", "-c", "./run-tests.sh"]
+
+volumes:
+  postgres_test_data:
+  redis_test_data:

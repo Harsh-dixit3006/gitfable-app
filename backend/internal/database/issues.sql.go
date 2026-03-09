@@ -223,6 +223,37 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 	return i, err
 }
 
+const getIssueByGithubID = `-- name: GetIssueByGithubID :one
+SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, rarity, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues WHERE github_id = $1
+`
+
+func (q *Queries) GetIssueByGithubID(ctx context.Context, githubID int64) (Issue, error) {
+	row := q.db.QueryRow(ctx, getIssueByGithubID, githubID)
+	var i Issue
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.GithubID,
+		&i.GithubNumber,
+		&i.RepoOwner,
+		&i.RepoName,
+		&i.Title,
+		&i.Url,
+		&i.Language,
+		&i.Difficulty,
+		&i.Rarity,
+		&i.RepoStars,
+		&i.RepoPushedAt,
+		&i.GithubCreatedAt,
+		&i.Labels,
+		&i.State,
+		&i.LastSyncedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getIssueByID = `-- name: GetIssueByID :one
 SELECT id, public_id, github_id, github_number, repo_owner, repo_name, title, url, language, difficulty, rarity, repo_stars, repo_pushed_at, github_created_at, labels, state, last_synced_at, created_at, updated_at FROM issues WHERE id = $1
 `

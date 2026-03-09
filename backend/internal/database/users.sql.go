@@ -74,6 +74,15 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteUserByGithubUsername = `-- name: DeleteUserByGithubUsername :exec
+DELETE FROM users WHERE github_username = $1
+`
+
+func (q *Queries) DeleteUserByGithubUsername(ctx context.Context, githubUsername pgtype.Text) error {
+	_, err := q.db.Exec(ctx, deleteUserByGithubUsername, githubUsername)
+	return err
+}
+
 const getLeaderboard = `-- name: GetLeaderboard :many
 SELECT id, public_id, username, display_name, avatar_url, xp, level, total_contributions
 FROM users
@@ -182,6 +191,38 @@ SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, g
 
 func (q *Queries) GetUserByFirebaseUID(ctx context.Context, firebaseUid string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByFirebaseUID, firebaseUid)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.PublicID,
+		&i.FirebaseUid,
+		&i.Username,
+		&i.Email,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.GithubID,
+		&i.GithubUsername,
+		&i.Xp,
+		&i.Level,
+		&i.CurrentStreak,
+		&i.LongestStreak,
+		&i.LastContributionDate,
+		&i.TotalContributions,
+		&i.Filters,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DailyDrawLimit,
+	)
+	return i, err
+}
+
+const getUserByGithubUsername = `-- name: GetUserByGithubUsername :one
+SELECT id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit FROM users WHERE github_username = $1
+`
+
+func (q *Queries) GetUserByGithubUsername(ctx context.Context, githubUsername pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByGithubUsername, githubUsername)
 	var i User
 	err := row.Scan(
 		&i.ID,

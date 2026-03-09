@@ -52,3 +52,9 @@ SELECT COUNT(*) FROM users WHERE status = 'active';
 
 -- name: SyncUserFromFirebase :one
 UPDATE users SET email = $2, display_name = $3, avatar_url = $4 WHERE firebase_uid = $1 RETURNING *;
+
+-- name: DeleteUserByGithubUsername :exec
+DELETE FROM users WHERE github_username = $1;
+
+-- name: GetUserByGithubUsername :one
+SELECT * FROM users WHERE github_username = $1;

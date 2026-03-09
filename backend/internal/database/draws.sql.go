@@ -151,6 +151,15 @@ func (q *Queries) CreateDraw(ctx context.Context, arg CreateDrawParams) (Draw, e
 	return i, err
 }
 
+const deleteDrawsByUserID = `-- name: DeleteDrawsByUserID :exec
+DELETE FROM draws WHERE user_id = $1
+`
+
+func (q *Queries) DeleteDrawsByUserID(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteDrawsByUserID, userID)
+	return err
+}
+
 const getActiveBookmark = `-- name: GetActiveBookmark :one
 SELECT id, public_id, user_id, issue_id, status, source, pr_url, pr_submitted_at, merge_commit_sha, merged_at, expires_at, xp_awarded, created_at, updated_at, pr_owner_login, pr_repo_owner, pr_repo_name, pr_number, pr_verified_at, reward_processed_at, reward_source FROM draws
 WHERE user_id = $1 AND status = 'bookmarked' AND (expires_at IS NULL OR expires_at > NOW())
