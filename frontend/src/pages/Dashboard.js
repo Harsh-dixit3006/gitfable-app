@@ -1,224 +1,211 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion } from 'framer-motion';
-import { PenTool, Flame, Trophy, GitPullRequest, BookOpen, Star, Files, Library, BookCopy, MoonStar, FastForward, Globe, Search, Bookmark as BookmarkIcon, Zap } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  Target,
+  Flame,
+  Trophy,
+  GitPullRequest,
+  Zap,
+  Clock,
+  ArrowRight,
+  Star,
+  History,
+  Bookmark,
+  GitMerge,
+  ChevronRight,
+  Calendar,
+  Activity,
+  Medal,
+  Crown,
+  Sparkles
+} from 'lucide-react';
 import { api } from '@/lib/api';
-import { colors, accent } from '@/lib/theme';
+import { Button } from '@/components/ui/button';
+import { colors } from '@/lib/theme';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-const BADGE_ICONS = {
-  'Prologue': BookOpen, 'Short Story': Files, 'The Epic': Library,
-  'Anthology': BookCopy, 'Midnight Draft': MoonStar, 'Fast Forward': FastForward,
-  'Daily Author': PenTool, 'Worldbuilder': Globe, 'Proofreader': Search,
-  'The Archivist': BookmarkIcon,
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
 };
 
-export default function Dashboard() {
-  const { user, setShowLogin } = useAuth();
-  const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 }
+};
 
-  useEffect(() => {
-    if (!user) { setLoading(false); return; }
-    api.get('/users/dashboard')
-      .then(r => {
-        const d = r._data;
-        // Convert heatmap array to object keyed by date
-        const heatmapObj = {};
-        if (Array.isArray(d.heatmap)) {
-          d.heatmap.forEach(item => {
-            if (item.day) heatmapObj[item.day] = item.count;
-          });
-        }
-        setData({
-          user: d.user,
-          recent_draws: (d.recent_draws || []).map(draw => ({
-            id: draw.id,
-            repo: `${draw.repo_owner || ''}/${draw.repo_name || ''}`,
-            language: draw.language,
-            xp_awarded: draw.xp_awarded,
-            status: 'merged',
-          })),
-          heatmap: heatmapObj,
-          badges: d.badges || [],
-        });
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [user]);
-
-  if (loading) return (
-    <div className="pt-20 px-6 sm:px-8 lg:px-12 max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">{[1,2,3,4].map(i => <div key={i} className="h-32 rounded-xl shimmer" />)}</div>
-    </div>
-  );
-
-  if (!user) return (
-    <div className="pt-20 px-6 sm:px-8 lg:px-12 max-w-4xl mx-auto text-center" data-testid="dashboard-login-prompt">
-      <div className="py-20">
-        <h2 className="text-2xl font-bold font-display mb-4" style={{ letterSpacing: '-0.04em' }}>Sign in to view your dashboard</h2>
-        <p className="text-zinc-400 mb-6">Track your contributions, badges, and streaks.</p>
-        <button onClick={() => setShowLogin(true)} className="rune-btn px-8 py-3 rounded-lg" data-testid="dashboard-sign-in">Sign In</button>
-      </div>
-    </div>
-  );
-
-  const u = data?.user || user;
-  const xpProgress = ((u.xp % 500) / 500) * 100;
-  const xpToNext = 500 - (u.xp % 500);
-  const badgeMap = new Map((data?.badges || []).map(b => [b.name, b]));
-  const earned = new Set(badgeMap.keys());
+// Progress Ring Component
+function ProgressRing({ progress, size = 120, strokeWidth = 8, children }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className="pt-20 pb-16 relative" data-testid="dashboard-page">
-      <div className="absolute top-0 left-1/3 w-[500px] h-[300px] pointer-events-none" style={{ background: `radial-gradient(ellipse, rgba(${colors.accent.rgb},0.06) 0%, transparent 70%)` }} />
-
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <span className={`font-mono text-[10px] ${accent.textMuted} uppercase tracking-[0.3em] block mb-4`}>Dashboard</span>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold mb-8 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
-            Your journey so far.
-          </h1>
-
-          {/* Bento Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4" data-testid="bento-grid">
-
-            {/* Profile Card - spans 2 cols */}
-            <div className="md:col-span-2 obsidian inner-glow rounded-xl p-6" data-testid="profile-card">
-              <div className="flex items-center gap-5">
-                <div className="relative">
-                  <div className={`absolute -inset-1 rounded-full ${accent.avatarGlow} blur-md`} />
-                  <Avatar className={`relative w-16 h-16 border-2 ${accent.avatarBorder}`}>
-                    <AvatarImage src={u.avatar_url} />
-                    <AvatarFallback className="text-xl font-display bg-zinc-900">{u.username?.[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h2 className="text-xl font-bold font-display truncate" style={{ letterSpacing: '-0.04em' }}>{u.display_name || u.username}</h2>
-                    <span className={`text-xs font-mono ${accent.text} ${accent.bg} px-2 py-0.5 rounded border ${accent.borderFaint} font-bold`}>Lv.{u.level}</span>
-                  </div>
-                  <p className="text-sm text-zinc-500 font-mono mb-3">@{u.username}</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className={accent.text}>{u.xp} XP</span>
-                      <span className="text-zinc-600">{xpToNext} to Lv.{u.level + 1}</span>
-                    </div>
-                    <Progress value={xpProgress} className="h-2 bg-zinc-900" data-testid="xp-progress" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Streak */}
-            <div className="obsidian rounded-xl p-5 flex items-center gap-4" data-testid="streak-indicator">
-              <div className={`p-3 rounded-full ${u.current_streak > 0 ? `${accent.bg} animate-pulse-glow` : 'bg-zinc-900'}`}>
-                <PenTool className={`w-6 h-6 ${u.current_streak > 0 ? accent.icon : 'text-zinc-700'}`} strokeWidth={1.5} />
-              </div>
-              <div>
-                <p className="font-mono text-2xl font-bold text-zinc-100">{u.current_streak}</p>
-                <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Day Streak</p>
-              </div>
-            </div>
-
-            {/* XP Quick */}
-            <div className="obsidian inner-glow rounded-xl p-5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-20 h-20 rounded-full" style={{ background: `radial-gradient(circle, rgba(${colors.accent.rgb},0.1), transparent)`, filter: 'blur(20px)' }} />
-              <Zap className={`w-4 h-4 ${accent.icon} mb-2`} strokeWidth={1.5} />
-              <p className="font-mono text-2xl font-bold text-zinc-100">{u.xp}</p>
-              <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Total XP</p>
-            </div>
-
-            {/* Stats Row - 4 compact cells */}
-            {[
-              { label: 'Contributions', value: u.total_contributions, icon: GitPullRequest, color: accent.icon },
-              { label: 'Current Streak', value: u.current_streak, icon: Flame, color: accent.textMuted },
-              { label: 'Longest Streak', value: u.longest_streak, icon: Trophy, color: accent.textMuted },
-              { label: 'Level', value: u.level, icon: Star, color: accent.icon },
-            ].map(({ label, value, icon: Icon, color }) => (
-              <div key={label} className="obsidian rounded-xl p-4" data-testid="stats-grid">
-                <Icon className={`w-4 h-4 ${color} mb-2`} strokeWidth={1.5} />
-                <p className="text-xl font-bold font-mono text-zinc-100">{value}</p>
-                <p className="text-xs text-zinc-600 font-mono mt-0.5">{label}</p>
-              </div>
-            ))}
-
-            {/* Badges - full width */}
-            <div className="md:col-span-3 lg:col-span-4 obsidian inner-glow rounded-xl p-6" data-testid="badge-grid">
-              <h3 className="font-display text-lg font-semibold mb-4" style={{ letterSpacing: '-0.04em' }}>
-                <span className={`${accent.textMuted} font-mono text-sm`}>//</span> Badges
-              </h3>
-              <TooltipProvider>
-                <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
-                  {Object.entries(BADGE_ICONS).map(([name, Icon]) => {
-                    const isEarned = earned.has(name);
-                    return (
-                      <Tooltip key={name}>
-                        <TooltipTrigger asChild>
-                          <motion.div
-                            whileHover={{ scale: 1.08, y: -2 }}
-                            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border cursor-default ${
-                              isEarned
-                                ? `${accent.border} ${accent.bg} ${accent.glow}`
-                                : 'border-white/5 bg-zinc-900/30 opacity-35'
-                            }`}
-                            data-testid={`badge-${name.toLowerCase().replace(/\s/g, '-')}`}
-                          >
-                            <Icon className={`w-6 h-6 ${isEarned ? accent.text : 'text-zinc-700'}`} strokeWidth={1.5} />
-                            <span className="text-[10px] text-center leading-tight font-mono">{name}</span>
-                          </motion.div>
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-zinc-900 border-white/10"><p className="text-xs">{badgeMap.get(name)?.description || name}</p></TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              </TooltipProvider>
-            </div>
-
-            {/* Heatmap */}
-            <div className="md:col-span-2 lg:col-span-3 obsidian inner-glow rounded-xl p-6" data-testid="contribution-heatmap">
-              <h3 className="font-display text-lg font-semibold mb-4" style={{ letterSpacing: '-0.04em' }}>
-                <span className={`${accent.textMuted} font-mono text-sm`}>//</span> Contributions
-              </h3>
-              <Heatmap data={data?.heatmap || {}} />
-            </div>
-
-            {/* Recent Draws */}
-            <div className="md:col-span-1 lg:col-span-1 obsidian rounded-xl p-5" data-testid="recent-draws">
-              <h3 className="font-display text-base font-semibold mb-4" style={{ letterSpacing: '-0.04em' }}>Recent</h3>
-              {(data?.recent_draws || []).length === 0 ? (
-                <p className="text-xs text-zinc-600 font-mono">No draws yet.</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {data.recent_draws.map(draw => (
-                    <div key={draw.id} className="p-2.5 rounded-lg bg-zinc-900/50 border border-white/5">
-                      <p className="text-xs text-zinc-500 truncate font-mono">{draw.repo}</p>
-                      <p className="text-xs font-medium text-zinc-300 truncate mt-0.5">{draw.language}</p>
-                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded mt-1 font-mono status-merged">
-                        {draw.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg className="transform -rotate-90" width={size} height={size}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.05)"
+          strokeWidth={strokeWidth}
+        />
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={`rgb(${colors.accent.rgb})`}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          style={{
+            strokeDasharray: circumference,
+          }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        {children}
       </div>
     </div>
   );
 }
 
-function Heatmap({ data }) {
-  const weeks = 26;
+// Stat Card Component
+function StatCard({ icon: Icon, label, value, subtext, onClick }) {
+  return (
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ scale: 1.02, y: -2 }}
+      onClick={onClick}
+      className={`
+        relative overflow-hidden rounded-2xl border bg-zinc-900/50 p-5
+        border-zinc-800 hover:border-amber-500/30 transition-all
+        ${onClick ? 'cursor-pointer' : ''}
+      `}
+    >
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-3">
+          <div className="p-2 rounded-xl bg-amber-500/10">
+            <Icon className="w-5 h-5 text-amber-300" />
+          </div>
+        </div>
+        <p className="text-3xl font-bold text-zinc-100">{value}</p>
+        <p className="text-sm text-zinc-500 mt-1">{label}</p>
+        {subtext && <p className="text-xs text-zinc-600 mt-2">{subtext}</p>}
+      </div>
+    </motion.div>
+  );
+}
+
+// Active Bookmark Card
+function ActiveBookmarkCard({ bookmark, onClick }) {
+  const expiresIn = useMemo(() => {
+    if (!bookmark.expires_at) return null;
+    const diff = new Date(bookmark.expires_at) - Date.now();
+    if (diff <= 0) return 'Expired';
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    return days > 0 ? `${days}d ${hours}h left` : `${hours}h left`;
+  }, [bookmark.expires_at]);
+
+  const isPRSubmitted = bookmark.status === 'pr_submitted';
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      onClick={onClick}
+      className={`
+        relative rounded-xl border p-4 cursor-pointer transition-all
+        ${isPRSubmitted 
+          ? 'bg-amber-950/20 border-amber-500/30' 
+          : 'bg-zinc-900/50 border-zinc-800 hover:border-amber-500/20'
+        }
+      `}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`p-2 rounded-lg ${isPRSubmitted ? 'bg-amber-500/20' : 'bg-amber-500/10'}`}>
+          {isPRSubmitted ? (
+            <GitPullRequest className="w-4 h-4 text-amber-300" />
+          ) : (
+            <Bookmark className="w-4 h-4 text-amber-400" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-zinc-300 truncate">{bookmark.issue?.title}</p>
+          <p className="text-xs text-zinc-500 truncate mt-0.5">
+            {bookmark.issue?.repo_owner}/{bookmark.issue?.repo_name}
+          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              isPRSubmitted 
+                ? 'bg-amber-500/20 text-amber-300' 
+                : 'bg-amber-500/10 text-amber-400'
+            }`}>
+              {isPRSubmitted ? 'PR Submitted' : 'Active'}
+            </span>
+            {!isPRSubmitted && expiresIn && (
+              <span className="text-xs text-zinc-500 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {expiresIn}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// XP Progress Bar
+function XPProgress({ currentXP, level }) {
+  const xpInLevel = currentXP % 500;
+  const progress = (xpInLevel / 500) * 100;
+  const xpToNext = 500 - xpInLevel;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-zinc-400">Level {level}</span>
+        <span className="text-zinc-500">{xpInLevel} / 500 XP</span>
+      </div>
+      <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ backgroundColor: `rgb(${colors.accent.rgb})` }}
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 1, ease: "easeOut" }}
+        />
+      </div>
+      <p className="text-xs text-zinc-600">{xpToNext} XP to Level {level + 1}</p>
+    </div>
+  );
+}
+
+// Heatmap Component
+function MiniHeatmap({ data }) {
+  const weeks = 12;
   const today = new Date();
   const grid = [];
+  
   for (let w = weeks - 1; w >= 0; w--) {
     const week = [];
     for (let d = 0; d < 7; d++) {
@@ -229,25 +216,477 @@ function Heatmap({ data }) {
     }
     grid.push(week);
   }
+
   return (
-    <div className="flex gap-[3px] overflow-x-auto pb-2">
+    <div className="flex gap-[2px]">
       {grid.map((week, wi) => (
-        <div key={wi} className="flex flex-col gap-[3px]">
+        <div key={wi} className="flex flex-col gap-[2px]">
           {week.map(day => (
-            <div
-              key={day.date}
-              className="w-3 h-3 rounded-sm"
-              style={{
-                backgroundColor: day.count === 0
-                  ? 'rgba(255,255,255,0.03)'
-                  : `rgba(${colors.accent.rgb}, ${Math.min(day.count * 0.25 + 0.2, 0.9)})`,
-                boxShadow: day.count > 0 ? `0 0 ${day.count * 3 + 2}px -1px rgba(${colors.accent.rgb},${Math.min(day.count * 0.12 + 0.08, 0.4)})` : 'none',
-              }}
-              title={`${day.date}: ${day.count} contributions`}
-            />
+            <Tooltip key={day.date}>
+              <TooltipTrigger asChild>
+                <div
+                  className="w-2.5 h-2.5 rounded-sm transition-colors hover:scale-125"
+                  style={{
+                    backgroundColor: day.count === 0
+                      ? 'rgba(255,255,255,0.05)'
+                      : `rgba(${colors.accent.rgb}, ${Math.min(day.count * 0.2 + 0.2, 0.9)})`,
+                  }}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{day.date}: {day.count} contributions</p>
+              </TooltipContent>
+            </Tooltip>
           ))}
         </div>
       ))}
     </div>
+  );
+}
+
+const DEFAULT_DAILY_DRAW_LIMIT = 3;
+
+export default function Dashboard() {
+  const { user, setShowLogin } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [activeBookmarks, setActiveBookmarks] = useState([]);
+  const [drawsRemaining, setDrawsRemaining] = useState(3);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const loadDashboard = async () => {
+      try {
+        // Get daily draw limit from user
+        const dailyDrawLimit = user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT;
+        
+        // Load dashboard data and draws history
+        const [dashboardRes, bookmarksRes, drawsRes] = await Promise.all([
+          api.get('/users/dashboard'),
+          Promise.all([
+            api.get('/draws/history', { params: { status: 'bookmarked', limit: 5 } }),
+            api.get('/draws/history', { params: { status: 'pr_submitted', limit: 5 } }),
+          ]),
+          api.get('/draws/history', { params: { limit: dailyDrawLimit } }),
+        ]);
+
+        const dashboardData = dashboardRes._data;
+        
+        // Convert heatmap to object
+        const heatmapObj = {};
+        if (Array.isArray(dashboardData.heatmap)) {
+          dashboardData.heatmap.forEach(item => {
+            if (item.day) heatmapObj[item.day] = item.count;
+          });
+        }
+
+        setData({
+          user: dashboardData.user,
+          heatmap: heatmapObj,
+          badges: dashboardData.badges || [],
+          recentDraws: dashboardData.recent_draws || [],
+        });
+
+        // Combine active bookmarks
+        const bookmarks = [
+          ...(bookmarksRes[0]._data || []),
+          ...(bookmarksRes[1]._data || []),
+        ];
+        setActiveBookmarks(bookmarks);
+
+        // Calculate remaining draws
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const draws = drawsRes._data || [];
+        const usedToday = draws.filter((draw) => {
+          if (!draw.created_at) return false;
+          const createdAt = new Date(draw.created_at);
+          return !Number.isNaN(createdAt.getTime()) && createdAt >= today;
+        }).length;
+        setDrawsRemaining(Math.max(0, dailyDrawLimit - usedToday));
+      } catch (err) {
+        console.error('Failed to load dashboard:', err);
+        toast.error('Failed to load dashboard');
+        // Set defaults on error
+        setDrawsRemaining(user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, [user]);
+
+  const stats = useMemo(() => {
+    if (!user) return null;
+    return {
+      xp: user.xp || 0,
+      level: user.level || 1,
+      contributions: user.total_contributions || 0,
+      currentStreak: user.current_streak || 0,
+      longestStreak: user.longest_streak || 0,
+      drawsRemaining: drawsRemaining,
+      activeWork: activeBookmarks.length,
+    };
+  }, [user, drawsRemaining, activeBookmarks]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-20 px-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="h-40 rounded-2xl bg-zinc-900/50 animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-32 rounded-2xl bg-zinc-900/50 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen pt-24 px-6 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 rounded-2xl bg-amber-500/20 flex items-center justify-center mx-auto mb-6">
+            <Target className="w-10 h-10 text-amber-400" />
+          </div>
+          <h2 className="text-3xl font-bold text-zinc-100 mb-3">
+            Start Your Journey
+          </h2>
+          <p className="text-zinc-500 mb-8">
+            Sign in to track your progress, earn badges, and build your contribution streak.
+          </p>
+          <Button
+            onClick={() => setShowLogin(true)}
+            className="bg-amber-500 hover:bg-amber-400 text-zinc-950 px-8 py-3 text-base font-semibold"
+          >
+            Sign In to Continue
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <TooltipProvider>
+      <div className="min-h-screen pt-20 pb-24 px-6">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="max-w-6xl mx-auto space-y-6"
+        >
+          {/* Hero Section */}
+          <motion.div variants={itemVariants} className="relative">
+            <div 
+              className="absolute inset-0 rounded-3xl blur-3xl" 
+              style={{ background: `radial-gradient(ellipse at center, rgba(${colors.accent.rgb},0.08) 0%, transparent 70%)` }}
+            />
+            <div className="relative bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 overflow-hidden">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="flex items-center gap-5">
+                  <div className="relative">
+                    <ProgressRing progress={(stats.xp % 500) / 5} size={100} strokeWidth={6}>
+                      <div className="text-center">
+                        <span className="text-2xl font-bold text-zinc-100">{stats.level}</span>
+                        <p className="text-xs text-zinc-500">Level</p>
+                      </div>
+                    </ProgressRing>
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-zinc-100 mb-1">
+                      Welcome back, {user.display_name || user.username}
+                    </h1>
+                    <p className="text-zinc-500">
+                      {stats.currentStreak > 0 ? (
+                        <span className="flex items-center gap-2">
+                          <Flame className="w-4 h-4 text-amber-400" />
+                          {stats.currentStreak} day streak! Keep it up!
+                        </span>
+                      ) : (
+                        'Start your streak by contributing today'
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={() => navigate('/discover')}
+                    className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    {stats.drawsRemaining > 0 
+                      ? `Draw Issue (${stats.drawsRemaining} left)` 
+                      : 'Browse Issues'
+                    }
+                  </Button>
+                  {stats.activeWork > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate('/history')}
+                      className="border-zinc-700 hover:bg-zinc-800"
+                    >
+                      <History className="w-4 h-4 mr-2" />
+                      View History
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* XP Progress */}
+              <div className="mt-8 max-w-md">
+                <XPProgress currentXP={stats.xp} level={stats.level} />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard
+              icon={GitMerge}
+              label="Contributions"
+              value={stats.contributions}
+              subtext="Total merged PRs"
+              onClick={() => navigate('/history')}
+            />
+            
+            <StatCard
+              icon={Flame}
+              label="Current Streak"
+              value={stats.currentStreak}
+              subtext="Days in a row"
+            />
+            
+            <StatCard
+              icon={Trophy}
+              label="Longest Streak"
+              value={stats.longestStreak}
+              subtext="Personal best"
+            />
+            
+            <StatCard
+              icon={Zap}
+              label="Total XP"
+              value={stats.xp.toLocaleString()}
+              subtext={`Level ${stats.level}`}
+            />
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Active Work */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Active Work */}
+              <motion.div variants={itemVariants} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-amber-500/10">
+                      <Activity className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-zinc-100">Active Work</h2>
+                      <p className="text-sm text-zinc-500">
+                        {stats.activeWork} of 5 slots used
+                      </p>
+                    </div>
+                  </div>
+                  <Link 
+                    to="/discover" 
+                    className="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                  >
+                    Find issues
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
+                </div>
+
+                {activeBookmarks.length === 0 ? (
+                  <div className="text-center py-8 bg-zinc-900/30 rounded-xl border border-dashed border-zinc-800">
+                    <Target className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+                    <p className="text-zinc-500 mb-4">No active work</p>
+                    <Button
+                      onClick={() => navigate('/discover')}
+                      variant="outline"
+                      className="border-zinc-700"
+                    >
+                      Discover Issues
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {activeBookmarks.slice(0, 5).map(bookmark => (
+                      <ActiveBookmarkCard
+                        key={bookmark.id}
+                        bookmark={bookmark}
+                        onClick={() => navigate('/history')}
+                      />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Recent Activity */}
+              <motion.div variants={itemVariants} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-amber-500/10">
+                      <GitMerge className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-zinc-100">Recent Merges</h2>
+                  </div>
+                </div>
+
+                {data?.recentDraws?.length === 0 ? (
+                  <div className="text-center py-8 text-zinc-500">
+                    <p>No merged PRs yet. Submit your first PR to see it here!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {data?.recentDraws?.slice(0, 5).map((draw, i) => (
+                      <motion.div
+                        key={draw.id || i}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-amber-500/20 transition-colors"
+                      >
+                        <div className="p-2 rounded-lg bg-amber-500/10">
+                          <GitMerge className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-300 truncate">
+                            {draw.repo}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            +{draw.xp_awarded || 25} XP
+                          </p>
+                        </div>
+                        <span className="text-xs text-amber-400 font-medium">
+                          Merged
+                        </span>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Right Column - Secondary Info */}
+            <div className="space-y-6">
+              {/* Streak Card */}
+              <motion.div 
+                variants={itemVariants} 
+                className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6"
+                style={{ 
+                  background: `linear-gradient(135deg, rgba(${colors.accent.rgb},0.05), transparent)` 
+                }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <Flame className="w-6 h-6 text-amber-400" />
+                  <h3 className="font-semibold text-zinc-100">Streak</h3>
+                </div>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-4xl font-bold text-zinc-100">{stats.currentStreak}</span>
+                  <span className="text-zinc-500">days</span>
+                </div>
+                <p className="text-sm text-zinc-500 mb-4">
+                  {stats.currentStreak > 0 
+                    ? 'Keep contributing daily to maintain your streak!'
+                    : 'Contribute today to start a streak!'
+                  }
+                </p>
+                <MiniHeatmap data={data?.heatmap || {}} />
+              </motion.div>
+
+              {/* Badges Preview */}
+              <motion.div variants={itemVariants} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Medal className="w-5 h-5 text-amber-400" />
+                    <h3 className="font-semibold text-zinc-100">Badges</h3>
+                  </div>
+                  <Link to="/history" className="text-xs text-zinc-500 hover:text-zinc-400">
+                    View all
+                  </Link>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(data?.badges || []).slice(0, 6).map(badge => (
+                    <Tooltip key={badge.name}>
+                      <TooltipTrigger asChild>
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                          <Star className="w-5 h-5 text-amber-400" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">{badge.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                  {(data?.badges || []).length === 0 && (
+                    <p className="text-sm text-zinc-500">Complete quests to earn badges!</p>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Quick Actions */}
+              <motion.div variants={itemVariants} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+                <h3 className="font-semibold text-zinc-100 mb-4">Quick Actions</h3>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => navigate('/discover')}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors text-left"
+                  >
+                    <Target className="w-5 h-5 text-amber-400" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-zinc-200">Find an Issue</p>
+                      <p className="text-xs text-zinc-500">
+                        {stats.drawsRemaining > 0 
+                          ? `${stats.drawsRemaining} draws remaining today`
+                          : 'Browse all issues'
+                        }
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-600" />
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/history')}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors text-left"
+                  >
+                    <History className="w-5 h-5 text-zinc-400" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-zinc-200">View History</p>
+                      <p className="text-xs text-zinc-500">
+                        {stats.contributions} contributions
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-600" />
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/leaderboard')}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors text-left"
+                  >
+                    <Crown className="w-5 h-5 text-amber-400" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-zinc-200">Leaderboard</p>
+                      <p className="text-xs text-zinc-500">See top contributors</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-600" />
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </TooltipProvider>
   );
 }

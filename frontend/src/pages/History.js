@@ -16,10 +16,21 @@ import {
   ChevronRight,
   History,
   Target,
-  Trophy
+  Trophy,
+  RotateCcw,
+  AlertCircle,
+  ArrowRightLeft
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { accent } from '@/lib/theme';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 const STATUS_CONFIG = {
   drawn: { 
@@ -120,7 +131,7 @@ function getTimeGroup(dateString) {
 }
 
 // Compact History Card Component
-function HistoryCard({ draw, onClick }) {
+function HistoryCard({ draw, onReactivate, isReactivating }) {
   const config = STATUS_CONFIG[draw.status] || STATUS_CONFIG.drawn;
   const StatusIcon = config.icon;
   const isMerged = draw.status === 'merged';
@@ -132,14 +143,13 @@ function HistoryCard({ draw, onClick }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.01 }}
-      onClick={onClick}
       className={`
-        group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer
+        group relative flex items-center gap-3 p-3 rounded-xl
         transition-all duration-200
         ${isMerged 
           ? 'bg-emerald-950/20 border border-emerald-500/20 hover:border-emerald-500/40' 
           : isExpired
-            ? 'bg-zinc-900/30 border border-zinc-800/50 opacity-60'
+            ? 'bg-zinc-900/30 border border-zinc-800/50 opacity-60 hover:opacity-80'
             : 'bg-zinc-900/50 border border-zinc-800/50 hover:border-zinc-700/50 hover:bg-zinc-800/30'
         }
       `}
@@ -173,6 +183,20 @@ function HistoryCard({ draw, onClick }) {
 
       {/* Actions */}
       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {isExpired && onReactivate && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onReactivate(draw);
+            }}
+            disabled={isReactivating}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-medium transition-colors disabled:opacity-50"
+            title="Reactivate this bookmark"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${isReactivating ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Reactivate</span>
+          </button>
+        )}
         {draw.pr_url && (
           <a
             href={draw.pr_url}
@@ -210,7 +234,7 @@ function HistoryCard({ draw, onClick }) {
 }
 
 // Time Group Section
-function TimeGroupSection({ label, draws, isExpanded, onToggle }) {
+function TimeGroupSection({ label, draws, isExpanded, onToggle, onReactivate, reactivatingId }) {
   if (draws.length === 0) return null;
 
   return (
@@ -237,7 +261,12 @@ function TimeGroupSection({ label, draws, isExpanded, onToggle }) {
             className="space-y-2"
           >
             {draws.map((draw) => (
-              <HistoryCard key={draw.id} draw={draw} />
+              <HistoryCard 
+                key={draw.id} 
+                draw={draw} 
+                onReactivate={onReactivate}
+                isReactivating={reactivatingId === draw.id}
+              />
             ))}
           </motion.div>
         )}
@@ -295,6 +324,90 @@ function FilterChip({ active, count, icon: Icon, label, onClick }) {
   );
 }
 
+// Confirmation Modal Component
+function ReactivateModal({ isOpen, onClose, onConfirm, draw, isLoading }) {
+  if (!isOpen || !draw) return null;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+          />
+          
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+          >
+            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full mx-4 pointer-events-auto shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                  <RotateCcw className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-zinc-100">Reactivate Bookmark?</h3>
+                  <p className="text-sm text-zinc-500">Give this issue another chance</p>
+                </div>
+              </div>
+              
+              <div className="bg-zinc-800/50 rounded-lg p-4 mb-6">
+                <p className="text-sm text-zinc-300 font-medium mb-1 line-clamp-2">{draw.title}</p>
+                <p className="text-xs text-zinc-500">{draw.repo}</p>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex items-start gap-2 text-sm text-zinc-400">
+                  <AlertCircle className="w-4 h-4 text-zinc-500 mt-0.5 flex-shrink-0" />
+                  <span>This will reset the 7-day timer from today.</span>
+                </div>
+                <div className="flex items-start gap-2 text-sm text-zinc-400">
+                  <CheckCircle2 className="w-4 h-4 text-zinc-500 mt-0.5 flex-shrink-0" />
+                  <span>We'll verify the issue is still open and available.</span>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={onClose}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={onConfirm}
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <RotateCcw className="w-4 h-4 animate-spin" />
+                      Reactivating...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-4 h-4" />
+                      Reactivate
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function HistoryPage() {
   const { user, setShowLogin } = useAuth();
   const [draws, setDraws] = useState([]);
@@ -307,6 +420,16 @@ export default function HistoryPage() {
     month: false,
     older: false,
   });
+  
+  // Reactivation state
+  const [reactivateModalOpen, setReactivateModalOpen] = useState(false);
+  const [selectedDraw, setSelectedDraw] = useState(null);
+  const [reactivatingId, setReactivatingId] = useState(null);
+  
+  // Swap modal state (when bookmark limit is reached)
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapCandidates, setSwapCandidates] = useState([]);
+  const [pendingReactivationIssue, setPendingReactivationIssue] = useState(null);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -356,6 +479,65 @@ export default function HistoryPage() {
 
   const toggleGroup = (group) => {
     setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  const handleReactivateClick = (draw) => {
+    setSelectedDraw(draw);
+    setReactivateModalOpen(true);
+  };
+
+  const handleReactivateConfirm = async (replaceDrawId = null) => {
+    if (!selectedDraw) return;
+    
+    setReactivatingId(selectedDraw.id);
+    try {
+      const params = replaceDrawId ? { replace_draw_id: replaceDrawId } : {};
+      await api.post(`/draws/${selectedDraw.id}/reactivate`, params);
+      setReactivateModalOpen(false);
+      setSelectedDraw(null);
+      setShowSwapModal(false);
+      setPendingReactivationIssue(null);
+      // Refresh the history list
+      await fetchHistory();
+      toast.success('Bookmark reactivated! You have 7 days.');
+    } catch (err) {
+      console.error('Failed to reactivate:', err);
+      const errorCode = err._code || err.response?.data?.error?.code;
+      const errorMessage = err._message || err.response?.data?.error?.message;
+      
+      // Extract active_work from error response
+      const activeWork = err.response?.data?.data?.active_work || [];
+      
+      if (errorCode === 'BOOKMARK_LIMIT_REACHED') {
+        // Show swap modal with active bookmarks
+        setReactivateModalOpen(false);
+        setPendingReactivationIssue(selectedDraw);
+        setSwapCandidates(activeWork);
+        setShowSwapModal(true);
+      } else {
+        // Show error toast
+        toast.error(errorMessage || 'Failed to reactivate. Please try again.');
+      }
+    } finally {
+      setReactivatingId(null);
+    }
+  };
+
+  const handleSwapSelect = async (replaceDrawId) => {
+    await handleReactivateConfirm(replaceDrawId);
+  };
+
+  const handleCloseSwapModal = () => {
+    setShowSwapModal(false);
+    setSwapCandidates([]);
+    setPendingReactivationIssue(null);
+  };
+
+  const handleCloseModal = () => {
+    if (!reactivatingId) {
+      setReactivateModalOpen(false);
+      setSelectedDraw(null);
+    }
   };
 
   if (!user) {
@@ -515,10 +697,97 @@ export default function HistoryPage() {
                   draws={groupedDraws[group.key]}
                   isExpanded={expandedGroups[group.key]}
                   onToggle={() => toggleGroup(group.key)}
+                  onReactivate={handleReactivateClick}
+                  reactivatingId={reactivatingId}
                 />
               ))}
             </div>
           )}
+          
+          {/* Reactivation Modal */}
+          <ReactivateModal
+            isOpen={reactivateModalOpen}
+            onClose={handleCloseModal}
+            onConfirm={() => handleReactivateConfirm()}
+            draw={selectedDraw}
+            isLoading={!!reactivatingId}
+          />
+          
+          {/* Swap Modal - when bookmark limit is reached */}
+          <Dialog open={showSwapModal} onOpenChange={(open) => { if (!open) handleCloseSwapModal(); }}>
+            <DialogContent className="bg-zinc-950 border-white/10 backdrop-blur-xl max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent flex items-center gap-2">
+                  <ArrowRightLeft className="w-6 h-6 text-blue-400" />
+                  Reactivate by Swapping
+                </DialogTitle>
+                <DialogDescription className="text-zinc-400 text-sm mt-2">
+                  Your active work queue is full. Choose an existing bookmark to replace with this reactivation.
+                </DialogDescription>
+              </DialogHeader>
+              
+              {pendingReactivationIssue && (
+                <div className="space-y-4 mt-4">
+                  {/* Reactivating Issue */}
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-950/20 p-4">
+                    <p className="text-xs font-mono uppercase tracking-wider text-blue-400 mb-2 flex items-center gap-1">
+                      <RotateCcw className="w-3 h-3" />
+                      Reactivating
+                    </p>
+                    <p className="text-sm font-mono text-zinc-400 truncate">{pendingReactivationIssue.repo}</p>
+                    <p className="text-base text-zinc-100 font-medium mt-1">{pendingReactivationIssue.title}</p>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-zinc-800" />
+                    <span className="text-xs text-zinc-500 font-mono">Replace one of these</span>
+                    <div className="flex-1 h-px bg-zinc-800" />
+                  </div>
+                  
+                  {/* Active Bookmarks to Replace */}
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {swapCandidates.map((bookmark) => (
+                      <motion.div
+                        key={bookmark.id}
+                        whileHover={{ scale: 1.01 }}
+                        className="rounded-xl border border-white/10 bg-zinc-900/40 p-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-mono uppercase tracking-wider text-zinc-500">
+                            {bookmark.issue?.repo_owner}/{bookmark.issue?.repo_name}
+                          </p>
+                          <p className="text-sm text-zinc-100 font-medium truncate">
+                            {bookmark.issue?.title}
+                          </p>
+                          <p className="text-xs text-zinc-600 mt-0.5">
+                            {bookmark.status === 'pr_submitted' ? 'PR Submitted' : 'Bookmarked'}
+                          </p>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => handleSwapSelect(bookmark.id)}
+                          disabled={!!reactivatingId}
+                          className="min-w-[100px] px-3 py-2 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 bg-zinc-950/85 text-zinc-100 hover:bg-white/[0.04] hover:border-white/25 transition-all duration-200 disabled:opacity-50"
+                        >
+                          {reactivatingId ? 'Swapping...' : 'Replace'}
+                        </motion.button>
+                      </motion.div>
+                    ))}
+                  </div>
+                  
+                  {/* Cancel Button */}
+                  <button
+                    onClick={handleCloseSwapModal}
+                    className="w-full px-4 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-sm font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </motion.div>
       </div>
     </div>
