@@ -140,7 +140,7 @@ export function AuthProvider({ children }) {
       refreshUser,
       setUser,
       isRegistering,
-      firebaseUser: authUser,
+      authUser,
     }}>
       {children}
     </AuthContext.Provider>
