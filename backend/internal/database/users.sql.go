@@ -23,13 +23,13 @@ func (q *Queries) CountActiveUsers(ctx context.Context) (int64, error) {
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (firebase_uid, username, email, display_name, avatar_url, github_id, github_username)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO users (auth_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username)
+VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
 RETURNING id, public_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username, xp, level, current_streak, longest_streak, last_contribution_date, total_contributions, filters, status, created_at, updated_at, daily_draw_limit, auth_id
 `
 
 type CreateUserParams struct {
-	FirebaseUid    string      `json:"firebase_uid"`
+	AuthID         string      `json:"auth_id"`
 	Username       string      `json:"username"`
 	Email          string      `json:"email"`
 	DisplayName    string      `json:"display_name"`
@@ -40,7 +40,7 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
-		arg.FirebaseUid,
+		arg.AuthID,
 		arg.Username,
 		arg.Email,
 		arg.DisplayName,
