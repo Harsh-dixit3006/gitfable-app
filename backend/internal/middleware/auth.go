@@ -7,17 +7,17 @@ import (
 
 	"github.com/nishantg96/gitfable/internal/ctxutil"
 	"github.com/nishantg96/gitfable/internal/database"
-	"github.com/nishantg96/gitfable/internal/firebase"
 	"github.com/nishantg96/gitfable/internal/handler"
+	"github.com/nishantg96/gitfable/internal/supabase"
 )
 
 type AuthMiddleware struct {
-	fb      *firebase.Client
+	sb      *supabase.Client
 	queries *database.Queries
 }
 
-func NewAuthMiddleware(fb *firebase.Client, q *database.Queries) *AuthMiddleware {
-	return &AuthMiddleware{fb: fb, queries: q}
+func NewAuthMiddleware(sb *supabase.Client, q *database.Queries) *AuthMiddleware {
+	return &AuthMiddleware{sb: sb, queries: q}
 }
 
 func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
@@ -29,13 +29,14 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 		}
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		tokenInfo, err := a.fb.VerifyToken(r.Context(), token)
+		tokenInfo, err := a.sb.VerifyToken(r.Context(), token)
 		if err != nil {
 			handler.Unauthorized(w)
 			return
 		}
 
-		user, err := a.queries.GetUserByFirebaseUID(r.Context(), tokenInfo.UID)
+		// Use new GetUserByAuthID query
+		user, err := a.queries.GetUserByAuthID(r.Context(), tokenInfo.UID)
 		if err != nil {
 			handler.Unauthorized(w)
 			return
@@ -52,7 +53,6 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 }
 
 // UserFromContext extracts the authenticated user from the context.
-// Deprecated: Use ctxutil.UserFromContext directly.
 func UserFromContext(ctx context.Context) *database.User {
 	return ctxutil.UserFromContext(ctx)
 }

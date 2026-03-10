@@ -17,9 +17,9 @@ This guide shows you how to run the entire GitFable application using Docker.
 make env
 
 # Edit docker/.env with your:
-# - Firebase credentials (FIREBASE_SERVICE_ACCOUNT_PATH)
+# - Supabase credentials (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 # - GitHub token (GITHUB_TOKEN)
-# See docs/firebase-auth-setup.md for Firebase setup
+# See docs/supabase-auth-setup.md for auth setup
 ```
 
 ### 2. Start Everything
@@ -136,7 +136,7 @@ mkdir -p docker/secrets
 echo "your-db-password" > docker/secrets/db_password.txt
 echo "your-github-token" > docker/secrets/github_token.txt
 echo "your-webhook-secret" > docker/secrets/webhook_secret.txt
-cp /path/to/firebase-service-account.json docker/secrets/firebase-credentials.json
+# Set Supabase env vars in docker/.env/.env.prod instead of file secrets
 
 # Set permissions
 chmod 600 docker/secrets/*
@@ -151,7 +151,7 @@ cp docker/.env.prod docker/.env
 # Edit docker/.env with production values:
 # - Set CORS_ORIGINS to your domain
 # - Set strong passwords
-# - Use production Firebase project
+# - Use production Supabase project
 
 # Start production stack
 docker compose -f docker/docker-compose.prod.yml up -d
@@ -261,7 +261,7 @@ make migrate-up
 docker compose logs backend -f
 
 # Common issues:
-# 1. Missing Firebase credentials in docker/.env
+# 1. Missing Supabase credentials in docker/.env
 # 2. PostgreSQL not ready yet (wait 30 seconds)
 # 3. Invalid environment variables
 # 4. Port already in use
@@ -315,7 +315,8 @@ Edit `docker/.env`:
 ```bash
 # Required
 DATABASE_URL=postgresql://gitfable:gitfable@postgres:5432/gitfable?sslmode=disable
-FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/firebase-credentials.json
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 GITHUB_TOKEN=your_github_token
 
 # Optional
@@ -332,7 +333,7 @@ See `docker/docker-compose.prod.yml` for production configuration.
 Key differences:
 - Uses Docker secrets instead of environment variables
 - Enables SSL/TLS
-- Uses production Firebase project
+- Uses production Supabase project
 - Restricts CORS to production domain
 - Increases database connection pool
 
@@ -414,7 +415,7 @@ curl http://localhost:8001/ready
 
 1. **Never commit `.env` files** - They are in `.gitignore` but double-check
 2. **Use Docker secrets** in production, not environment variables
-3. **Rotate credentials** regularly (Firebase, GitHub tokens)
+3. **Rotate credentials** regularly (Supabase keys, GitHub tokens)
 4. **Use strong passwords** for PostgreSQL in production
 5. **Enable SSL/TLS** in production (handled by nginx)
 6. **Restrict CORS** to your production domain only

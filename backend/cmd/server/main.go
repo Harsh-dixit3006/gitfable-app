@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,12 +17,12 @@ import (
 	"github.com/nishantg96/gitfable/internal/config"
 	"github.com/nishantg96/gitfable/internal/ctxutil"
 	"github.com/nishantg96/gitfable/internal/database"
-	"github.com/nishantg96/gitfable/internal/firebase"
 	"github.com/nishantg96/gitfable/internal/handler"
 	mw "github.com/nishantg96/gitfable/internal/middleware"
 	goredis "github.com/nishantg96/gitfable/internal/redis"
 	"github.com/nishantg96/gitfable/internal/seed"
 	"github.com/nishantg96/gitfable/internal/service"
+	"github.com/nishantg96/gitfable/internal/supabase"
 	isync "github.com/nishantg96/gitfable/internal/sync"
 
 	_ "github.com/nishantg96/gitfable/docs"
@@ -70,13 +71,20 @@ func main() {
 	// 5. Create sqlc Queries from pool.
 	queries := database.New(pool)
 
-	// 6. Initialize Firebase client.
-	fbClient, err := firebase.NewClient(ctx, cfg.FirebaseCredentialsPath)
-	if err != nil {
-		slog.Error("failed to initialize firebase", "error", err)
+	// 6. Initialize Supabase client.
+	if cfg.SupabaseURL == "" || strings.TrimSpace(cfg.SupabaseServiceRoleKey) == "" {
+		slog.Error("missing supabase configuration", "required", "SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY")
 		os.Exit(1)
 	}
-	slog.Info("firebase initialized")
+	supabaseClient, err := supabase.NewClient(supabase.Config{
+		ProjectURL: cfg.SupabaseURL,
+		APIKey:     cfg.SupabaseServiceRoleKey,
+	})
+	if err != nil {
+		slog.Error("failed to initialize supabase", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("supabase initialized")
 
 	// 7. Initialize Redis client (can be nil).
 	redisClient := goredis.NewClient(ctx, cfg.RedisURL)
@@ -111,7 +119,7 @@ func main() {
 	}
 
 	// 10. Create middleware.
-	authMiddleware := mw.NewAuthMiddleware(fbClient, queries)
+	authMiddleware := mw.NewAuthMiddleware(supabaseClient, queries)
 	rateLimiter := mw.NewRateLimiter(redisClient)
 	defer rateLimiter.Close()
 
@@ -123,7 +131,7 @@ func main() {
 
 	authHandler := &handler.AuthHandler{
 		Queries:               queries,
-		FB:                    fbClient,
+		SB:                    supabaseClient,
 		RequireAuth:           authMiddleware.RequireAuth,
 		UserFromContext:       ctxutil.UserFromContext,
 		DefaultDailyDrawLimit: cfg.DefaultDailyDrawLimit,

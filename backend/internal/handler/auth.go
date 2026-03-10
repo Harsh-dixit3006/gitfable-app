@@ -15,15 +15,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nishantg96/gitfable/internal/database"
-	"github.com/nishantg96/gitfable/internal/firebase"
+	"github.com/nishantg96/gitfable/internal/supabase"
 )
 
 var usernameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 var consecutiveHyphens = regexp.MustCompile(`--`)
 
+type supabaseAuthClient interface {
+	VerifyToken(ctx context.Context, jwt string) (*supabase.TokenInfo, error)
+	GetUser(ctx context.Context, uid string) (*supabase.UserInfo, error)
+}
+
 type AuthHandler struct {
 	Queries               *database.Queries
-	FB                    *firebase.Client
+	SB                    supabaseAuthClient
 	RequireAuth           func(http.Handler) http.Handler
 	UserFromContext       func(context.Context) *database.User
 	DefaultDailyDrawLimit int
@@ -157,15 +162,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	// Verify Firebase token
-	tokenInfo, err := h.FB.VerifyToken(ctx, bearerToken)
+	// Verify Supabase token
+	tokenInfo, err := h.SB.VerifyToken(ctx, bearerToken)
 	if err != nil {
 		Unauthorized(w)
 		return
 	}
 
 	// Check if user already exists
-	_, err = h.Queries.GetUserByFirebaseUID(ctx, tokenInfo.UID)
+	_, err = h.Queries.GetUserByAuthID(ctx, tokenInfo.UID)
 	if err == nil {
 		BadRequest(w, ErrCodeConflict, "User already registered")
 		return
@@ -186,8 +191,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get GitHub provider info from Firebase
-	fbUser, err := h.FB.GetUser(ctx, tokenInfo.UID)
+	// Get GitHub provider info from Supabase
+	sbUser, err := h.SB.GetUser(ctx, tokenInfo.UID)
 	if err != nil {
 		InternalError(w)
 		return
@@ -195,20 +200,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	var githubID pgtype.Text
 	var githubUsername pgtype.Text
-	if fbUser.ProviderID == "github.com" {
-		githubID = pgtype.Text{String: fbUser.UID, Valid: true}
+	if sbUser.ProviderID == "github" {
+		githubID = pgtype.Text{String: sbUser.GithubID, Valid: true}
 		githubUsername = pgtype.Text{String: username, Valid: true}
 	}
 
-	displayName := fbUser.DisplayName
+	displayName := sbUser.DisplayName
 	if displayName == "" {
 		displayName = username
 	}
 
-	avatarURL := fbUser.PhotoURL
+	avatarURL := sbUser.PhotoURL
 
-	user, err := h.Queries.CreateUser(ctx, database.CreateUserParams{
-		FirebaseUid:    tokenInfo.UID,
+	user, err := h.Queries.CreateUserWithAuthID(ctx, database.CreateUserWithAuthIDParams{
+		AuthID:         tokenInfo.UID,
 		Username:       username,
 		Email:          tokenInfo.Email,
 		DisplayName:    displayName,
