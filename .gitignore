@@ -71,3 +71,4 @@ coverage.out
 # Creds
 creds/
 .env
+.secrets/

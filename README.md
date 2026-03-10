@@ -398,6 +398,9 @@ docker compose -f docker/docker-compose.prod.yml up -d
 - `docs/TESTING.md` - Comprehensive testing guide (unit, integration, E2E)
 - `docs/P2-BACKLOG.md` - Future feature roadmap
 - `docs/design_guidelines.json` - UI/UX design system
+- `docs/ops/DEPLOYMENT_RUNBOOK.md` - Dev/Prod deployment runbook (Supabase + Railway + Cloudflare)
+- `docs/ops/SECRET_INVENTORY_TEMPLATE.md` - Secret ownership and rotation template
+- `docs/ops/SECRETS_SETUP.md` - Click-by-click setup for GitHub, Railway, Cloudflare, and Supabase secrets
 - `docs/archive/` - Historical documents and implementation plans
 
 ## Contributing

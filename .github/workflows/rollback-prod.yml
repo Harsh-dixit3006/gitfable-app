@@ -1,0 +1,43 @@
+name: Rollback Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      railway_service_name:
+        description: Railway production service name
+        required: true
+        type: string
+      rollback_note:
+        description: Why rollback is needed
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print rollback context
+        run: |
+          echo "Rollback requested"
+          echo "Service: ${{ inputs.railway_service_name }}"
+          echo "Reason: ${{ inputs.rollback_note }}"
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: List deployments (manual selection support)
+        run: |
+          echo "Use Railway dashboard to select previous stable release if needed."
+          railway status || true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+
+      - name: Smoke check current prod (post-rollback action required)
+        run: |
+          curl -fsSL "${{ secrets.PROD_BACKEND_HEALTH_URL }}"
+          curl -fsSL "${{ secrets.PROD_BACKEND_READY_URL }}"
