@@ -21,9 +21,14 @@ import (
 var usernameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 var consecutiveHyphens = regexp.MustCompile(`--`)
 
+type supabaseAuthClient interface {
+	VerifyToken(ctx context.Context, jwt string) (*supabase.TokenInfo, error)
+	GetUser(ctx context.Context, uid string) (*supabase.UserInfo, error)
+}
+
 type AuthHandler struct {
 	Queries               *database.Queries
-	SB                    *supabase.Client
+	SB                    supabaseAuthClient
 	RequireAuth           func(http.Handler) http.Handler
 	UserFromContext       func(context.Context) *database.User
 	DefaultDailyDrawLimit int

@@ -9,12 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/nishantg96/gitfable/internal/database"
 	"github.com/nishantg96/gitfable/internal/supabase"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // mockSupabaseClient implements supabase client interface for testing
@@ -70,7 +66,7 @@ func TestAuthHandler_Register_InvalidUsername(t *testing.T) {
 		},
 		{
 			name:     "username too short",
-			username: "ab",
+			username: "a",
 			wantCode: http.StatusBadRequest,
 		},
 		{
