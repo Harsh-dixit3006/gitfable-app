@@ -1,0 +1,32 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+startCommand = "/server"
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+[environments.development]
+[environments.development.variables]
+ENVIRONMENT = "development"
+PORT = "8001"
+DB_POOL_SIZE = "10"
+RATE_LIMIT_ENABLED = "true"
+SYNC_ENABLED = "true"
+SYNC_INTERVAL = "6h"
+STALE_INTERVAL = "12h"
+DEFAULT_DAILY_DRAW_LIMIT = "3"
+
+[environments.production]
+[environments.production.variables]
+ENVIRONMENT = "production"
+PORT = "8001"
+DB_POOL_SIZE = "25"
+RATE_LIMIT_ENABLED = "true"
+SYNC_ENABLED = "true"
+SYNC_INTERVAL = "6h"
+STALE_INTERVAL = "12h"
+DEFAULT_DAILY_DRAW_LIMIT = "3"
