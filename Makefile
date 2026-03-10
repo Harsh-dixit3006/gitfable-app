@@ -1,4 +1,4 @@
-.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down docker-build docker-up docker-down docker-logs
+.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down migrate-version docker-build docker-up docker-down docker-logs
 
 # Default target
 help: ## Show this help
@@ -94,10 +94,16 @@ swagger: ## Generate Swagger documentation
 # ─── Database Migrations ────────────────────────────────────────────
 
 migrate-up: ## Run database migrations up
-	cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" up
+	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
+	@set -a && . docker/.env && set +a && cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" up
 
 migrate-down: ## Roll back the last database migration
-	cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" down 1
+	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
+	@set -a && . docker/.env && set +a && cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" down 1
+
+migrate-version: ## Show current migration version
+	@test -f docker/.env || (echo "Error: docker/.env not found. Run 'make env' first." && exit 1)
+	@set -a && . docker/.env && set +a && cd backend && migrate -path sql/migrations -database "$$DATABASE_URL" version
 
 # ─── Cleanup ─────────────────────────────────────────────────────────
 
@@ -110,7 +116,7 @@ clean: ## Remove build artifacts and caches
 
 env: ## Create docker/.env from example
 	@test -f docker/.env || (cp docker/.env.example docker/.env && echo "Created docker/.env from example")
-	@echo "Edit docker/.env with your local values (Firebase path, GitHub token)"
+	@echo "Edit docker/.env with your local values (Supabase keys, GitHub token)"
 
 # ─── Docker ──────────────────────────────────────────────────────────
 

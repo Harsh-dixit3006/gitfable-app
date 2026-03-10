@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 
@@ -10,12 +10,21 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const inFlightMeRequestRef = useRef(false);
 
   // Listen to Supabase auth + token refresh
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         setAuthUser(session.user);
+
+        // Set token once from auth event to avoid concurrent session-lock reads.
+        api.defaults.headers.common.Authorization = `Bearer ${session.access_token}`;
+
+        if (inFlightMeRequestRef.current) {
+          return;
+        }
+        inFlightMeRequestRef.current = true;
 
         // Try to get user profile from backend
         try {
@@ -31,9 +40,13 @@ export function AuthProvider({ children }) {
             setUser(null);
           }
         }
+        finally {
+          inFlightMeRequestRef.current = false;
+        }
       } else {
         setAuthUser(null);
         setUser(null);
+        delete api.defaults.headers.common.Authorization;
       }
       setLoading(false);
     });
