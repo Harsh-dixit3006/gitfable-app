@@ -1,10 +1,23 @@
 package supabase
 
 import (
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/json"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewClientFromEnv(t *testing.T) {
@@ -202,4 +215,405 @@ func TestIntegration(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
+}
+
+func TestVerifyToken_LocalJWKSAndCaching(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	kid := "kid-1"
+
+	var jwksRequests int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/.well-known/jwks.json" {
+			http.NotFound(w, r)
+			return
+		}
+		atomic.AddInt32(&jwksRequests, 1)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(jwksForKey(kid, &privateKey.PublicKey)))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
+		"sub":            "user-123",
+		"email":          "test@example.com",
+		"email_verified": true,
+		"iss":            server.URL + "/auth/v1",
+		"aud":            "authenticated",
+		"exp":            time.Now().Add(1 * time.Hour).Unix(),
+	})
+
+	info, err := client.VerifyToken(context.Background(), token)
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", info.UID)
+	assert.Equal(t, "test@example.com", info.Email)
+	assert.True(t, info.EmailVerified)
+
+	_, err = client.VerifyToken(context.Background(), token)
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&jwksRequests))
+}
+
+func TestVerifyToken_InvalidAudience(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	kid := "kid-2"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/.well-known/jwks.json" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(jwksForKey(kid, &privateKey.PublicKey)))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
+		"sub":   "user-123",
+		"email": "test@example.com",
+		"iss":   server.URL + "/auth/v1",
+		"aud":   "anon",
+		"exp":   time.Now().Add(1 * time.Hour).Unix(),
+	})
+
+	_, err := client.VerifyToken(context.Background(), token)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "verify token")
+}
+
+func TestVerifyToken_EmailConfirmedFallback(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	kid := "kid-3"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/.well-known/jwks.json" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(jwksForKey(kid, &privateKey.PublicKey)))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
+		"sub":                "user-456",
+		"email":              "confirmed@example.com",
+		"email_confirmed_at": "2026-01-01T00:00:00Z",
+		"iss":                server.URL + "/auth/v1",
+		"aud":                "authenticated",
+		"exp":                time.Now().Add(1 * time.Hour).Unix(),
+	})
+
+	info, err := client.VerifyToken(context.Background(), token)
+	require.NoError(t, err)
+	assert.True(t, info.EmailVerified)
+}
+
+func TestVerifyToken_MissingKID(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+
+	client := &Client{projectURL: "https://example.supabase.co", jwks: make(map[string]*rsa.PublicKey)}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"sub":   "user-789",
+		"email": "test@example.com",
+		"iss":   "https://example.supabase.co/auth/v1",
+		"aud":   "authenticated",
+		"exp":   time.Now().Add(1 * time.Hour).Unix(),
+	})
+	signed, err := token.SignedString(privateKey)
+	require.NoError(t, err)
+
+	_, err = client.VerifyToken(context.Background(), signed)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "token missing kid header")
+}
+
+func TestVerifyToken_InvalidIssuer(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	kid := "kid-4"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/.well-known/jwks.json" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(jwksForKey(kid, &privateKey.PublicKey)))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
+		"sub":   "user-issuer",
+		"email": "issuer@example.com",
+		"iss":   "https://wrong-issuer.example/auth/v1",
+		"aud":   "authenticated",
+		"exp":   time.Now().Add(1 * time.Hour).Unix(),
+	})
+
+	_, err := client.VerifyToken(context.Background(), token)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "verify token")
+}
+
+func TestVerifyToken_ExpiredToken(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	kid := "kid-5"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/.well-known/jwks.json" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(jwksForKey(kid, &privateKey.PublicKey)))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
+		"sub":   "user-exp",
+		"email": "expired@example.com",
+		"iss":   server.URL + "/auth/v1",
+		"aud":   "authenticated",
+		"exp":   time.Now().Add(-1 * time.Minute).Unix(),
+	})
+
+	_, err := client.VerifyToken(context.Background(), token)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "verify token")
+}
+
+func TestVerifyToken_MissingSubClaim(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	kid := "kid-6"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/.well-known/jwks.json" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(jwksForKey(kid, &privateKey.PublicKey)))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
+		"email": "nosub@example.com",
+		"iss":   server.URL + "/auth/v1",
+		"aud":   "authenticated",
+		"exp":   time.Now().Add(1 * time.Hour).Unix(),
+	})
+
+	_, err := client.VerifyToken(context.Background(), token)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing sub claim")
+}
+
+func TestGetJWKSKey_RefreshesWhenCacheStale(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	kid := "kid-stale"
+
+	var requests int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/v1/.well-known/jwks.json" {
+			http.NotFound(w, r)
+			return
+		}
+		atomic.AddInt32(&requests, 1)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(jwksForKey(kid, &privateKey.PublicKey)))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL:  strings.TrimRight(server.URL, "/"),
+		httpClient:  server.Client(),
+		jwks:        map[string]*rsa.PublicKey{"old": &privateKey.PublicKey},
+		jwksFetched: time.Now().Add(-10 * time.Minute),
+	}
+
+	_, err := client.getJWKSKey(context.Background(), kid)
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&requests))
+}
+
+func TestRefreshJWKS_UnexpectedStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	err := client.refreshJWKS(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected status")
+}
+
+func TestRefreshJWKS_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("not-json"))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	err := client.refreshJWKS(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode jwks")
+}
+
+func TestRefreshJWKS_NoRSAKeys(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"keys":[{"kid":"x","kty":"EC"}]}`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		projectURL: strings.TrimRight(server.URL, "/"),
+		httpClient: server.Client(),
+		jwks:       make(map[string]*rsa.PublicKey),
+	}
+
+	err := client.refreshJWKS(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no RSA keys found")
+}
+
+func TestRefreshJWKS_UsesFreshCacheWithoutNetwork(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	client := &Client{
+		projectURL:  "https://unused.example",
+		httpClient:  nil,
+		jwks:        map[string]*rsa.PublicKey{"cached": &privateKey.PublicKey},
+		jwksFetched: time.Now(),
+	}
+
+	err := client.refreshJWKS(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestJwkToRSAPublicKey(t *testing.T) {
+	privateKey := mustGenerateRSAKey(t)
+	e := big.NewInt(int64(privateKey.PublicKey.E)).Bytes()
+
+	t.Run("valid jwk", func(t *testing.T) {
+		pub, err := jwkToRSAPublicKey(
+			base64.RawURLEncoding.EncodeToString(privateKey.PublicKey.N.Bytes()),
+			base64.RawURLEncoding.EncodeToString(e),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, privateKey.PublicKey.E, pub.E)
+		assert.Equal(t, 0, privateKey.PublicKey.N.Cmp(pub.N))
+	})
+
+	t.Run("invalid modulus", func(t *testing.T) {
+		_, err := jwkToRSAPublicKey("***", base64.RawURLEncoding.EncodeToString(e))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "decode modulus")
+	})
+
+	t.Run("invalid exponent", func(t *testing.T) {
+		_, err := jwkToRSAPublicKey(base64.RawURLEncoding.EncodeToString(privateKey.PublicKey.N.Bytes()), "***")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "decode exponent")
+	})
+
+	t.Run("empty exponent", func(t *testing.T) {
+		_, err := jwkToRSAPublicKey(base64.RawURLEncoding.EncodeToString(privateKey.PublicKey.N.Bytes()), "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid exponent")
+	})
+}
+
+func TestJWTv5Parse_MethodValidation(t *testing.T) {
+	hsToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": "user-hs",
+		"iss": "https://example.supabase.co/auth/v1",
+		"aud": "authenticated",
+		"exp": time.Now().Add(1 * time.Hour).Unix(),
+	})
+	signed, err := hsToken.SignedString([]byte("secret"))
+	require.NoError(t, err)
+
+	_, err = jwtv5Parse(signed, "https://example.supabase.co/auth/v1", func(token *jwt.Token) (interface{}, error) {
+		return []byte("secret"), nil
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "signing method")
+}
+
+func mustGenerateRSAKey(t *testing.T) *rsa.PrivateKey {
+	t.Helper()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	return privateKey
+}
+
+func mustSignToken(t *testing.T, privateKey *rsa.PrivateKey, kid string, claims jwt.MapClaims) string {
+	t.Helper()
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header["kid"] = kid
+	signed, err := token.SignedString(privateKey)
+	require.NoError(t, err)
+	return signed
+}
+
+func jwksForKey(kid string, publicKey *rsa.PublicKey) jwksDocument {
+	e := big.NewInt(int64(publicKey.E)).Bytes()
+	return jwksDocument{
+		Keys: []jwkKey{
+			{
+				KID: kid,
+				KTY: "RSA",
+				ALG: "RS256",
+				N:   base64.RawURLEncoding.EncodeToString(publicKey.N.Bytes()),
+				E:   base64.RawURLEncoding.EncodeToString(e),
+			},
+		},
+	}
 }
