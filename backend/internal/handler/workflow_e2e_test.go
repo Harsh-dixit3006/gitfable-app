@@ -83,7 +83,7 @@ func (s *e2eTestSuite) cleanup() {
 func (s *e2eTestSuite) createTestUser() database.User {
 	uid := uuid.New().String()[:8]
 	user, err := s.queries.CreateUser(s.ctx, database.CreateUserParams{
-		FirebaseUid:    "test-firebase-" + uid,
+		AuthID:         "test-firebase-" + uid,
 		Username:       "testuser_" + uid,
 		Email:          "test_" + uid + "@example.com",
 		GithubUsername: pgtype.Text{String: "testuser_" + uid, Valid: true}, // Unique per test

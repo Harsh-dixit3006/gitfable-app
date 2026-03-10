@@ -11,8 +11,8 @@ SELECT * FROM users WHERE id = $1;
 SELECT * FROM users WHERE public_id = $1;
 
 -- name: CreateUser :one
-INSERT INTO users (firebase_uid, username, email, display_name, avatar_url, github_id, github_username)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO users (auth_id, firebase_uid, username, email, display_name, avatar_url, github_id, github_username)
+VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: UpdateUserProfile :one

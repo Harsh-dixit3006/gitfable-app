@@ -100,7 +100,7 @@ func (s *liveTestSuite) createLiveTestUser() database.User {
 	}
 
 	user, err := s.queries.CreateUser(s.ctx, database.CreateUserParams{
-		FirebaseUid:    "live-test-" + uid,
+		AuthID:         "live-test-" + uid,
 		Username:       "livetest_" + uid,
 		Email:          "livetest_" + uid + "@example.com",
 		GithubUsername: pgtype.Text{String: githubUsername, Valid: true},
