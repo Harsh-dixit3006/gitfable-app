@@ -80,11 +80,19 @@ export function AuthProvider({ children }) {
       return { success: true, needsRegistration };
     } catch (err) {
       console.error('GitHub sign in error:', err);
+
+      const errorCode = err?.code || err?.error_code;
+      const errorMessage = err?.message?.toLowerCase?.() || '';
+      const isCancelled =
+        errorCode === 'oauth_provider_cancelled' ||
+        errorCode === 'access_denied' ||
+        errorMessage.includes('cancel') ||
+        errorMessage.includes('closed') ||
+        errorMessage.includes('denied');
+
       return {
         success: false,
-        error: err.code === 'auth/popup-closed-by-user'
-          ? 'Sign in cancelled'
-          : err.message
+        error: isCancelled ? 'Sign in cancelled' : (err?.message || 'GitHub sign in failed')
       };
     }
   };
