@@ -1,0 +1,296 @@
+package supabase
+
+import (
+	"context"
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	gotruetypes "github.com/supabase-community/gotrue-go/types"
+	sb "github.com/supabase-community/supabase-go"
+)
+
+type Client struct {
+	client      *sb.Client
+	projectURL  string
+	httpClient  *http.Client
+	jwksMu      sync.RWMutex
+	jwks        map[string]*rsa.PublicKey
+	jwksFetched time.Time
+}
+
+type Config struct {
+	ProjectURL string
+	APIKey     string
+}
+
+func NewClient(config Config) (*Client, error) {
+	client, err := sb.NewClient(config.ProjectURL, config.APIKey, nil)
+	if err != nil {
+		return nil, fmt.Errorf("init supabase client: %w", err)
+	}
+
+	return &Client{
+		client:     client,
+		projectURL: strings.TrimRight(config.ProjectURL, "/"),
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+		jwks:       make(map[string]*rsa.PublicKey),
+	}, nil
+}
+
+func NewClientFromEnv() (*Client, error) {
+	projectURL := os.Getenv("SUPABASE_URL")
+	apiKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+	if projectURL == "" || apiKey == "" {
+		return nil, fmt.Errorf("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
+	}
+
+	return NewClient(Config{
+		ProjectURL: projectURL,
+		APIKey:     apiKey,
+	})
+}
+
+type TokenInfo struct {
+	UID           string
+	Email         string
+	EmailVerified bool
+	Claims        map[string]interface{}
+}
+
+func (c *Client) VerifyToken(ctx context.Context, tokenString string) (*TokenInfo, error) {
+	token, err := jwtv5Parse(tokenString, c.projectURL+"/auth/v1", func(token *jwt.Token) (interface{}, error) {
+		kid, _ := token.Header["kid"].(string)
+		if kid == "" {
+			return nil, fmt.Errorf("token missing kid header")
+		}
+
+		publicKey, keyErr := c.getJWKSKey(ctx, kid)
+		if keyErr != nil {
+			return nil, keyErr
+		}
+
+		return publicKey, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("verify token: %w", err)
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("verify token: invalid claims")
+	}
+
+	uid, _ := claims["sub"].(string)
+	if uid == "" {
+		return nil, fmt.Errorf("verify token: missing sub claim")
+	}
+
+	email, _ := claims["email"].(string)
+
+	emailVerified := false
+	if value, exists := claims["email_verified"]; exists {
+		if verified, ok := value.(bool); ok {
+			emailVerified = verified
+		}
+	}
+	if !emailVerified {
+		if confirmedAt, ok := claims["email_confirmed_at"]; ok && confirmedAt != nil {
+			emailVerified = true
+		}
+	}
+
+	return &TokenInfo{
+		UID:           uid,
+		Email:         email,
+		EmailVerified: emailVerified,
+		Claims:        claims,
+	}, nil
+}
+
+type jwksDocument struct {
+	Keys []jwkKey `json:"keys"`
+}
+
+type jwkKey struct {
+	KID string `json:"kid"`
+	KTY string `json:"kty"`
+	ALG string `json:"alg"`
+	N   string `json:"n"`
+	E   string `json:"e"`
+}
+
+func (c *Client) getJWKSKey(ctx context.Context, kid string) (*rsa.PublicKey, error) {
+	c.jwksMu.RLock()
+	if key, ok := c.jwks[kid]; ok && time.Since(c.jwksFetched) < 5*time.Minute {
+		c.jwksMu.RUnlock()
+		return key, nil
+	}
+	c.jwksMu.RUnlock()
+
+	if err := c.refreshJWKS(ctx); err != nil {
+		return nil, err
+	}
+
+	c.jwksMu.RLock()
+	defer c.jwksMu.RUnlock()
+	key, ok := c.jwks[kid]
+	if !ok {
+		return nil, fmt.Errorf("jwks key not found for kid %s", kid)
+	}
+	return key, nil
+}
+
+func (c *Client) refreshJWKS(ctx context.Context) error {
+	c.jwksMu.Lock()
+	defer c.jwksMu.Unlock()
+
+	if time.Since(c.jwksFetched) < 5*time.Minute && len(c.jwks) > 0 {
+		return nil
+	}
+
+	endpoint := c.projectURL + "/auth/v1/.well-known/jwks.json"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("build jwks request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("fetch jwks: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fetch jwks: unexpected status %d", resp.StatusCode)
+	}
+
+	var doc jwksDocument
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return fmt.Errorf("decode jwks: %w", err)
+	}
+
+	keys := make(map[string]*rsa.PublicKey)
+	for _, key := range doc.Keys {
+		if key.KTY != "RSA" || key.KID == "" || key.N == "" || key.E == "" {
+			continue
+		}
+		publicKey, err := jwkToRSAPublicKey(key.N, key.E)
+		if err != nil {
+			continue
+		}
+		keys[key.KID] = publicKey
+	}
+
+	if len(keys) == 0 {
+		return fmt.Errorf("decode jwks: no RSA keys found")
+	}
+
+	c.jwks = keys
+	c.jwksFetched = time.Now()
+	return nil
+}
+
+func jwkToRSAPublicKey(nBase64URL, eBase64URL string) (*rsa.PublicKey, error) {
+	nBytes, err := base64.RawURLEncoding.DecodeString(nBase64URL)
+	if err != nil {
+		return nil, fmt.Errorf("decode modulus: %w", err)
+	}
+	eBytes, err := base64.RawURLEncoding.DecodeString(eBase64URL)
+	if err != nil {
+		return nil, fmt.Errorf("decode exponent: %w", err)
+	}
+
+	if len(eBytes) == 0 {
+		return nil, fmt.Errorf("invalid exponent")
+	}
+
+	modulus := new(big.Int).SetBytes(nBytes)
+	exponent := 0
+	for _, b := range eBytes {
+		exponent = exponent<<8 + int(b)
+	}
+	if exponent <= 0 {
+		return nil, fmt.Errorf("invalid exponent value")
+	}
+
+	return &rsa.PublicKey{N: modulus, E: exponent}, nil
+}
+
+func jwtv5Parse(tokenString, expectedIssuer string, keyfunc jwt.Keyfunc) (*jwt.Token, error) {
+	parser := jwt.NewParser(
+		jwt.WithValidMethods([]string{"RS256"}),
+		jwt.WithIssuer(expectedIssuer),
+		jwt.WithAudience("authenticated"),
+	)
+	return parser.Parse(tokenString, keyfunc)
+}
+
+type UserInfo struct {
+	UID         string
+	Email       string
+	DisplayName string
+	PhotoURL    string
+	ProviderID  string
+	GithubID    string
+}
+
+func (c *Client) GetUser(ctx context.Context, uid string) (*UserInfo, error) {
+	_ = ctx
+	parsedUID, err := uuid.Parse(uid)
+	if err != nil {
+		return nil, fmt.Errorf("parse user id: %w", err)
+	}
+
+	userResp, err := c.client.Auth.AdminGetUser(gotruetypes.AdminGetUserRequest{UserID: parsedUID})
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	user := userResp.User
+
+	displayName := getStringMetadata(user.UserMetadata, "full_name")
+	photoURL := getStringMetadata(user.UserMetadata, "avatar_url")
+
+	info := &UserInfo{
+		UID:         user.ID.String(),
+		Email:       user.Email,
+		DisplayName: displayName,
+		PhotoURL:    photoURL,
+	}
+
+	// Check if user has GitHub identity
+	for _, identity := range user.Identities {
+		if identity.Provider == "github" {
+			info.ProviderID = "github"
+			info.GithubID = identity.ID
+			break
+		}
+	}
+
+	return info, nil
+}
+
+func getStringMetadata(metadata map[string]interface{}, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	v, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}

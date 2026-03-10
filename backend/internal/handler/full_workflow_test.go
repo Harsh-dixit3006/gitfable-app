@@ -117,7 +117,7 @@ func (s *fullWorkflowTestSuite) createTestUser() database.User {
 	uid := uuid.New().String()[:8]
 	githubID := fmt.Sprintf("%d", time.Now().UnixNano())
 	user, err := s.queries.CreateUser(s.ctx, database.CreateUserParams{
-		FirebaseUid:    "full-test-" + uid,
+		AuthID:         "full-test-" + uid,
 		Username:       "fulltest_" + uid,
 		Email:          "fulltest_" + uid + "@example.com",
 		GithubUsername: pgtype.Text{String: s.githubUser, Valid: true},

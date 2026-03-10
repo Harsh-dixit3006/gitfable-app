@@ -63,9 +63,10 @@ uv.lock
 # Deployment
 .vercel
 
-# Go binaries
+# Go binaries and artifacts
 backend/bin/
 backend/server
+coverage.out
 
 # Creds
 creds/
