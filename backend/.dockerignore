@@ -29,6 +29,7 @@ Thumbs.db
 # Documentation
 README.md
 docs/
+!docs/docs.go
 
 # Air config
 .air.toml
