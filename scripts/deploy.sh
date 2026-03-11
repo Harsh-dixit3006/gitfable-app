@@ -8,8 +8,15 @@ set -euo pipefail
 ENV="${1:?Usage: deploy.sh <prod|dev> <image_tag>}"
 IMAGE_TAG="${2:?Usage: deploy.sh <prod|dev> <image_tag>}"
 
+if [[ "$ENV" != "prod" && "$ENV" != "dev" ]]; then
+    echo "ERROR: Environment must be 'prod' or 'dev', got: $ENV"
+    exit 1
+fi
+
+: "${GHCR_TOKEN:?ERROR: GHCR_TOKEN environment variable is required}"
+
 APP_DIR="/home/deploy/gitfable"
-COMPOSE_FILE="$APP_DIR/docker-compose.vps-${ENV}.yml"
+COMPOSE_FILE="$APP_DIR/docker/docker-compose.vps-${ENV}.yml"
 
 if [ ! -f "$COMPOSE_FILE" ]; then
     echo "ERROR: Compose file not found: $COMPOSE_FILE"
@@ -49,5 +56,9 @@ until docker inspect --format='{{.State.Health.Status}}' "gitfable-backend-${ENV
 done
 
 echo "Backend healthy!"
+
+# Note: Migrations run automatically on backend startup (MIGRATIONS_PATH env var).
+# The health check above confirms the backend started successfully, including migrations.
+
 echo "=== Deploy complete ($ENV) ==="
 docker compose -f "$COMPOSE_FILE" ps
