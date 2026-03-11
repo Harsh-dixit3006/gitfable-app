@@ -97,6 +97,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Preflight SSH auth (Prod)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            test -d /home/deploy
+            echo "SSH preflight passed"
+
       - name: Sync infrastructure files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
