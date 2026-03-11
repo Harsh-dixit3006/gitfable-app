@@ -33,6 +33,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test -- --watchAll=false
+
       - name: Run frontend lint
         working-directory: frontend
         run: npx eslint src/ --max-warnings 0
