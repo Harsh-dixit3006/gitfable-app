@@ -99,7 +99,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker/docker-compose.vps-prod.yml,docker/caddy/Caddyfile.prod,scripts/deploy.sh,scripts/backup-db.sh"
+          source: "docker/docker-compose.vps-prod.yml,docker/caddy/Caddyfile.prod,backend/sql/migrations/,scripts/deploy.sh,scripts/backup-db.sh"
           target: /home/deploy/gitfable/
 
       - name: Deploy via SSH
