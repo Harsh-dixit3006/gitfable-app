@@ -26,11 +26,8 @@ services:
     restart: always
     expose:
       - "80"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
+    cpus: 0.5
+    mem_limit: 256m
     depends_on:
       backend:
         condition: service_healthy
@@ -51,14 +48,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
-        reservations:
-          cpus: "0.15"
-          memory: 128M
+    cpus: 0.5
+    mem_limit: 256m
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,11 +78,8 @@ services:
     secrets:
       - postgres_user
       - postgres_password
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
+    cpus: 0.5
+    mem_limit: 256m
     networks:
       - gitfable-network
 
