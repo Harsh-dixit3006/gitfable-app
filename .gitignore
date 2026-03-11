@@ -72,3 +72,6 @@ coverage.out
 creds/
 .env
 .secrets/
+
+# Git worktrees
+.worktrees/
