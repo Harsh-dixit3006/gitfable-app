@@ -104,7 +104,7 @@ systemctl start fail2ban
 echo "Fail2ban enabled"
 
 # --- Unattended upgrades ---
-dpkg-reconfigure -plow unattended-upgrades
+DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive -plow unattended-upgrades
 echo "Unattended security upgrades enabled"
 
 # --- Create app directory ---
