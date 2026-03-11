@@ -1,0 +1,122 @@
+name: gitfable-prod
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: gitfable-caddy-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_healthy
+    networks:
+      - gitfable-network
+
+  frontend:
+    image: ghcr.io/nishantg96/gitfable-frontend:${IMAGE_TAG:-latest-prod}
+    container_name: gitfable-frontend-prod
+    restart: always
+    expose:
+      - "80"
+    cpus: 0.5
+    mem_limit: 256m
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - gitfable-network
+
+  backend:
+    image: ghcr.io/nishantg96/gitfable-backend:${IMAGE_TAG:-latest-prod}
+    container_name: gitfable-backend-prod
+    restart: always
+    expose:
+      - "8001"
+    env_file:
+      - .env.vps-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    cpus: 1
+    mem_limit: 512m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gitfable-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: gitfable-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: gitfable_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/postgres_user)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    secrets:
+      - postgres_user
+      - postgres_password
+    cpus: 1
+    mem_limit: 512m
+    networks:
+      - gitfable-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: gitfable-redis-prod
+    restart: always
+    command: >
+      sh -c "redis-server --requirepass $$(cat /run/secrets/redis_password)"
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$(cat /run/secrets/redis_password) ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    secrets:
+      - redis_password
+    networks:
+      - gitfable-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+secrets:
+  postgres_user:
+    file: ./secrets/postgres_user.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+
+networks:
+  gitfable-network:
+    driver: bridge
