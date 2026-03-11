@@ -38,9 +38,10 @@
 
 ## VPS Secrets (on each server)
 
-### Docker secrets (in `/home/deploy/gitfable/secrets/`)
+### Docker secrets (in `/home/deploy/gitfable/docker/secrets/`)
 
 ```bash
+cd /home/deploy/gitfable/docker
 # Create secret files
 echo "gitfable" > secrets/postgres_user.txt
 echo "<strong-password>" > secrets/postgres_password.txt
@@ -50,15 +51,17 @@ chmod 600 secrets/*.txt
 
 ### Environment file
 
-Copy and fill in the template:
+Copy and fill in the template (from `/home/deploy/gitfable/docker/`):
 
 ```bash
+cd /home/deploy/gitfable/docker
+
 # Dev VPS
-cp docker/.env.vps-dev.example .env.vps-dev
+cp .env.vps-dev.example .env.vps-dev
 # Edit with actual values
 
 # Prod VPS
-cp docker/.env.vps-prod.example .env.vps-prod
+cp .env.vps-prod.example .env.vps-prod
 # Edit with actual values
 ```
 
