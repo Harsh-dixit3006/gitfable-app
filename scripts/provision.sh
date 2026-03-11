@@ -76,7 +76,17 @@ if [ -f /home/deploy/.ssh/authorized_keys ] && [ -s /home/deploy/.ssh/authorized
     sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
     sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-    systemctl restart sshd
+    # Validate config before restarting to avoid lockouts
+    if ! sshd -t; then
+        echo "ERROR: sshd configuration test failed. Not restarting SSH." >&2
+        exit 1
+    fi
+    # Ubuntu uses 'ssh' unit, other distros use 'sshd'
+    if systemctl list-unit-files ssh.service &>/dev/null; then
+        systemctl restart ssh
+    else
+        systemctl restart sshd
+    fi
     echo "SSH hardened (key-only, no root login)"
 else
     echo "WARNING: deploy user has no SSH keys. Skipping SSH hardening to prevent lockout."
