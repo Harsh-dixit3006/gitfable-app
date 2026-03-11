@@ -5,7 +5,6 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: ghcr.io
   BACKEND_IMAGE: ghcr.io/nishantg96/gitfable-backend
   FRONTEND_IMAGE: ghcr.io/nishantg96/gitfable-frontend
 
@@ -92,6 +91,17 @@ jobs:
     needs: build-and-push
     environment: production
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync infrastructure files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker/docker-compose.vps-prod.yml,docker/caddy/Caddyfile.prod,scripts/deploy.sh,scripts/backup-db.sh"
+          target: /home/deploy/gitfable/
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:

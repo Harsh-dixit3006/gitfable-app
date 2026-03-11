@@ -66,11 +66,16 @@ ufw --force enable
 echo "Firewall configured (22, 80, 443)"
 
 # --- SSH hardening ---
-sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-systemctl restart sshd
-echo "SSH hardened (key-only, no root login)"
+if [ -f /home/deploy/.ssh/authorized_keys ] && [ -s /home/deploy/.ssh/authorized_keys ]; then
+    sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+    sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+    systemctl restart sshd
+    echo "SSH hardened (key-only, no root login)"
+else
+    echo "WARNING: deploy user has no SSH keys. Skipping SSH hardening to prevent lockout."
+    echo "Add SSH keys to /home/deploy/.ssh/authorized_keys and re-run SSH hardening manually."
+fi
 
 # --- Fail2ban ---
 systemctl enable fail2ban
@@ -82,7 +87,7 @@ dpkg-reconfigure -plow unattended-upgrades
 echo "Unattended security upgrades enabled"
 
 # --- Create app directory ---
-mkdir -p /home/deploy/gitfable/secrets
+mkdir -p /home/deploy/gitfable/docker/secrets
 mkdir -p /home/deploy/gitfable/logs
 mkdir -p /home/deploy/gitfable/backups
 chown -R deploy:deploy /home/deploy/gitfable

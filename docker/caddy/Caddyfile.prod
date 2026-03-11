@@ -1,4 +1,12 @@
 gitfable.app {
+    handle /health {
+        reverse_proxy backend:8001
+    }
+
+    handle /ready {
+        reverse_proxy backend:8001
+    }
+
     handle /api/* {
         reverse_proxy backend:8001
     }
