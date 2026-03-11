@@ -25,7 +25,13 @@ apt install -y \
 if ! id "deploy" &>/dev/null; then
     useradd -m -s /bin/bash deploy
     mkdir -p /home/deploy/.ssh
-    cp /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+    if [ -f /root/.ssh/authorized_keys ]; then
+        cp /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+    else
+        echo "WARNING: /root/.ssh/authorized_keys not found. No SSH keys installed for deploy user." >&2
+        echo "You must manually add keys to /home/deploy/.ssh/authorized_keys before SSH hardening." >&2
+        touch /home/deploy/.ssh/authorized_keys
+    fi
     chown -R deploy:deploy /home/deploy/.ssh
     chmod 700 /home/deploy/.ssh
     chmod 600 /home/deploy/.ssh/authorized_keys
