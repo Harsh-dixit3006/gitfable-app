@@ -1,236 +1,121 @@
-# GitFable Deployment Runbook (Dev + Prod)
+# Deployment Runbook
 
-This runbook defines a robust two-environment deployment model for GitFable:
+## Architecture
 
-- **Dev**: rapid iteration and integration testing
-- **Prod**: controlled release with manual approvals and rollback readiness
+GitFable runs on two Hetzner CX22 VPS instances, each running the full stack in Docker Compose:
 
-Stack:
+| Environment | Domain | Branch | Deploy Trigger |
+|-------------|--------|--------|----------------|
+| Dev | dev.gitfable.app | develop | Auto on push |
+| Prod | gitfable.app | main | Manual approval |
 
-- **Backend API**: Railway
-- **Redis**: Railway Redis
-- **Database + Auth**: Supabase
-- **Frontend**: Cloudflare Pages
+Each VPS runs: Caddy (auto-SSL) → Frontend (Nginx) + Backend (Go) + PostgreSQL + Redis
 
----
+External dependency: Supabase (auth only, free tier)
 
-## 1) Environment Topology
+## Stack Per Server
 
-### Dev Environment
-
-- Supabase project: `gitfable-dev`
-- Railway services:
-  - `gitfable-api-dev`
-  - `gitfable-redis-dev`
-- Cloudflare Pages project: `gitfable-dev`
-- Git branch: `develop`
-
-### Prod Environment
-
-- Supabase project: `gitfable-prod`
-- Railway services:
-  - `gitfable-api-prod`
-  - `gitfable-redis-prod`
-- Cloudflare Pages project: `gitfable`
-- Custom domain: `gitfable.app`
-- Git branch: `main`
-
----
-
-## 2) Source Control and Promotion Model
-
-- Feature branches -> PR -> `develop`
-- `develop` auto-deploys to Dev
-- `main` deploy requires approval and deploys to Prod
-
-Rules:
-
-- No direct push to `main`
-- Every deploy must come from versioned commit
-- Production database migrations run only in production deploy workflow
-
----
-
-## 3) Required Secrets and Variables
-
-Use platform secret stores only (GitHub Secrets, Railway Variables, Cloudflare Secrets).
-
-### Backend (Railway) - Dev
-
-- `ENVIRONMENT=development`
-- `PORT=8001`
-- `DATABASE_URL` (Supabase dev URL with `sslmode=require`)
-- `REDIS_URL` (Railway Redis dev URL)
-- `DB_POOL_SIZE=10`
-- `RATE_LIMIT_ENABLED=true`
-- `SUPABASE_URL` (dev)
-- `SUPABASE_SERVICE_ROLE_KEY` (dev)
-- `CORS_ORIGINS` (dev frontend domain)
-- `FRONTEND_URL` (dev frontend domain)
-- `GITHUB_TOKEN`
-- `GITHUB_WEBHOOK_SECRET`
-
-### Backend (Railway) - Prod
-
-- `ENVIRONMENT=production`
-- `PORT=8001`
-- `DATABASE_URL` (Supabase prod URL with `sslmode=require`)
-- `REDIS_URL` (Railway Redis prod URL)
-- `DB_POOL_SIZE=25`
-- `RATE_LIMIT_ENABLED=true`
-- `SUPABASE_URL` (prod)
-- `SUPABASE_SERVICE_ROLE_KEY` (prod)
-- `CORS_ORIGINS` (prod frontend domain)
-- `FRONTEND_URL` (prod frontend domain)
-- `GITHUB_TOKEN`
-- `GITHUB_WEBHOOK_SECRET`
-
-### Frontend (Cloudflare Pages) - Dev
-
-- `REACT_APP_BACKEND_URL`
-- `REACT_APP_SUPABASE_URL` (dev)
-- `REACT_APP_SUPABASE_ANON_KEY` (dev)
-
-### Frontend (Cloudflare Pages) - Prod
-
-- `REACT_APP_BACKEND_URL`
-- `REACT_APP_SUPABASE_URL` (prod)
-- `REACT_APP_SUPABASE_ANON_KEY` (prod)
-
----
-
-## 4) Supabase Configuration Per Environment
-
-For both `gitfable-dev` and `gitfable-prod`:
-
-1. Enable GitHub provider in Auth
-2. Configure environment-specific callback URLs
-3. Set Site URL and Redirect URLs
-
-Dev URLs example:
-
-- Site URL: `https://gitfable-dev.pages.dev`
-- Redirect URL: `https://gitfable-dev.pages.dev`
-
-Prod URLs example:
-
-- Site URL: `https://gitfable.app`
-- Redirect URL: `https://gitfable.app`
-
----
-
-## 5) Migration Strategy
-
-Migrations live in `backend/sql/migrations` and are executed with `golang-migrate`.
-
-### Dev migration command
-
-```bash
-make migrate-up
-make migrate-version
+```
+Caddy (:80/:443) → /api/* → Backend (:8001)
+                  → /*     → Frontend (:80)
+PostgreSQL (:5432) — internal only
+Redis (:6379) — internal only
 ```
 
-### Prod migration command (manual gate)
+## Deploy Flow
 
-Run from CI job with prod `DATABASE_URL` loaded from secrets.
+### Dev (automatic)
 
-Rules:
+1. Push to `develop` branch
+2. GitHub Actions: test → build images → push to GHCR → SSH deploy to dev VPS → smoke test
+3. No manual steps required
 
-- No manual dashboard schema edits in production
-- All schema changes via migration files only
-- Prefer forward-fix over rollback when possible
+### Prod (manual approval)
 
----
+1. Merge PR to `main`
+2. GitHub Actions: test → build images → push to GHCR
+3. **Wait for approval** in GitHub `production` environment
+4. SSH deploy to prod VPS → smoke test
 
-## 6) Deployment Steps - Dev
+### What Happens During Deploy
 
-On merge to `develop`:
+The `scripts/deploy.sh` script:
+1. Logs into GHCR
+2. Pulls new backend and frontend images
+3. Runs `docker compose up -d --remove-orphans`
+4. Waits for backend health check (up to 60s)
+5. Reports status
 
-1. Run backend tests
-2. Run frontend tests and build
-3. Deploy backend to Railway Dev
-4. Run dev DB migrations
-5. Deploy frontend to Cloudflare Pages Dev
-6. Smoke test:
-   - `GET /health`
-   - `GET /ready`
-   - Optional auth smoke test
+## Image Tags
 
----
+- Dev: `ghcr.io/nishantg96/gitfable-backend:dev-<sha>` + `latest-dev`
+- Prod: `ghcr.io/nishantg96/gitfable-backend:prod-<sha>` + `latest-prod`
+- Same pattern for frontend images
 
-## 7) Deployment Steps - Prod
+## Rollback
 
-On merge to `main`:
+### Via GitHub Actions
 
-1. Run test/build checks
-2. Require manual approval for production environment
-3. Deploy backend to Railway Prod
-4. Run prod DB migrations
-5. Deploy frontend to Cloudflare Pages Prod
-6. Run smoke tests:
-   - `GET /health`
-   - `GET /ready`
-   - Auth flow check
+1. Go to Actions → "Rollback Prod" → Run workflow
+2. Enter the image tag to roll back to (e.g., `prod-abc1234`)
+3. Enter reason
+4. Approve in production environment
+5. Automated smoke test runs after rollback
 
----
+### Manual Rollback
 
-## 8) Rollback Plan
+```bash
+ssh deploy@<prod-ip>
+cd ~/gitfable
+export IMAGE_TAG=prod-abc1234
+export GHCR_TOKEN=<your-token>
+./scripts/deploy.sh prod $IMAGE_TAG
+```
 
-### Frontend rollback
+### Database Rollback
 
-- Roll back Cloudflare Pages to previous successful deployment
+Only for safe, reversible migrations:
 
-### Backend rollback
+```bash
+ssh deploy@<prod-ip>
+docker run --rm --network gitfable-network \
+  -v /home/deploy/gitfable/migrations:/migrations \
+  migrate/migrate \
+  -path=/migrations \
+  -database="$DATABASE_URL" \
+  down 1
+```
 
-- Roll back Railway service to previous release
+## Backups
 
-### Database rollback
+- Daily `pg_dump` at 3 AM via cron
+- Stored in `/home/deploy/gitfable/backups/`
+- Retention: 7 daily + 4 weekly
+- Script: `scripts/backup-db.sh`
 
-- Use `migrate down 1` only for known-safe reversible migrations
-- Prefer forward-fix migration for non-trivial production issues
+### Restore from Backup
 
----
+```bash
+ssh deploy@<prod-ip>
+gunzip -c backups/daily/gitfable_prod_20260311.sql.gz | \
+  docker exec -i gitfable-postgres-prod psql -U <user> gitfable_prod
+```
 
-## 9) Monitoring and Alerting
+## Monitoring
 
-Minimum required:
+- **UptimeRobot**: Pings `/health` every 5 min, email alerts on downtime
+- **Docker health checks**: Auto-restart unhealthy containers
+- **Logs**: `make vps-prod-logs` or `docker compose logs -f` on VPS
 
-- Uptime monitor on `/health` and `/ready`
-- Error alerting for 5xx spike
-- Railway logs enabled
+## Server Access
 
-Recommended:
+```bash
+ssh deploy@<dev-ip>    # Dev VPS
+ssh deploy@<prod-ip>   # Prod VPS
+```
 
-- Sentry for frontend and backend
-- Slack/Discord webhook for deploy failures
+App directory: `/home/deploy/gitfable/`
 
----
+## Provisioning New Server
 
-## 10) Security and Secret Rotation
-
-- Never commit secrets to git
-- Rotate these after setup and then quarterly:
-  - Supabase DB password
-  - Supabase service role key
-  - Redis password
-  - GitHub PAT/webhook secret
-
----
-
-## 11) Internal Development Workflow
-
-- Developers use local `.env` mapped to **dev** environment resources only
-- No one uses production keys locally
-- Production access restricted to release owners
-
----
-
-## 12) Go-Live Readiness Checklist
-
-- [ ] Dev and prod resources are separate
-- [ ] All env vars configured in Railway and Cloudflare
-- [ ] Supabase OAuth callbacks configured for both environments
-- [ ] Production migration dry run verified in Dev
-- [ ] Smoke tests pass in both environments
-- [ ] Alerting configured
-- [ ] Secrets rotated after final verification
+Run `scripts/provision.sh` on a fresh Ubuntu 24.04 VPS. See script for details.
