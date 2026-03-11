@@ -55,11 +55,16 @@ if ! command -v docker &>/dev/null; then
     apt update
     apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-    usermod -aG docker deploy
     systemctl enable docker
     echo "Docker installed"
 else
     echo "Docker already installed"
+fi
+
+# Ensure deploy user can run Docker without sudo
+if ! id -nG deploy | grep -qw docker; then
+    usermod -aG docker deploy
+    echo "Added deploy user to docker group"
 fi
 
 # --- Firewall ---
