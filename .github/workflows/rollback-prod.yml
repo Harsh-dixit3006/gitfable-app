@@ -30,13 +30,13 @@ jobs:
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: GHCR_TOKEN,IMAGE_TAG
+          script: |
+            export GHCR_TOKEN="${GHCR_TOKEN}"
+            cd ~/gitfable
+            ./scripts/deploy.sh prod "$IMAGE_TAG"
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IMAGE_TAG: ${{ inputs.image_tag }}
-        script: |
-          export GHCR_TOKEN="${GHCR_TOKEN}"
-          cd ~/gitfable
-          ./scripts/deploy.sh prod "$IMAGE_TAG"
 
   smoke-test:
     name: Smoke Test After Rollback
