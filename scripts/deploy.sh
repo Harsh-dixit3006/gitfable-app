@@ -57,8 +57,22 @@ done
 
 echo "Backend healthy!"
 
-# Note: Migrations run automatically on backend startup (MIGRATIONS_PATH env var).
-# The health check above confirms the backend started successfully, including migrations.
+# Run database migrations.
+# In production, migrations do NOT run on startup (only in dev). Run them explicitly here.
+echo "Running database migrations..."
+DB_NAME="gitfable_${ENV}"
+NETWORK="gitfable-${ENV}_gitfable-network"
+POSTGRES_USER=$(docker exec "gitfable-postgres-${ENV}" cat /run/secrets/postgres_user)
+
+docker run --rm \
+  --network "$NETWORK" \
+  -v "$APP_DIR/backend/sql/migrations:/migrations" \
+  migrate/migrate \
+  -path=/migrations \
+  -database="postgresql://${POSTGRES_USER}:$(docker exec "gitfable-postgres-${ENV}" cat /run/secrets/postgres_password)@gitfable-postgres-${ENV}:5432/${DB_NAME}?sslmode=disable" \
+  up
+
+echo "Migrations complete!"
 
 echo "=== Deploy complete ($ENV) ==="
 docker compose -f "$COMPOSE_FILE" ps
