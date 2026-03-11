@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -31,6 +32,23 @@ type e2eTestSuite struct {
 	testIssues []database.Issue
 }
 
+func connectTestDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return nil, err
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	if err := pool.Ping(pingCtx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+
+	return pool, nil
+}
+
 // setupE2E creates a test suite with database connection
 func setupE2E(t *testing.T) *e2eTestSuite {
 	ctx := context.Background()
@@ -40,7 +58,7 @@ func setupE2E(t *testing.T) *e2eTestSuite {
 		dbURL = "postgresql://gitfable:gitfable@postgres:5432/gitfable?sslmode=disable"
 	}
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := connectTestDB(ctx, dbURL)
 	if err != nil {
 		t.Skipf("Database not available: %v", err)
 	}
