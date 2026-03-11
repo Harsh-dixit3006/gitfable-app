@@ -111,13 +111,15 @@ jobs:
           host: ${{ secrets.DEV_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: GHCR_TOKEN,IMAGE_TAG
+          envs: GHCR_TOKEN,GHCR_USERNAME,IMAGE_TAG
           script: |
             export GHCR_TOKEN="${GHCR_TOKEN}"
+            export GHCR_USERNAME="${GHCR_USERNAME}"
             cd ~/gitfable
             ./scripts/deploy.sh dev "$IMAGE_TAG"
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
 
   smoke-test:

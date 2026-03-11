@@ -27,8 +27,9 @@ echo "=== Deploying GitFable ($ENV) with tag: $IMAGE_TAG ==="
 
 cd "$APP_DIR"
 
-# Login to GHCR (token passed as env var by GitHub Actions)
-echo "$GHCR_TOKEN" | docker login ghcr.io -u nishantg96 --password-stdin
+# Login to GHCR (token and username passed as env vars by GitHub Actions)
+: "${GHCR_USERNAME:?ERROR: GHCR_USERNAME environment variable is required}"
+echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
 # Set the image tag for this deploy
 export IMAGE_TAG="$IMAGE_TAG"
