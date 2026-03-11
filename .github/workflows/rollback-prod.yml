@@ -23,22 +23,20 @@ jobs:
           echo "Rolling back to: ${{ inputs.image_tag }}"
           echo "Reason: ${{ inputs.reason }}"
 
-      - name: Rollback via SSH
-        uses: appleboy/ssh-action@v1
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
         with:
-          host: ${{ secrets.PROD_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: GHCR_TOKEN,GHCR_USERNAME,IMAGE_TAG
-          script: |
-            export GHCR_TOKEN="${GHCR_TOKEN}"
-            export GHCR_USERNAME="${GHCR_USERNAME}"
-            cd ~/gitfable
-            ./scripts/deploy.sh prod "$IMAGE_TAG"
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Rollback via Tailscale SSH
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
           IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          tailscale ssh deploy@${{ secrets.PROD_TAILSCALE_HOST }} "export GHCR_TOKEN='${GHCR_TOKEN}'; export GHCR_USERNAME='${GHCR_USERNAME}'; cd ~/gitfable; ./scripts/deploy.sh prod '${IMAGE_TAG}'"
 
   smoke-test:
     name: Smoke Test After Rollback

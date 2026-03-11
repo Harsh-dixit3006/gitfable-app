@@ -6,9 +6,10 @@
 
 | Secret | Description |
 |--------|-------------|
-| `SSH_PRIVATE_KEY` | SSH key for deploy user on VPS |
-| `DEV_HOST` | Dev VPS IP address |
-| `PROD_HOST` | Prod VPS IP address |
+| `TS_OAUTH_CLIENT_ID` | Tailscale OAuth client ID for GitHub Actions |
+| `TS_OAUTH_SECRET` | Tailscale OAuth client secret for GitHub Actions |
+| `DEV_TAILSCALE_HOST` | Dev VPS Tailscale hostname (MagicDNS name or tailnet IP) |
+| `PROD_TAILSCALE_HOST` | Prod VPS Tailscale hostname (MagicDNS name or tailnet IP) |
 
 ### Dev environment
 

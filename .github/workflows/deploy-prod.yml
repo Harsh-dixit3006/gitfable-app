@@ -97,42 +97,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Preflight SSH auth (Prod)
-        uses: appleboy/ssh-action@v1
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
         with:
-          host: ${{ secrets.PROD_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-            test -d /home/deploy
-            echo "SSH preflight passed"
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
 
-      - name: Sync infrastructure files to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker/docker-compose.vps-prod.yml,docker/caddy/Caddyfile.prod,backend/sql/migrations/,scripts/deploy.sh,scripts/backup-db.sh"
-          target: /home/deploy/gitfable/
+      - name: Preflight Tailscale SSH auth (Prod)
+        run: |
+          tailscale ssh deploy@${{ secrets.PROD_TAILSCALE_HOST }} "set -e; test -d /home/deploy; echo Tailscale SSH preflight passed"
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: GHCR_TOKEN,GHCR_USERNAME,IMAGE_TAG
-          script: |
-            export GHCR_TOKEN="${GHCR_TOKEN}"
-            export GHCR_USERNAME="${GHCR_USERNAME}"
-            cd ~/gitfable
-            ./scripts/deploy.sh prod "$IMAGE_TAG"
+      - name: Sync infrastructure files to VPS over Tailscale
+        run: |
+          tar czf /tmp/prod-infra.tar.gz docker/docker-compose.vps-prod.yml docker/caddy/Caddyfile.prod backend/sql/migrations scripts/deploy.sh scripts/backup-db.sh
+          tailscale ssh deploy@${{ secrets.PROD_TAILSCALE_HOST }} "mkdir -p /home/deploy/gitfable"
+          cat /tmp/prod-infra.tar.gz | tailscale ssh deploy@${{ secrets.PROD_TAILSCALE_HOST }} "tar xzf - -C /home/deploy/gitfable"
+
+      - name: Deploy via Tailscale SSH
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+        run: |
+          tailscale ssh deploy@${{ secrets.PROD_TAILSCALE_HOST }} "export GHCR_TOKEN='${GHCR_TOKEN}'; export GHCR_USERNAME='${GHCR_USERNAME}'; cd ~/gitfable; ./scripts/deploy.sh prod '${IMAGE_TAG}'"
 
   smoke-test:
     name: Smoke Test

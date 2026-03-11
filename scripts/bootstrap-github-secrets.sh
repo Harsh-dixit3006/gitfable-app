@@ -28,9 +28,10 @@ source "$ENV_FILE"
 set +a
 
 required_vars=(
-  SSH_PRIVATE_KEY
-  DEV_HOST
-  PROD_HOST
+  TS_OAUTH_CLIENT_ID
+  TS_OAUTH_SECRET
+  DEV_TAILSCALE_HOST
+  PROD_TAILSCALE_HOST
   SUPABASE_DEV_PROJECT_URL
   SUPABASE_DEV_ANON_KEY
   SUPABASE_PROD_PROJECT_URL
@@ -47,9 +48,10 @@ for v in "${required_vars[@]}"; do
 done
 
 echo "Setting shared secrets..."
-gh secret set SSH_PRIVATE_KEY --body "$SSH_PRIVATE_KEY"
-gh secret set DEV_HOST --body "$DEV_HOST"
-gh secret set PROD_HOST --body "$PROD_HOST"
+gh secret set TS_OAUTH_CLIENT_ID --body "$TS_OAUTH_CLIENT_ID"
+gh secret set TS_OAUTH_SECRET --body "$TS_OAUTH_SECRET"
+gh secret set DEV_TAILSCALE_HOST --body "$DEV_TAILSCALE_HOST"
+gh secret set PROD_TAILSCALE_HOST --body "$PROD_TAILSCALE_HOST"
 
 echo "Setting dev secrets..."
 gh secret set DEV_REACT_APP_BACKEND_URL --body "$DEV_BACKEND_URL"
