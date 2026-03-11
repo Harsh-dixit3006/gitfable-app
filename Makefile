@@ -1,4 +1,4 @@
-.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down migrate-version docker-build docker-up docker-down docker-logs
+.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down migrate-version docker-build docker-up docker-down docker-logs vps-prod-up vps-prod-down vps-prod-logs vps-dev-up vps-dev-down vps-dev-logs vps-backup
 
 # Default target
 help: ## Show this help
@@ -146,3 +146,26 @@ docker-prod-build: ## Build production images
 
 docker-prod-up: ## Start production services
 	docker compose -f docker/docker-compose.prod.yml up -d
+
+# ─── VPS Deployment ─────────────────────────────────────────────────
+
+vps-prod-up: ## Start VPS production services
+	cd docker && docker compose -f docker-compose.vps-prod.yml up -d
+
+vps-prod-down: ## Stop VPS production services
+	cd docker && docker compose -f docker-compose.vps-prod.yml down
+
+vps-prod-logs: ## View VPS production logs
+	cd docker && docker compose -f docker-compose.vps-prod.yml logs -f
+
+vps-dev-up: ## Start VPS dev services
+	cd docker && docker compose -f docker-compose.vps-dev.yml up -d
+
+vps-dev-down: ## Stop VPS dev services
+	cd docker && docker compose -f docker-compose.vps-dev.yml down
+
+vps-dev-logs: ## View VPS dev logs
+	cd docker && docker compose -f docker-compose.vps-dev.yml logs -f
+
+vps-backup: ## Run database backup script
+	./scripts/backup-db.sh
