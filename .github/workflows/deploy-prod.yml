@@ -106,7 +106,7 @@ jobs:
 
       - name: Preflight Tailscale SSH auth (Prod)
         run: |
-          tailscale ssh deploy@${{ secrets.PROD_TAILSCALE_HOST }} "set -e; test -d /home/deploy; echo Tailscale SSH preflight passed"
+          tailscale ssh deploy@${{ secrets.PROD_TAILSCALE_HOST }} "set -e; test -d /home/deploy; test -f /home/deploy/gitfable/docker/.env.vps-prod; test -f /home/deploy/gitfable/docker/secrets/postgres_user.txt; test -f /home/deploy/gitfable/docker/secrets/postgres_password.txt; test -f /home/deploy/gitfable/docker/secrets/redis_password.txt; echo Tailscale SSH preflight passed"
 
       - name: Sync infrastructure files to VPS over Tailscale
         run: |

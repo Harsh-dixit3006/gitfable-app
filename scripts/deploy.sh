@@ -17,11 +17,27 @@ fi
 
 APP_DIR="/home/deploy/gitfable"
 COMPOSE_FILE="$APP_DIR/docker/docker-compose.vps-${ENV}.yml"
+ENV_FILE="$APP_DIR/docker/.env.vps-${ENV}"
+SECRETS_DIR="$APP_DIR/docker/secrets"
 
 if [ ! -f "$COMPOSE_FILE" ]; then
     echo "ERROR: Compose file not found: $COMPOSE_FILE"
     exit 1
 fi
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: Environment file not found: $ENV_FILE"
+    echo "Create it from template on VPS:"
+    echo "  cp $APP_DIR/docker/.env.vps-${ENV}.example $ENV_FILE"
+    exit 1
+fi
+
+for s in postgres_user.txt postgres_password.txt redis_password.txt; do
+    if [ ! -f "$SECRETS_DIR/$s" ]; then
+        echo "ERROR: Docker secret file not found: $SECRETS_DIR/$s"
+        exit 1
+    fi
+done
 
 echo "=== Deploying GitFable ($ENV) with tag: $IMAGE_TAG ==="
 
