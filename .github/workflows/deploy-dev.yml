@@ -2,7 +2,7 @@ name: Deploy Dev
 
 on:
   push:
-    branches: [develop]
+    branches: [devel]
 
 env:
   BACKEND_IMAGE: ghcr.io/nishantg96/gitfable-backend
@@ -37,9 +37,9 @@ jobs:
         working-directory: frontend
         run: npm test -- --watchAll=false
 
-      - name: Run frontend lint
+      - name: Run frontend lint (via build)
         working-directory: frontend
-        run: npx eslint src/ --max-warnings 0
+        run: CI=true npm run build
 
   build-and-push:
     name: Build & Push Images
@@ -96,31 +96,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sync infrastructure files to VPS
-        uses: appleboy/scp-action@v0.1.7
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
         with:
-          host: ${{ secrets.DEV_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker/docker-compose.vps-dev.yml,docker/caddy/Caddyfile.dev,backend/sql/migrations/,scripts/deploy.sh,scripts/backup-db.sh"
-          target: /home/deploy/gitfable/
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEV_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: GHCR_TOKEN,GHCR_USERNAME,IMAGE_TAG
-          script: |
-            export GHCR_TOKEN="${GHCR_TOKEN}"
-            export GHCR_USERNAME="${GHCR_USERNAME}"
-            cd ~/gitfable
-            ./scripts/deploy.sh dev "$IMAGE_TAG"
+      - name: Preflight Tailscale SSH auth (Dev)
+        run: |
+          tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "set -e; test -d /home/deploy; echo Tailscale SSH preflight passed"
+
+      - name: Sync infrastructure files to VPS over Tailscale
+        run: |
+          tar czf /tmp/dev-infra.tar.gz docker/docker-compose.vps-dev.yml docker/caddy/Caddyfile.dev backend/sql/migrations scripts/deploy.sh scripts/backup-db.sh
+          tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "mkdir -p /home/deploy/gitfable"
+          cat /tmp/dev-infra.tar.gz | tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "tar xzf - -C /home/deploy/gitfable"
+
+      - name: Deploy via Tailscale SSH
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+        run: |
+          tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "export GHCR_TOKEN='${GHCR_TOKEN}'; export GHCR_USERNAME='${GHCR_USERNAME}'; cd ~/gitfable; ./scripts/deploy.sh dev '${IMAGE_TAG}'"
 
   smoke-test:
     name: Smoke Test

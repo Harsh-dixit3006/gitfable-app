@@ -6,7 +6,7 @@ GitFable runs on two Hetzner CX22 VPS instances, each running the full stack in 
 
 | Environment | Domain | Branch | Deploy Trigger |
 |-------------|--------|--------|----------------|
-| Dev | dev.gitfable.app | develop | Auto on push |
+| Dev | dev.gitfable.app | devel | Auto on push |
 | Prod | gitfable.app | main | Manual approval |
 
 Each VPS runs: Caddy (auto-SSL) → Frontend (Nginx) + Backend (Go) + PostgreSQL + Redis
@@ -26,8 +26,8 @@ Redis (:6379) — internal only
 
 ### Dev (automatic)
 
-1. Push to `develop` branch
-2. GitHub Actions: test → build images → push to GHCR → SSH deploy to dev VPS → smoke test
+1. Push to `devel` branch
+2. GitHub Actions: test → build images → push to GHCR → Tailscale SSH deploy to dev VPS → smoke test
 3. No manual steps required
 
 ### Prod (manual approval)
@@ -35,7 +35,7 @@ Redis (:6379) — internal only
 1. Merge PR to `main`
 2. GitHub Actions: test → build images → push to GHCR
 3. **Wait for approval** in GitHub `production` environment
-4. SSH deploy to prod VPS → smoke test
+4. Tailscale SSH deploy to prod VPS → smoke test
 
 ### What Happens During Deploy
 
