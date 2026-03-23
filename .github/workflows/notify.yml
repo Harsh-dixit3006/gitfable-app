@@ -1,0 +1,72 @@
+name: Notify
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        description: 'Deployment status'
+        required: true
+        type: string  # success | failure | rollback
+      environment:
+        description: 'Target environment'
+        required: true
+        type: string  # prod | dev
+      version:
+        description: 'Image tag or semver'
+        required: true
+        type: string
+      message:
+        description: 'Optional extra context'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        required: false
+
+jobs:
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord notification
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL not set, skipping notification"
+            exit 0
+          fi
+
+          STATUS="${{ inputs.status }}"
+          ENV="${{ inputs.environment }}"
+          VERSION="${{ inputs.version }}"
+          MESSAGE="${{ inputs.message }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          case "$STATUS" in
+            success) COLOR=3066993;  TITLE="Deploy Succeeded" ;;
+            failure) COLOR=15158332; TITLE="Deploy Failed" ;;
+            rollback) COLOR=15105570; TITLE="Rollback Triggered" ;;
+            *) COLOR=8421504; TITLE="Deploy Update" ;;
+          esac
+
+          EMOJI=""
+          case "$STATUS" in
+            success) EMOJI="white_check_mark" ;;
+            failure) EMOJI="x" ;;
+            rollback) EMOJI="warning" ;;
+          esac
+
+          FIELDS="[{\"name\":\"Environment\",\"value\":\"${ENV}\",\"inline\":true},{\"name\":\"Version\",\"value\":\"\`${VERSION}\`\",\"inline\":true},{\"name\":\"Workflow\",\"value\":\"[View Run](${RUN_URL})\",\"inline\":true}"
+
+          if [ -n "$MESSAGE" ]; then
+            FIELDS="${FIELDS},{\"name\":\"Details\",\"value\":\"${MESSAGE}\",\"inline\":false}"
+          fi
+
+          FIELDS="${FIELDS}]"
+
+          curl -sf -H "Content-Type: application/json" \
+            -d "{\"embeds\":[{\"title\":\":${EMOJI}: ${TITLE}\",\"color\":${COLOR},\"fields\":${FIELDS},\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}" \
+            "$DISCORD_WEBHOOK_URL" || echo "Discord notification failed (non-fatal)"

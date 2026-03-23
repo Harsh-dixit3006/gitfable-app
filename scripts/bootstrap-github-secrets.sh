@@ -28,16 +28,13 @@ source "$ENV_FILE"
 set +a
 
 required_vars=(
-  TS_OAUTH_CLIENT_ID
-  TS_OAUTH_SECRET
-  DEV_TAILSCALE_HOST
-  PROD_TAILSCALE_HOST
   SUPABASE_DEV_PROJECT_URL
   SUPABASE_DEV_ANON_KEY
   SUPABASE_PROD_PROJECT_URL
   SUPABASE_PROD_ANON_KEY
   DEV_BACKEND_URL
   PROD_BACKEND_URL
+  DISCORD_WEBHOOK_URL
 )
 
 for v in "${required_vars[@]}"; do
@@ -46,12 +43,6 @@ for v in "${required_vars[@]}"; do
     exit 1
   fi
 done
-
-echo "Setting shared secrets..."
-gh secret set TS_OAUTH_CLIENT_ID --body "$TS_OAUTH_CLIENT_ID"
-gh secret set TS_OAUTH_SECRET --body "$TS_OAUTH_SECRET"
-gh secret set DEV_TAILSCALE_HOST --body "$DEV_TAILSCALE_HOST"
-gh secret set PROD_TAILSCALE_HOST --body "$PROD_TAILSCALE_HOST"
 
 echo "Setting dev secrets..."
 gh secret set DEV_REACT_APP_BACKEND_URL --body "$DEV_BACKEND_URL"
@@ -66,6 +57,9 @@ gh secret set PROD_REACT_APP_SUPABASE_URL --body "$SUPABASE_PROD_PROJECT_URL"
 gh secret set PROD_REACT_APP_SUPABASE_ANON_KEY --body "$SUPABASE_PROD_ANON_KEY"
 gh secret set PROD_BACKEND_HEALTH_URL --body "${PROD_BACKEND_URL%/}/health"
 gh secret set PROD_BACKEND_READY_URL --body "${PROD_BACKEND_URL%/}/ready"
+
+echo "Setting shared secrets..."
+gh secret set DISCORD_WEBHOOK_URL --body "$DISCORD_WEBHOOK_URL"
 
 if [[ -n "${GITHUB_WEBHOOK_SECRET:-}" ]]; then
   gh secret set GITHUB_WEBHOOK_SECRET --body "$GITHUB_WEBHOOK_SECRET"

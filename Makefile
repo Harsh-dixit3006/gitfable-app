@@ -141,11 +141,6 @@ docker-frontend-logs: ## View frontend logs only
 docker-clean: ## Remove all containers, volumes, and images
 	docker compose -f docker/docker-compose.yml down -v --rmi all
 
-docker-prod-build: ## Build production images
-	docker compose -f docker/docker-compose.prod.yml build
-
-docker-prod-up: ## Start production services
-	docker compose -f docker/docker-compose.prod.yml up -d
 
 # ─── VPS Deployment ─────────────────────────────────────────────────
 

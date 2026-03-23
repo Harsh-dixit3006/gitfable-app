@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# deploy.sh — Called by GitHub Actions over SSH
+# deploy.sh — Called by GitHub Actions (self-hosted runner on VPS)
 # Usage: ./deploy.sh <environment> <image_tag>
 # Example: ./deploy.sh prod prod-abc1234
 
