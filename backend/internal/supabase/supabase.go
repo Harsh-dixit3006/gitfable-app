@@ -58,10 +58,12 @@ func NewClient(config Config) (*Client, error) {
 	}
 
 	// Use gotrue-go directly with the service role key for admin operations.
-	authClient := gotrue.New(
-		strings.TrimRight(config.ProjectURL, "/"),
-		config.APIKey,
-	).WithToken(config.APIKey)
+	// gotrue.New() expects a project reference, not a URL, so we use
+	// WithCustomGoTrueURL to set the full GoTrue endpoint.
+	gotrueURL := strings.TrimRight(config.ProjectURL, "/") + "/auth/v1"
+	authClient := gotrue.New("unused", config.APIKey).
+		WithCustomGoTrueURL(gotrueURL).
+		WithToken(config.APIKey)
 
 	return &Client{
 		projectURL: strings.TrimRight(config.ProjectURL, "/"),
