@@ -42,8 +42,10 @@ REPO_DIR="${GITHUB_WORKSPACE:-$HOME/gitfable}"
 VPS_DIR="${VPS_DIR:-$HOME/gitfable}"
 
 COMPOSE_FILE="$REPO_DIR/docker/docker-compose.vps-${ENV}.yml"
-ENV_FILE="$VPS_DIR/docker/.env.vps-${ENV}"
-SECRETS_DIR="$VPS_DIR/docker/secrets"
+# Secrets and env file go in the checkout's docker/ dir so Docker can bind-mount them
+# (Docker doesn't follow symlinks for bind mounts)
+ENV_FILE="$REPO_DIR/docker/.env.vps-${ENV}"
+SECRETS_DIR="$REPO_DIR/docker/secrets"
 
 if [ ! -f "$COMPOSE_FILE" ]; then
     echo "ERROR: Compose file not found: $COMPOSE_FILE"
@@ -96,14 +98,6 @@ SYNC_INTERVAL=6h
 STALE_INTERVAL=12h
 ENVEOF
 chmod 600 "$ENV_FILE"
-
-# When running from a checkout (not the VPS dir), symlink VPS-specific files
-# so docker compose can resolve relative paths in the compose file
-if [ "$REPO_DIR" != "$VPS_DIR" ]; then
-    echo "Linking VPS config files into checkout..."
-    ln -sfn "$SECRETS_DIR" "$REPO_DIR/docker/secrets"
-    ln -sfn "$ENV_FILE" "$REPO_DIR/docker/.env.vps-${ENV}"
-fi
 
 # Login to GHCR
 echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
