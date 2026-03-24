@@ -236,7 +236,7 @@ func TestVerifyToken_LocalJWKSAndCaching(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
@@ -276,7 +276,7 @@ func TestVerifyToken_InvalidAudience(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
@@ -309,7 +309,7 @@ func TestVerifyToken_EmailConfirmedFallback(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
@@ -329,7 +329,7 @@ func TestVerifyToken_EmailConfirmedFallback(t *testing.T) {
 func TestVerifyToken_MissingKID(t *testing.T) {
 	privateKey := mustGenerateRSAKey(t)
 
-	client := &Client{projectURL: "https://example.supabase.co", jwks: make(map[string]*rsa.PublicKey)}
+	client := &Client{projectURL: "https://example.supabase.co", jwks: make(map[string]*publicKey)}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 		"sub":   "user-789",
@@ -363,7 +363,7 @@ func TestVerifyToken_InvalidIssuer(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
@@ -396,7 +396,7 @@ func TestVerifyToken_ExpiredToken(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
@@ -429,7 +429,7 @@ func TestVerifyToken_MissingSubClaim(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	token := mustSignToken(t, privateKey, kid, jwt.MapClaims{
@@ -463,7 +463,7 @@ func TestGetJWKSKey_RefreshesWhenCacheStale(t *testing.T) {
 	client := &Client{
 		projectURL:  strings.TrimRight(server.URL, "/"),
 		httpClient:  server.Client(),
-		jwks:        map[string]*rsa.PublicKey{"old": &privateKey.PublicKey},
+		jwks:        map[string]*publicKey{"old": &publicKey{rsa: &privateKey.PublicKey}},
 		jwksFetched: time.Now().Add(-10 * time.Minute),
 	}
 
@@ -481,7 +481,7 @@ func TestRefreshJWKS_UnexpectedStatus(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	err := client.refreshJWKS(context.Background())
@@ -498,7 +498,7 @@ func TestRefreshJWKS_InvalidJSON(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	err := client.refreshJWKS(context.Background())
@@ -516,12 +516,12 @@ func TestRefreshJWKS_NoRSAKeys(t *testing.T) {
 	client := &Client{
 		projectURL: strings.TrimRight(server.URL, "/"),
 		httpClient: server.Client(),
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}
 
 	err := client.refreshJWKS(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no RSA keys found")
+	assert.Contains(t, err.Error(), "no usable keys found")
 }
 
 func TestRefreshJWKS_UsesFreshCacheWithoutNetwork(t *testing.T) {
@@ -529,7 +529,7 @@ func TestRefreshJWKS_UsesFreshCacheWithoutNetwork(t *testing.T) {
 	client := &Client{
 		projectURL:  "https://unused.example",
 		httpClient:  nil,
-		jwks:        map[string]*rsa.PublicKey{"cached": &privateKey.PublicKey},
+		jwks:        map[string]*publicKey{"cached": &publicKey{rsa: &privateKey.PublicKey}},
 		jwksFetched: time.Now(),
 	}
 
