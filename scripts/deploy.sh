@@ -4,6 +4,13 @@ set -euo pipefail
 # deploy.sh — Called by GitHub Actions (self-hosted runner on VPS)
 # Usage: ./deploy.sh <environment> <image_tag>
 # Example: ./deploy.sh prod prod-abc1234
+#
+# The script uses two directories:
+#   REPO_DIR  — the Git checkout (compose files, caddy config, migrations)
+#   VPS_DIR   — persistent VPS directory (env files, Docker secrets)
+#
+# When run by the self-hosted runner, REPO_DIR is the runner's work directory
+# (detected via GITHUB_WORKSPACE). VPS_DIR is always /home/deploy/gitfable.
 
 ENV="${1:?Usage: deploy.sh <prod|dev> <image_tag>}"
 IMAGE_TAG="${2:?Usage: deploy.sh <prod|dev> <image_tag>}"
@@ -15,10 +22,13 @@ fi
 
 : "${GHCR_TOKEN:?ERROR: GHCR_TOKEN environment variable is required}"
 
-APP_DIR="/home/deploy/gitfable"
-COMPOSE_FILE="$APP_DIR/docker/docker-compose.vps-${ENV}.yml"
-ENV_FILE="$APP_DIR/docker/.env.vps-${ENV}"
-SECRETS_DIR="$APP_DIR/docker/secrets"
+# Repo files come from the checkout; VPS-specific files from the persistent directory
+REPO_DIR="${GITHUB_WORKSPACE:-/home/deploy/gitfable}"
+VPS_DIR="/home/deploy/gitfable"
+
+COMPOSE_FILE="$REPO_DIR/docker/docker-compose.vps-${ENV}.yml"
+ENV_FILE="$VPS_DIR/docker/.env.vps-${ENV}"
+SECRETS_DIR="$VPS_DIR/docker/secrets"
 
 if [ ! -f "$COMPOSE_FILE" ]; then
     echo "ERROR: Compose file not found: $COMPOSE_FILE"
@@ -28,7 +38,7 @@ fi
 if [ ! -f "$ENV_FILE" ]; then
     echo "ERROR: Environment file not found: $ENV_FILE"
     echo "Create it from template on VPS:"
-    echo "  cp $APP_DIR/docker/.env.vps-${ENV}.example $ENV_FILE"
+    echo "  cp $VPS_DIR/docker/.env.vps-${ENV}.example $ENV_FILE"
     exit 1
 fi
 
@@ -40,8 +50,16 @@ for s in postgres_user.txt postgres_password.txt redis_password.txt; do
 done
 
 echo "=== Deploying GitFable ($ENV) with tag: $IMAGE_TAG ==="
+echo "Repo dir: $REPO_DIR"
+echo "VPS dir:  $VPS_DIR"
 
-cd "$APP_DIR"
+# When running from a checkout (not the VPS dir), symlink VPS-specific files
+# so docker compose can resolve relative paths in the compose file
+if [ "$REPO_DIR" != "$VPS_DIR" ]; then
+    echo "Linking VPS config files into checkout..."
+    ln -sfn "$VPS_DIR/docker/secrets" "$REPO_DIR/docker/secrets"
+    ln -sfn "$ENV_FILE" "$REPO_DIR/docker/.env.vps-${ENV}"
+fi
 
 # Login to GHCR (token and username passed as env vars by GitHub Actions)
 : "${GHCR_USERNAME:?ERROR: GHCR_USERNAME environment variable is required}"
@@ -83,7 +101,7 @@ POSTGRES_USER=$(docker exec "gitfable-postgres-${ENV}" cat /run/secrets/postgres
 
 docker run --rm \
   --network "$NETWORK" \
-  -v "$APP_DIR/backend/sql/migrations:/migrations" \
+  -v "$REPO_DIR/backend/sql/migrations:/migrations" \
   migrate/migrate \
   -path=/migrations \
   -database="postgresql://${POSTGRES_USER}:$(docker exec "gitfable-postgres-${ENV}" cat /run/secrets/postgres_password)@gitfable-postgres-${ENV}:5432/${DB_NAME}?sslmode=disable" \
