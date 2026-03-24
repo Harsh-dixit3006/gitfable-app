@@ -17,8 +17,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	gotrue "github.com/supabase-community/gotrue-go"
 	gotruetypes "github.com/supabase-community/gotrue-go/types"
-	sb "github.com/supabase-community/supabase-go"
 )
 
 // publicKey is a union type for RSA and ECDSA public keys.
@@ -36,8 +36,8 @@ func (pk *publicKey) CryptoKey() interface{} {
 }
 
 type Client struct {
-	client      *sb.Client
 	projectURL  string
+	auth        gotrue.Client
 	httpClient  *http.Client
 	jwksMu      sync.RWMutex
 	jwks        map[string]*publicKey
@@ -50,14 +50,22 @@ type Config struct {
 }
 
 func NewClient(config Config) (*Client, error) {
-	client, err := sb.NewClient(config.ProjectURL, config.APIKey, nil)
-	if err != nil {
-		return nil, fmt.Errorf("init supabase client: %w", err)
+	if config.ProjectURL == "" {
+		return nil, fmt.Errorf("project URL is required")
+	}
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("API key is required")
 	}
 
+	// Use gotrue-go directly with the service role key for admin operations.
+	authClient := gotrue.New(
+		strings.TrimRight(config.ProjectURL, "/"),
+		config.APIKey,
+	).WithToken(config.APIKey)
+
 	return &Client{
-		client:     client,
 		projectURL: strings.TrimRight(config.ProjectURL, "/"),
+		auth:       authClient,
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 		jwks:       make(map[string]*publicKey),
 	}, nil
@@ -317,7 +325,7 @@ func (c *Client) GetUser(ctx context.Context, uid string) (*UserInfo, error) {
 		return nil, fmt.Errorf("parse user id: %w", err)
 	}
 
-	userResp, err := c.client.Auth.AdminGetUser(gotruetypes.AdminGetUserRequest{UserID: parsedUID})
+	userResp, err := c.auth.AdminGetUser(gotruetypes.AdminGetUserRequest{UserID: parsedUID})
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
@@ -333,7 +341,6 @@ func (c *Client) GetUser(ctx context.Context, uid string) (*UserInfo, error) {
 		PhotoURL:    photoURL,
 	}
 
-	// Check if user has GitHub identity
 	for _, identity := range user.Identities {
 		if identity.Provider == "github" {
 			info.ProviderID = "github"
