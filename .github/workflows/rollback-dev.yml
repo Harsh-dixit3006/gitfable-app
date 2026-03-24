@@ -1,10 +1,10 @@
-name: Rollback Prod
+name: Rollback Dev
 
 on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Image tag to roll back to (e.g., prod-abc1234)"
+        description: "Image tag to roll back to (e.g., dev-abc1234)"
         required: true
         type: string
       commit_sha:
@@ -17,14 +17,13 @@ on:
         type: string
 
 concurrency:
-  group: deploy-prod
+  group: deploy-dev
   cancel-in-progress: false
 
 jobs:
   rollback:
-    name: Rollback Production
-    runs-on: [self-hosted, vps-prod]
-    environment: production
+    name: Rollback Dev
+    runs-on: [self-hosted, vps-dev]
     permissions:
       contents: read
       packages: read
@@ -60,14 +59,14 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
-          POSTGRES_USER: ${{ secrets.PROD_POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
-          REDIS_PASSWORD: ${{ secrets.PROD_REDIS_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
+          POSTGRES_USER: ${{ secrets.DEV_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.DEV_REDIS_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.DEV_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DEV_SUPABASE_SERVICE_ROLE_KEY }}
           APP_GITHUB_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
           GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
-        run: ./scripts/deploy.sh prod ${{ inputs.image_tag }}
+        run: ./scripts/deploy.sh dev ${{ inputs.image_tag }}
 
   smoke-test:
     name: Smoke Test After Rollback
@@ -79,7 +78,7 @@ jobs:
 
       - name: Check health endpoint
         run: |
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_BACKEND_HEALTH_URL }}")
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.DEV_BACKEND_HEALTH_URL }}")
           if [ "$HTTP_STATUS" != "200" ]; then
             echo "Health check FAILED after rollback!"
             exit 1
@@ -88,7 +87,7 @@ jobs:
 
       - name: Check ready endpoint
         run: |
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_BACKEND_READY_URL }}")
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.DEV_BACKEND_READY_URL }}")
           if [ "$HTTP_STATUS" != "200" ]; then
             echo "Ready check FAILED after rollback!"
             exit 1
@@ -97,7 +96,7 @@ jobs:
 
       - name: Smoke test API endpoint
         run: |
-          API_BASE="${{ secrets.PROD_BACKEND_HEALTH_URL }}"
+          API_BASE="${{ secrets.DEV_BACKEND_HEALTH_URL }}"
           API_BASE="${API_BASE%/health}"
           HTTP_STATUS=$(curl -s -o /tmp/smoke-response.json -w "%{http_code}" "${API_BASE}/api/v1/issues?limit=1")
           if [ "$HTTP_STATUS" != "200" ]; then
@@ -115,7 +114,7 @@ jobs:
     uses: ./.github/workflows/notify.yml
     with:
       status: ${{ needs.smoke-test.result == 'success' && 'rollback' || 'failure' }}
-      environment: prod
+      environment: dev
       version: ${{ inputs.image_tag }}
       message: "Reason: ${{ inputs.reason }}"
     secrets:

@@ -113,10 +113,47 @@ mkdir -p /home/deploy/gitfable/logs
 mkdir -p /home/deploy/gitfable/backups
 chown -R deploy:deploy /home/deploy/gitfable
 
+# --- Install GitHub Actions runner ---
+RUNNER_VERSION="2.321.0"
+RUNNER_DIR="/home/deploy/actions-runner"
+
+if [ ! -f "$RUNNER_DIR/run.sh" ]; then
+    mkdir -p "$RUNNER_DIR"
+    cd "$RUNNER_DIR"
+    curl -o actions-runner.tar.gz -L "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
+    tar xzf actions-runner.tar.gz
+    rm actions-runner.tar.gz
+    chown -R deploy:deploy "$RUNNER_DIR"
+    echo "GitHub Actions runner extracted to $RUNNER_DIR"
+    echo "NOTE: You must register the runner manually as 'deploy' user:"
+    echo "  su - deploy"
+    echo "  cd $RUNNER_DIR"
+    echo "  ./config.sh --url https://github.com/YOUR_ORG/YOUR_REPO --token YOUR_TOKEN --labels self-hosted,vps-prod"
+    echo "  sudo ./svc.sh install"
+    echo "  sudo ./svc.sh start"
+else
+    echo "GitHub Actions runner already installed"
+fi
+
+# --- Install B2 CLI for offsite backups ---
+if ! command -v b2 &>/dev/null; then
+    apt install -y python3-pip
+    pip3 install b2 --break-system-packages
+    echo "B2 CLI installed"
+else
+    echo "B2 CLI already installed"
+fi
+
 echo ""
 echo "=== Provisioning complete ==="
 echo "Next steps:"
 echo "  1. Log out and SSH in as: ssh deploy@$(hostname -I | awk '{print $1}')"
-echo "  2. Copy docker-compose and env files to /home/deploy/gitfable/"
-echo "  3. Create secrets in /home/deploy/gitfable/docker/secrets/"
-echo "  4. Run: cd ~/gitfable && docker compose -f docker-compose.vps-prod.yml up -d"
+echo "  2. Register GitHub Actions runner:"
+echo "     cd ~/actions-runner"
+echo "     ./config.sh --url https://github.com/nishantg96/gitfable-app --token <TOKEN> --labels self-hosted,vps-<ENV>"
+echo "     sudo ./svc.sh install && sudo ./svc.sh start"
+echo "  3. Copy docker-compose and env files to /home/deploy/gitfable/"
+echo "  4. Create secrets in /home/deploy/gitfable/docker/secrets/"
+echo "  5. Configure B2 credentials for offsite backups (optional):"
+echo "     export B2_APPLICATION_KEY_ID=... B2_APPLICATION_KEY=... B2_BUCKET_NAME=..."
+echo "  6. Run: cd ~/gitfable && docker compose -f docker-compose.vps-<env>.yml up -d"

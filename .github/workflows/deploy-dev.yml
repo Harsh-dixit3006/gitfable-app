@@ -4,6 +4,10 @@ on:
   push:
     branches: [devel]
 
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
 env:
   BACKEND_IMAGE: ghcr.io/nishantg96/gitfable-backend
   FRONTEND_IMAGE: ghcr.io/nishantg96/gitfable-frontend
@@ -91,35 +95,26 @@ jobs:
 
   deploy:
     name: Deploy to Dev VPS
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, vps-dev]
     needs: build-and-push
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-
-      - name: Preflight Tailscale SSH auth (Dev)
-        run: |
-          tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "set -e; test -d /home/deploy; echo Tailscale SSH preflight passed"
-
-      - name: Sync infrastructure files to VPS over Tailscale
-        run: |
-          tar czf /tmp/dev-infra.tar.gz docker/docker-compose.vps-dev.yml docker/caddy/Caddyfile.dev backend/sql/migrations scripts/deploy.sh scripts/backup-db.sh
-          tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "mkdir -p /home/deploy/gitfable"
-          cat /tmp/dev-infra.tar.gz | tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "tar xzf - -C /home/deploy/gitfable"
-
-      - name: Deploy via Tailscale SSH
+      - name: Deploy
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
-        run: |
-          tailscale ssh deploy@${{ secrets.DEV_TAILSCALE_HOST }} "export GHCR_TOKEN='${GHCR_TOKEN}'; export GHCR_USERNAME='${GHCR_USERNAME}'; cd ~/gitfable; ./scripts/deploy.sh dev '${IMAGE_TAG}'"
+          POSTGRES_USER: ${{ secrets.DEV_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.DEV_REDIS_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.DEV_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DEV_SUPABASE_SERVICE_ROLE_KEY }}
+          APP_GITHUB_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
+          GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
+        run: ./scripts/deploy.sh dev ${{ needs.build-and-push.outputs.image_tag }}
 
   smoke-test:
     name: Smoke Test
@@ -146,3 +141,40 @@ jobs:
             exit 1
           fi
           echo "Ready check passed"
+
+      - name: Smoke test API endpoint
+        run: |
+          API_BASE="${{ secrets.DEV_BACKEND_HEALTH_URL }}"
+          API_BASE="${API_BASE%/health}"
+          HTTP_STATUS=$(curl -s -o /tmp/smoke-response.json -w "%{http_code}" "${API_BASE}/api/v1/issues?limit=1")
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "API smoke test failed with status: $HTTP_STATUS"
+            cat /tmp/smoke-response.json 2>/dev/null || true
+            exit 1
+          fi
+          jq -e 'has("data") and has("meta") and has("error")' /tmp/smoke-response.json
+          echo "API smoke test passed"
+
+  notify-success:
+    name: Notify Success
+    needs: [build-and-push, smoke-test]
+    if: success()
+    uses: ./.github/workflows/notify.yml
+    with:
+      status: success
+      environment: dev
+      version: ${{ needs.build-and-push.outputs.image_tag }}
+    secrets:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  notify-failure:
+    name: Notify Failure
+    needs: [build-and-push, deploy, smoke-test]
+    if: failure()
+    uses: ./.github/workflows/notify.yml
+    with:
+      status: failure
+      environment: dev
+      version: ${{ needs.build-and-push.outputs.image_tag || 'unknown' }}
+    secrets:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

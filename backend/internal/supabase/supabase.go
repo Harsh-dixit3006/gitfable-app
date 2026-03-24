@@ -2,6 +2,8 @@ package supabase
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -15,16 +17,30 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	gotrue "github.com/supabase-community/gotrue-go"
 	gotruetypes "github.com/supabase-community/gotrue-go/types"
-	sb "github.com/supabase-community/supabase-go"
 )
 
+// publicKey is a union type for RSA and ECDSA public keys.
+type publicKey struct {
+	rsa   *rsa.PublicKey
+	ecdsa *ecdsa.PublicKey
+}
+
+// CryptoKey returns the underlying crypto public key for JWT verification.
+func (pk *publicKey) CryptoKey() interface{} {
+	if pk.ecdsa != nil {
+		return pk.ecdsa
+	}
+	return pk.rsa
+}
+
 type Client struct {
-	client      *sb.Client
 	projectURL  string
+	auth        gotrue.Client
 	httpClient  *http.Client
 	jwksMu      sync.RWMutex
-	jwks        map[string]*rsa.PublicKey
+	jwks        map[string]*publicKey
 	jwksFetched time.Time
 }
 
@@ -34,16 +50,26 @@ type Config struct {
 }
 
 func NewClient(config Config) (*Client, error) {
-	client, err := sb.NewClient(config.ProjectURL, config.APIKey, nil)
-	if err != nil {
-		return nil, fmt.Errorf("init supabase client: %w", err)
+	if config.ProjectURL == "" {
+		return nil, fmt.Errorf("project URL is required")
+	}
+	if config.APIKey == "" {
+		return nil, fmt.Errorf("API key is required")
 	}
 
+	// Use gotrue-go directly with the service role key for admin operations.
+	// gotrue.New() expects a project reference, not a URL, so we use
+	// WithCustomGoTrueURL to set the full GoTrue endpoint.
+	gotrueURL := strings.TrimRight(config.ProjectURL, "/") + "/auth/v1"
+	authClient := gotrue.New("unused", config.APIKey).
+		WithCustomGoTrueURL(gotrueURL).
+		WithToken(config.APIKey)
+
 	return &Client{
-		client:     client,
 		projectURL: strings.TrimRight(config.ProjectURL, "/"),
+		auth:       authClient,
 		httpClient: &http.Client{Timeout: 5 * time.Second},
-		jwks:       make(map[string]*rsa.PublicKey),
+		jwks:       make(map[string]*publicKey),
 	}, nil
 }
 
@@ -75,12 +101,12 @@ func (c *Client) VerifyToken(ctx context.Context, tokenString string) (*TokenInf
 			return nil, fmt.Errorf("token missing kid header")
 		}
 
-		publicKey, keyErr := c.getJWKSKey(ctx, kid)
+		pk, keyErr := c.getJWKSKey(ctx, kid)
 		if keyErr != nil {
 			return nil, keyErr
 		}
 
-		return publicKey, nil
+		return pk.CryptoKey(), nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("verify token: %w", err)
@@ -128,9 +154,12 @@ type jwkKey struct {
 	ALG string `json:"alg"`
 	N   string `json:"n"`
 	E   string `json:"e"`
+	CRV string `json:"crv"`
+	X   string `json:"x"`
+	Y   string `json:"y"`
 }
 
-func (c *Client) getJWKSKey(ctx context.Context, kid string) (*rsa.PublicKey, error) {
+func (c *Client) getJWKSKey(ctx context.Context, kid string) (*publicKey, error) {
 	c.jwksMu.RLock()
 	if key, ok := c.jwks[kid]; ok && time.Since(c.jwksFetched) < 5*time.Minute {
 		c.jwksMu.RUnlock()
@@ -180,20 +209,37 @@ func (c *Client) refreshJWKS(ctx context.Context) error {
 		return fmt.Errorf("decode jwks: %w", err)
 	}
 
-	keys := make(map[string]*rsa.PublicKey)
+	keys := make(map[string]*publicKey)
 	for _, key := range doc.Keys {
-		if key.KTY != "RSA" || key.KID == "" || key.N == "" || key.E == "" {
+		if key.KID == "" {
 			continue
 		}
-		publicKey, err := jwkToRSAPublicKey(key.N, key.E)
-		if err != nil {
-			continue
+
+		switch key.KTY {
+		case "RSA":
+			if key.N == "" || key.E == "" {
+				continue
+			}
+			rsaKey, err := jwkToRSAPublicKey(key.N, key.E)
+			if err != nil {
+				continue
+			}
+			keys[key.KID] = &publicKey{rsa: rsaKey}
+
+		case "EC":
+			if key.X == "" || key.Y == "" || key.CRV == "" {
+				continue
+			}
+			ecKey, err := jwkToECPublicKey(key.CRV, key.X, key.Y)
+			if err != nil {
+				continue
+			}
+			keys[key.KID] = &publicKey{ecdsa: ecKey}
 		}
-		keys[key.KID] = publicKey
 	}
 
 	if len(keys) == 0 {
-		return fmt.Errorf("decode jwks: no RSA keys found")
+		return fmt.Errorf("decode jwks: no usable keys found")
 	}
 
 	c.jwks = keys
@@ -227,9 +273,38 @@ func jwkToRSAPublicKey(nBase64URL, eBase64URL string) (*rsa.PublicKey, error) {
 	return &rsa.PublicKey{N: modulus, E: exponent}, nil
 }
 
+func jwkToECPublicKey(crv, xBase64URL, yBase64URL string) (*ecdsa.PublicKey, error) {
+	var curve elliptic.Curve
+	switch crv {
+	case "P-256":
+		curve = elliptic.P256()
+	case "P-384":
+		curve = elliptic.P384()
+	case "P-521":
+		curve = elliptic.P521()
+	default:
+		return nil, fmt.Errorf("unsupported curve: %s", crv)
+	}
+
+	xBytes, err := base64.RawURLEncoding.DecodeString(xBase64URL)
+	if err != nil {
+		return nil, fmt.Errorf("decode x coordinate: %w", err)
+	}
+	yBytes, err := base64.RawURLEncoding.DecodeString(yBase64URL)
+	if err != nil {
+		return nil, fmt.Errorf("decode y coordinate: %w", err)
+	}
+
+	return &ecdsa.PublicKey{
+		Curve: curve,
+		X:     new(big.Int).SetBytes(xBytes),
+		Y:     new(big.Int).SetBytes(yBytes),
+	}, nil
+}
+
 func jwtv5Parse(tokenString, expectedIssuer string, keyfunc jwt.Keyfunc) (*jwt.Token, error) {
 	parser := jwt.NewParser(
-		jwt.WithValidMethods([]string{"RS256"}),
+		jwt.WithValidMethods([]string{"RS256", "ES256"}),
 		jwt.WithIssuer(expectedIssuer),
 		jwt.WithAudience("authenticated"),
 	)
@@ -252,7 +327,7 @@ func (c *Client) GetUser(ctx context.Context, uid string) (*UserInfo, error) {
 		return nil, fmt.Errorf("parse user id: %w", err)
 	}
 
-	userResp, err := c.client.Auth.AdminGetUser(gotruetypes.AdminGetUserRequest{UserID: parsedUID})
+	userResp, err := c.auth.AdminGetUser(gotruetypes.AdminGetUserRequest{UserID: parsedUID})
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
@@ -268,7 +343,6 @@ func (c *Client) GetUser(ctx context.Context, uid string) (*UserInfo, error) {
 		PhotoURL:    photoURL,
 	}
 
-	// Check if user has GitHub identity
 	for _, identity := range user.Identities {
 		if identity.Provider == "github" {
 			info.ProviderID = "github"

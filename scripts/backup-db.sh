@@ -9,6 +9,7 @@ CONTAINER_NAME="${CONTAINER_NAME:-gitfable-postgres-prod}"
 DB_NAME="${DB_NAME:-gitfable_prod}"
 DAILY_KEEP=${DAILY_KEEP:-7}
 WEEKLY_KEEP=${WEEKLY_KEEP:-4}
+ENV="${ENV:-prod}"
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DAY_OF_WEEK=$(date +%u)
@@ -38,5 +39,30 @@ echo "[$(date)] Rotated daily backups (keeping last $DAILY_KEEP)"
 # Rotate weekly backups (keep last N)
 ls -t "$BACKUP_DIR/weekly/"*.sql.gz 2>/dev/null | tail -n +$((WEEKLY_KEEP + 1)) | xargs -r rm
 echo "[$(date)] Rotated weekly backups (keeping last $WEEKLY_KEEP)"
+
+# Upload to Backblaze B2 (if configured)
+if command -v b2 &>/dev/null && [ -n "${B2_BUCKET_NAME:-}" ]; then
+    DUMP_FILENAME=$(basename "$DUMP_FILE")
+    echo "[$(date)] Uploading to B2: gitfable/${ENV}/daily/${DUMP_FILENAME}"
+    if b2 upload-file "$B2_BUCKET_NAME" "$DUMP_FILE" "gitfable/${ENV}/daily/${DUMP_FILENAME}"; then
+        echo "[$(date)] B2 daily upload complete"
+    else
+        echo "[$(date)] WARN: B2 daily upload failed (non-fatal)"
+    fi
+
+    # Upload weekly copy to B2
+    if [ "$DAY_OF_WEEK" -eq 7 ]; then
+        if b2 upload-file "$B2_BUCKET_NAME" "$DUMP_FILE" "gitfable/${ENV}/weekly/${DUMP_FILENAME}"; then
+            echo "[$(date)] B2 weekly upload complete"
+        else
+            echo "[$(date)] WARN: B2 weekly upload failed (non-fatal)"
+        fi
+    fi
+
+    # Log uploaded file size for free tier awareness (10GB limit)
+    echo "[$(date)] Uploaded backup size: $DUMP_SIZE"
+else
+    echo "[$(date)] B2 not configured, skipping offsite upload"
+fi
 
 echo "[$(date)] Backup complete"
