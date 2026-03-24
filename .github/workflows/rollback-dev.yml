@@ -25,6 +25,7 @@ jobs:
     name: Rollback Dev
     runs-on: [self-hosted, vps-dev]
     permissions:
+      contents: read
       packages: read
     steps:
       - uses: actions/checkout@v4
