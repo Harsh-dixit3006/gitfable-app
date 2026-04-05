@@ -5,7 +5,7 @@ Gamified web app that matches developers with open-source "good first issues" th
 ## 🚀 Production Features
 
 ### Authentication & Security
-- ✅ **Supabase Authentication** - Supports GitHub OAuth and JWT-based sessions
+- ✅ **GitHub OAuth** - Self-hosted authentication with self-issued JWTs
 - ✅ Rate limiting (Redis-backed with in-memory fallback)
 - ✅ Request validation and sanitization
 - ✅ Security headers (CSP, HSTS, X-Frame-Options)
@@ -39,7 +39,7 @@ Gamified web app that matches developers with open-source "good first issues" th
 | Backend  | Go (Chi router), sqlc, pgx (PostgreSQL driver)      |
 | Database | PostgreSQL 16                                       |
 | Cache    | Redis (optional, with in-memory fallback)           |
-| Auth     | Supabase Auth (GitHub OAuth + JWT)                  |
+| Auth     | GitHub OAuth (self-hosted JWT)                      |
 | Build    | Go modules, Yarn (Node.js)                          |
 
 ## Project Structure
@@ -58,7 +58,7 @@ gitfable-app/
 │   │   ├── middleware/       # Request ID, auth, rate limiting, security headers
 │   │   ├── database/         # sqlc-generated queries and models
 │   │   ├── config/           # Environment config loading
-│   │   ├── supabase/         # Supabase Auth wrapper
+│   │   ├── auth/             # GitHub OAuth and JWT handling
 │   │   ├── redis/            # Redis client with fallback
 │   │   ├── ctxutil/          # Context helpers
 │   │   └── seed/             # Mock data seeding for dev
@@ -71,8 +71,8 @@ gitfable-app/
 │   ├── src/
 │   │   ├── pages/            # Route pages (Landing, Discover, Dashboard, etc.)
 │   │   ├── components/       # UI components
-│   │   ├── contexts/         # Auth context (Supabase)
-│   │   └── lib/              # Utilities (api, supabase, theme)
+│   │   ├── contexts/         # Auth context (GitHub OAuth)
+│   │   └── lib/              # Utilities (api, auth, theme)
 │   ├── public/
 │   └── package.json
 ├── docker/                   # Docker configurations
@@ -90,7 +90,7 @@ The easiest way to run the entire application:
 ```bash
 # 1. Setup environment
 make env
-# Edit docker/.env with your Supabase credentials
+# Edit docker/.env with your GitHub OAuth credentials
 
 # 2. Start everything with Docker
 make docker-up
@@ -125,7 +125,7 @@ See `docs/docker-quickstart.md` for detailed Docker instructions.
 - **Node.js 20+ + Yarn** - Frontend tooling
 - **PostgreSQL 16** - Database
 - **Redis** - Rate limiting (optional, falls back to in-memory)
-- **Supabase Project** - For authentication
+- **GitHub OAuth App** - For authentication
 - **sqlc** - SQL code generation
   ```bash
   go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
@@ -135,14 +135,13 @@ See `docs/docker-quickstart.md` for detailed Docker instructions.
   go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
   ```
 
-### 1. Setup Supabase Auth
+### 1. Setup GitHub OAuth
 
-1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
-2. Create a new project
-3. Enable **Authentication** → **Providers** → **GitHub**
-4. Create/Configure GitHub OAuth app callback URL from Supabase settings
-5. Copy `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and anon key
-6. See `docs/supabase-auth-setup.md` for detailed instructions
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Create a new OAuth App
+3. Set the callback URL to your backend's OAuth callback endpoint
+4. Copy the `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`
+5. Configure these in `docker/.env`
 
 ### 2. Setup Backend
 
@@ -155,8 +154,8 @@ go mod download
 cp docker/.env.example docker/.env
 # Edit docker/.env and set:
 # - DATABASE_URL
-# - SUPABASE_URL
-# - SUPABASE_SERVICE_ROLE_KEY
+# - GITHUB_CLIENT_ID
+# - GITHUB_CLIENT_SECRET
 # - GITHUB_TOKEN (for issue sync)
 
 # 3. Run migrations
@@ -177,7 +176,7 @@ cd frontend && yarn install
 
 # 2. Create environment file
 cp docker/.env.example docker/.env
-# Edit docker/.env and set REACT_APP_BACKEND_URL
+# Edit docker/.env and set REACT_APP_BACKEND_URL and REACT_APP_GITHUB_CLIENT_ID
 
 # 3. Start frontend
 make dev-frontend  # Runs on :3000
@@ -187,13 +186,13 @@ make dev-frontend  # Runs on :3000
 
 ## Authentication Flow
 
-GitFable uses **Supabase Authentication**:
+GitFable uses **GitHub OAuth with self-issued JWTs**:
 
-1. **Frontend** authenticates user via Supabase (GitHub OAuth)
-2. **Frontend** receives Supabase access token (JWT)
-3. **Frontend** sends token in `Authorization: Bearer <token>` header
-4. **Backend** verifies token with Supabase GoTrue API
-5. **Backend** looks up user in PostgreSQL by `auth_id`
+1. **Frontend** redirects user to GitHub for OAuth authorization
+2. **Backend** exchanges the authorization code for a GitHub access token
+3. **Backend** fetches the user's GitHub profile and issues a self-signed JWT
+4. **Frontend** stores the JWT and sends it in `Authorization: Bearer <token>` header
+5. **Backend** verifies the self-issued JWT and looks up user in PostgreSQL by `auth_id`
 6. **User** is authenticated and can make API calls
 
 ### API Endpoints
@@ -205,7 +204,7 @@ All API endpoints are prefixed with `/api/v1`.
 - `GET /ready` - Readiness check (includes DB connectivity)
 
 #### Authentication (`/api/v1/auth`)
-- `POST /auth/register` - Register new user (after Supabase auth)
+- `POST /auth/register` - Register new user (after GitHub OAuth)
 - `GET /auth/me` - Get current user profile
 - `PUT /auth/me` - Update user profile (display_name, avatar_url)
 
@@ -292,10 +291,10 @@ make test-docker
 
 ### Required
 - `DATABASE_URL` - PostgreSQL connection string (e.g., `postgres://user:pass@localhost:5432/gitfable`)
-- `SUPABASE_URL` - Supabase project URL (e.g. `https://<project-ref>.supabase.co`)
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (backend only)
-- `REACT_APP_SUPABASE_URL` - Supabase project URL for frontend
-- `REACT_APP_SUPABASE_ANON_KEY` - Supabase anon key for frontend
+- `GITHUB_CLIENT_ID` - GitHub OAuth App client ID
+- `GITHUB_CLIENT_SECRET` - GitHub OAuth App client secret
+- `JWT_SECRET` - Secret key for signing self-issued JWTs
+- `REACT_APP_GITHUB_CLIENT_ID` - GitHub OAuth App client ID for frontend
 - `GITHUB_TOKEN` - GitHub Personal Access Token for issue sync
 
 ### Security
@@ -353,8 +352,8 @@ WHERE LOWER(username) = LOWER('nishantg96');
 
 Before deploying to production:
 
-- [ ] Set up Supabase project and GitHub OAuth provider
-- [ ] Configure Supabase service role + anon keys
+- [ ] Set up GitHub OAuth App and configure client ID/secret
+- [ ] Configure JWT secret for token signing
 - [ ] Configure PostgreSQL with proper auth and SSL
 - [ ] Set strong CORS origins
 - [ ] Set up Redis for rate limiting
@@ -381,10 +380,10 @@ docker compose -f docker/docker-compose.prod.yml up -d
 - Other endpoints: 100 requests/minute
 
 ### Authentication
-- Supabase handles OAuth and token lifecycle
-- Backend verifies Supabase access tokens
-- Tokens are auto-refreshed by Supabase client SDK
-- User data stored in PostgreSQL linked to Supabase `auth_id`
+- GitHub OAuth handles user identity verification
+- Backend issues and verifies self-signed JWTs
+- Frontend handles token storage and refresh
+- User data stored in PostgreSQL linked to GitHub `auth_id`
 
 ### Database
 - sqlc generates type-safe queries (prevents SQL injection)
@@ -394,12 +393,12 @@ docker compose -f docker/docker-compose.prod.yml up -d
 ## Documentation
 
 - `docs/docker-quickstart.md` - Docker setup and deployment guide
-- `docs/supabase-auth-setup.md` - Supabase authentication setup guide
+- `docs/supabase-auth-setup.md` - Authentication setup guide (legacy, migrating to self-hosted GitHub OAuth)
 - `docs/TESTING.md` - Comprehensive testing guide (unit, integration, E2E)
 - `docs/archive/P2-BACKLOG.md` - Future feature roadmap
 - `docs/design_guidelines.json` - UI/UX design system
-- `docs/ops/DEPLOYMENT_RUNBOOK.md` - Dev/Prod deployment runbook (Supabase + Railway + Cloudflare)
-- `docs/ops/SECRETS_SETUP.md` - Click-by-click setup for GitHub, Railway, Cloudflare, and Supabase secrets
+- `docs/ops/DEPLOYMENT_RUNBOOK.md` - Dev/Prod deployment runbook (Railway + Cloudflare)
+- `docs/ops/SECRETS_SETUP.md` - Click-by-click setup for GitHub, Railway, and Cloudflare secrets
 - `docs/archive/` - Historical documents and implementation plans
 
 ## Contributing

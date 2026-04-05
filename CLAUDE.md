@@ -51,11 +51,11 @@ make build-sync           # build sync CLI binary
 
 ## Architecture
 
-**Backend:** Go (Chi router) with sqlc-generated type-safe queries over pgx/PostgreSQL. Auth via Supabase (GoTrue) verification. Redis for rate limiting with in-memory fallback. Entry point: `backend/cmd/server/main.go`.
+**Backend:** Go (Chi router) with sqlc-generated type-safe queries over pgx/PostgreSQL. Auth via self-issued JWT (HS256) with GitHub OAuth. Redis for rate limiting with in-memory fallback. Entry point: `backend/cmd/server/main.go`.
 
-**Frontend:** React 19 (CRA + CRACO) with Tailwind CSS, Shadcn/Radix UI components, Framer Motion. Uses `@` path alias mapped to `src/`. Auth state managed in `AuthContext` which wraps Supabase client SDK. API calls use axios with Bearer token from Supabase.
+**Frontend:** React 19 (CRA + CRACO) with Tailwind CSS, Shadcn/Radix UI components, Framer Motion. Uses `@` path alias mapped to `src/`. Auth state managed in `AuthContext` with localStorage JWT tokens. API calls use axios with Bearer token.
 
-**Auth flow:** Frontend authenticates via Supabase (GitHub OAuth) -> gets access token -> sends as `Authorization: Bearer <token>` -> backend verifies with Supabase GoTrue -> looks up user by `auth_id` in PostgreSQL.
+**Auth flow:** Frontend redirects to backend `/api/v1/oauth/github` -> GitHub OAuth callback -> backend issues JWT -> frontend stores in localStorage -> sends as `Authorization: Bearer <token>` -> backend verifies JWT (HS256) -> looks up user by `auth_id` (GitHub user ID) in PostgreSQL.
 
 **API:** All endpoints under `/api/v1/`. Standard JSON envelope: `{"data": ..., "meta": {...}, "error": null}`. Cursor-based pagination on all list endpoints. Machine-readable error codes.
 
@@ -67,7 +67,7 @@ make build-sync           # build sync CLI binary
 - `internal/middleware/` - Request ID, security headers, rate limiting, auth, logging, request size
 - `internal/database/` - sqlc-generated query functions and model structs
 - `internal/config/` - Env var loading and validation
-- `internal/supabase/` - Supabase auth wrapper
+- `internal/auth/` - JWT manager and GitHub OAuth client
 - `internal/redis/` - Redis client with nil fallback
 - `internal/ctxutil/` - Shared context helpers (user from context)
 - `internal/seed/` - Mock data seeding (runs in dev on startup)
@@ -78,8 +78,7 @@ make build-sync           # build sync CLI binary
 ### Frontend structure
 - `src/pages/` - Route pages: Landing, Discover, Dashboard, Leaderboard, History, Profile
 - `src/components/ui/` - Shadcn UI component library
-- `src/contexts/AuthContext.js` - Supabase auth state, token management, API helper
-- `src/lib/supabase.js` - Supabase client SDK initialization
+- `src/contexts/AuthContext.js` - GitHub OAuth state, JWT token management, API helper
 
 ### Key patterns
 - **sqlc workflow:** Write SQL in `sql/queries/*.sql` -> run `sqlc generate` -> type-safe Go code in `internal/database/`
@@ -101,6 +100,6 @@ All environment config lives in `docker/.env` (single source of truth). Run `mak
 
 **Prod:** Uses `docker/.env.prod` (not committed). Sensitive values use Docker secrets in `docker/secrets/`.
 
-**Required secrets** (fill in `docker/.env` after `make env`): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_ANON_KEY`, `GITHUB_TOKEN`.
+**Required secrets** (fill in `docker/.env` after `make env`): `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `JWT_SECRET`, `GITHUB_OAUTH_CALLBACK_URL`, `GITHUB_TOKEN`.
 
 **Note:** The Go backend uses `os.Getenv` only — it does not auto-load `.env` files. The Makefile handles sourcing via `set -a`.

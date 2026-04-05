@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BookOpen, Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User, Loader2, Settings } from 'lucide-react';
+import { BookOpen, Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { colors, accent } from '@/lib/theme';
 
@@ -30,31 +30,18 @@ export default function Navbar() {
     authUser,
   } = useAuth();
   const [username, setUsername] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [registerLoading, setRegisterLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleGithubLogin = async () => {
-    setLoginLoading(true);
-    try {
-      const result = await signInWithGithub();
-      if (!result.success) {
-        if (result.error !== 'Sign in cancelled') {
-          toast.error(result.error);
-        }
-      } else if (!result.needsRegistration) {
-        toast.success('Welcome to GitFable!');
-        navigate('/discover');
-      }
-    } finally {
-      setLoginLoading(false);
-    }
+  const handleGithubLogin = () => {
+    signInWithGithub();
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!username.trim()) return;
-    setLoginLoading(true);
+    setRegisterLoading(true);
     try {
       const result = await registerUser(username.trim());
       if (result.success) {
@@ -66,7 +53,7 @@ export default function Navbar() {
         toast.error(result.error);
       }
     } finally {
-      setLoginLoading(false);
+      setRegisterLoading(false);
     }
   };
 
@@ -179,16 +166,12 @@ export default function Navbar() {
               <>
                 <button
                   onClick={handleGithubLogin}
-                  disabled={loginLoading}
+                  disabled={registerLoading}
                   className="w-full py-3.5 px-4 rounded-lg bg-white text-zinc-950 font-medium flex items-center justify-center gap-3 hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   data-testid="github-signin-button"
                 >
-                  {loginLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Github className="w-5 h-5" />
-                  )}
-                  {loginLoading ? 'Signing in...' : 'Continue with GitHub'}
+                  <Github className="w-5 h-5" />
+                  Continue with GitHub
                 </button>
                 
                 <div className="relative">
@@ -208,9 +191,9 @@ export default function Navbar() {
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="text-center mb-4">
                   <Avatar className={`w-16 h-16 mx-auto border-2 ${accent.borderBright}`}>
-                    <AvatarImage src={authUser?.user_metadata?.avatar_url} />
+                    <AvatarImage src={authUser?.avatar_url} />
                     <AvatarFallback className="bg-zinc-900 text-xl">
-                      {authUser?.user_metadata?.full_name?.[0]?.toUpperCase() || '?'}
+                      {authUser?.name?.[0]?.toUpperCase() || authUser?.login?.[0]?.toUpperCase() || '?'}
                     </AvatarFallback>
                   </Avatar>
                   <p className="mt-2 text-sm text-zinc-300">{authUser?.email}</p>

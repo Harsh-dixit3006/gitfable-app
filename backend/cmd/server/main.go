@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/nishantg96/gitfable/internal/auth"
 	"github.com/nishantg96/gitfable/internal/config"
 	"github.com/nishantg96/gitfable/internal/ctxutil"
 	"github.com/nishantg96/gitfable/internal/database"
@@ -22,7 +22,6 @@ import (
 	goredis "github.com/nishantg96/gitfable/internal/redis"
 	"github.com/nishantg96/gitfable/internal/seed"
 	"github.com/nishantg96/gitfable/internal/service"
-	"github.com/nishantg96/gitfable/internal/supabase"
 	isync "github.com/nishantg96/gitfable/internal/sync"
 
 	_ "github.com/nishantg96/gitfable/docs"
@@ -71,20 +70,14 @@ func main() {
 	// 5. Create sqlc Queries from pool.
 	queries := database.New(pool)
 
-	// 6. Initialize Supabase client.
-	if cfg.SupabaseURL == "" || strings.TrimSpace(cfg.SupabaseServiceRoleKey) == "" {
-		slog.Error("missing supabase configuration", "required", "SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY")
-		os.Exit(1)
-	}
-	supabaseClient, err := supabase.NewClient(supabase.Config{
-		ProjectURL: cfg.SupabaseURL,
-		APIKey:     cfg.SupabaseServiceRoleKey,
-	})
+	// 6. Initialize auth (JWT + GitHub OAuth).
+	jwtManager, err := auth.NewJWTManager(cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	if err != nil {
-		slog.Error("failed to initialize supabase", "error", err)
+		slog.Error("failed to initialize JWT manager", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("supabase initialized")
+	githubOAuth := auth.NewGitHubOAuth(cfg.GitHubOAuthClientID, cfg.GitHubOAuthClientSecret, cfg.GitHubOAuthCallbackURL)
+	slog.Info("auth initialized (GitHub OAuth + JWT)")
 
 	// 7. Initialize Redis client (can be nil).
 	redisClient := goredis.NewClient(ctx, cfg.RedisURL)
@@ -119,7 +112,7 @@ func main() {
 	}
 
 	// 10. Create middleware.
-	authMiddleware := mw.NewAuthMiddleware(supabaseClient, queries)
+	authMiddleware := mw.NewAuthMiddleware(jwtManager, queries)
 	rateLimiter := mw.NewRateLimiter(redisClient)
 	defer rateLimiter.Close()
 
@@ -129,9 +122,16 @@ func main() {
 		Redis: redisClient,
 	}
 
+	oauthHandler := &handler.OAuthHandler{
+		JWT:         jwtManager,
+		GitHub:      githubOAuth,
+		Queries:     queries,
+		FrontendURL: cfg.FrontendURL,
+	}
+
 	authHandler := &handler.AuthHandler{
 		Queries:               queries,
-		SB:                    supabaseClient,
+		JWT:                   jwtManager,
 		RequireAuth:           authMiddleware.RequireAuth,
 		UserFromContext:       ctxutil.UserFromContext,
 		DefaultDailyDrawLimit: cfg.DefaultDailyDrawLimit,
@@ -195,6 +195,7 @@ func main() {
 
 	// API v1.
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Mount("/oauth", oauthHandler.Routes())
 		r.Mount("/auth", authHandler.Routes())
 		r.Mount("/draws", drawHandler.Routes())
 		r.Mount("/users", usersHandler.Routes())

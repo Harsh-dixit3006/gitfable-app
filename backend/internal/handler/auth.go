@@ -14,23 +14,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/nishantg96/gitfable/internal/auth"
 	"github.com/nishantg96/gitfable/internal/database"
-	"github.com/nishantg96/gitfable/internal/supabase"
 )
 
 var usernameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 var consecutiveHyphens = regexp.MustCompile(`--`)
 
-type supabaseAuthClient interface {
-	VerifyToken(ctx context.Context, jwt string) (*supabase.TokenInfo, error)
-	GetUser(ctx context.Context, uid string) (*supabase.UserInfo, error)
-}
-
 type AuthHandler struct {
 	Queries               *database.Queries
-	SB                    supabaseAuthClient
+	JWT                   *auth.JWTManager
 	RequireAuth           func(http.Handler) http.Handler
-	UserFromContext       func(context.Context) *database.User
+	UserFromContext        func(context.Context) *database.User
 	DefaultDailyDrawLimit int
 }
 
@@ -46,7 +41,16 @@ func (h *AuthHandler) Routes() chi.Router {
 }
 
 type registerRequest struct {
-	Username string `json:"username"`
+	Username    string `json:"username"`
+	GithubLogin string `json:"github_login"`
+	DisplayName string `json:"display_name"`
+	AvatarURL   string `json:"avatar_url"`
+}
+
+type registerResponse struct {
+	User         userResponse `json:"user"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
 }
 
 type updateMeRequest struct {
@@ -139,6 +143,7 @@ func validateUsername(username string) (string, string) {
 	return username, ""
 }
 
+// Register creates a new user from a registration token (issued during OAuth callback).
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -152,7 +157,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract token from Authorization header
+	// Extract registration token from Authorization header
 	bearerToken := r.Header.Get("Authorization")
 	if !strings.HasPrefix(bearerToken, "Bearer ") {
 		Unauthorized(w)
@@ -160,17 +165,22 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	bearerToken = strings.TrimPrefix(bearerToken, "Bearer ")
 
-	ctx := r.Context()
-
-	// Verify Supabase token
-	tokenInfo, err := h.SB.VerifyToken(ctx, bearerToken)
+	// Verify registration token
+	claims, err := h.JWT.Verify(bearerToken)
 	if err != nil {
 		Unauthorized(w)
 		return
 	}
+	if claims.TokenType != auth.TokenTypeRegistration {
+		BadRequest(w, ErrCodeBadRequest, "Invalid token type for registration")
+		return
+	}
+
+	ctx := r.Context()
+	githubID := claims.Sub
 
 	// Check if user already exists
-	_, err = h.Queries.GetUserByAuthID(ctx, tokenInfo.UID)
+	_, err = h.Queries.GetUserByAuthID(ctx, githubID)
 	if err == nil {
 		BadRequest(w, ErrCodeConflict, "User already registered")
 		return
@@ -191,35 +201,24 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get GitHub provider info from Supabase
-	sbUser, err := h.SB.GetUser(ctx, tokenInfo.UID)
-	if err != nil {
-		InternalError(w)
-		return
-	}
-
-	var githubID pgtype.Text
-	var githubUsername pgtype.Text
-	if sbUser.ProviderID == "github" {
-		githubID = pgtype.Text{String: sbUser.GithubID, Valid: true}
-		githubUsername = pgtype.Text{String: username, Valid: true}
-	}
-
-	displayName := sbUser.DisplayName
+	displayName := req.DisplayName
 	if displayName == "" {
 		displayName = username
 	}
 
-	avatarURL := sbUser.PhotoURL
+	githubLogin := req.GithubLogin
+	if githubLogin == "" {
+		githubLogin = username
+	}
 
 	user, err := h.Queries.CreateUserWithAuthID(ctx, database.CreateUserWithAuthIDParams{
-		AuthID:         tokenInfo.UID,
+		AuthID:         githubID,
 		Username:       username,
-		Email:          tokenInfo.Email,
+		Email:          claims.Email,
 		DisplayName:    displayName,
-		AvatarUrl:      avatarURL,
-		GithubID:       githubID,
-		GithubUsername: githubUsername,
+		AvatarUrl:      req.AvatarURL,
+		GithubID:       pgtype.Text{String: githubID, Valid: true},
+		GithubUsername: pgtype.Text{String: githubLogin, Valid: true},
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -235,7 +234,23 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Created(w, userToResponse(user, h.DefaultDailyDrawLimit))
+	// Issue real tokens for the newly registered user
+	accessToken, err := h.JWT.SignAccessToken(githubID, user.Email)
+	if err != nil {
+		InternalError(w)
+		return
+	}
+	refreshToken, err := h.JWT.SignRefreshToken(githubID)
+	if err != nil {
+		InternalError(w)
+		return
+	}
+
+	Created(w, registerResponse{
+		User:         userToResponse(user, h.DefaultDailyDrawLimit),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	})
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {

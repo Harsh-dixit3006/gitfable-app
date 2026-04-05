@@ -1,133 +1,133 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 
 const AuthContext = createContext(null);
 
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [authUser, setAuthUser] = useState(null);
+  const [authUser, setAuthUser] = useState(null); // GitHub info for registration form
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const inFlightMeRequestRef = useRef(false);
+  const registrationTokenRef = useRef(null);
 
-  // Listen to Supabase auth + token refresh
+  // On mount, check for existing tokens
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        setAuthUser(session.user);
-
-        // Set token once from auth event to avoid concurrent session-lock reads.
-        api.defaults.headers.common.Authorization = `Bearer ${session.access_token}`;
-
-        if (inFlightMeRequestRef.current) {
-          return;
-        }
-        inFlightMeRequestRef.current = true;
-
-        // Try to get user profile from backend
-        try {
-          const res = await api.get('/auth/me');
+    const accessToken = localStorage.getItem('access_token');
+    if (accessToken) {
+      api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+      api.get('/auth/me')
+        .then((res) => {
           setUser(res._data);
-        } catch (err) {
-          if (err.response?.status === 404 || err.response?.status === 401) {
-            // User authenticated with Supabase but not registered in our DB
-            setIsRegistering(true);
-            setShowLogin(true);
+        })
+        .catch(async (err) => {
+          if (err.response?.status === 401) {
+            // Try refresh
+            const refreshed = await tryRefreshToken();
+            if (refreshed) {
+              try {
+                const res = await api.get('/auth/me');
+                setUser(res._data);
+              } catch {
+                clearTokens();
+              }
+            } else {
+              clearTokens();
+            }
           } else {
-            console.error('Auth error:', err);
-            setUser(null);
+            clearTokens();
           }
-        }
-        finally {
-          inFlightMeRequestRef.current = false;
-        }
-      } else {
-        setAuthUser(null);
-        setUser(null);
-        delete api.defaults.headers.common.Authorization;
-      }
+        })
+        .finally(() => setLoading(false));
+    } else {
       setLoading(false);
-    });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => subscription.unsubscribe();
+  // Sign in with GitHub — redirect to backend OAuth endpoint
+  const signInWithGithub = useCallback(() => {
+    window.location.href = `${API_URL}/api/v1/oauth/github`;
   }, []);
 
-  // Sign in with GitHub
-  const signInWithGithub = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({ provider: 'github' });
-      if (error) {
-        throw error;
-      }
+  // Handle OAuth callback data (called from AuthCallback page)
+  const handleOAuthCallback = useCallback((data) => {
+    if (data.needsRegistration) {
+      registrationTokenRef.current = data.registrationToken;
+      setAuthUser({
+        login: data.githubLogin,
+        name: data.githubName,
+        avatar_url: data.githubAvatar,
+        email: data.email,
+      });
+      setIsRegistering(true);
+      setShowLogin(true);
+    } else {
+      localStorage.setItem('access_token', data.accessToken);
+      localStorage.setItem('refresh_token', data.refreshToken);
+      api.defaults.headers.common.Authorization = `Bearer ${data.accessToken}`;
 
-      // Try to get existing user profile
-      let needsRegistration = false;
-      try {
-        const res = await api.get('/auth/me');
-        setUser(res._data);
-        setShowLogin(false);
-      } catch (err) {
-        if (err.response?.status === 404 || err.response?.status === 401) {
-          // New user - need to register
-          needsRegistration = true;
-          setIsRegistering(true);
-        } else {
-          throw err;
-        }
-      }
-      return { success: true, needsRegistration };
-    } catch (err) {
-      console.error('GitHub sign in error:', err);
-
-      const errorCode = err?.code || err?.error_code;
-      const errorMessage = err?.message?.toLowerCase?.() || '';
-      const isCancelled =
-        errorCode === 'oauth_provider_cancelled' ||
-        errorCode === 'access_denied' ||
-        errorMessage.includes('cancel') ||
-        errorMessage.includes('closed') ||
-        errorMessage.includes('denied');
-
-      return {
-        success: false,
-        error: isCancelled ? 'Sign in cancelled' : (err?.message || 'GitHub sign in failed')
-      };
+      // Fetch user profile
+      api.get('/auth/me')
+        .then((res) => {
+          setUser(res._data);
+        })
+        .catch(() => {
+          clearTokens();
+        });
     }
-  };
+  }, []);
 
-  // Register new user after Supabase auth
+  // Register new user after OAuth
   const registerUser = async (username) => {
-    if (!authUser) {
+    const token = registrationTokenRef.current;
+    if (!token) {
       return { success: false, error: 'Not authenticated' };
     }
 
     try {
       const res = await api.post('/auth/register', {
-        username: username,
+        username,
+        github_login: authUser?.login || '',
+        display_name: authUser?.name || '',
+        avatar_url: authUser?.avatar_url || '',
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      setUser(res._data);
+      const { user: newUser, access_token, refresh_token } = res._data;
+
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+
+      setUser(newUser);
       setIsRegistering(false);
       setShowLogin(false);
-      return { success: true, user: res._data };
+      registrationTokenRef.current = null;
+      setAuthUser(null);
+
+      return { success: true, user: newUser };
     } catch (err) {
       return {
         success: false,
-        error: err._message || 'Registration failed'
+        error: err._message || 'Registration failed',
       };
     }
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = useCallback(() => {
+    clearTokens();
     setUser(null);
     setAuthUser(null);
-  };
+    setIsRegistering(false);
+    registrationTokenRef.current = null;
+  }, []);
 
   const refreshUser = async () => {
-    if (!authUser) return;
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) return;
     try {
       const res = await api.get('/auth/me');
       setUser(res._data);
@@ -141,6 +141,7 @@ export function AuthProvider({ children }) {
       user,
       loading,
       signInWithGithub,
+      handleOAuthCallback,
       registerUser,
       logout,
       showLogin,
@@ -156,3 +157,88 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
+// --- Token helpers ---
+
+function clearTokens() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  delete api.defaults.headers.common.Authorization;
+}
+
+async function tryRefreshToken() {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return false;
+
+  try {
+    const res = await api.post('/oauth/refresh', { refresh_token: refreshToken });
+    const { access_token, refresh_token: newRefresh } = res._data;
+    localStorage.setItem('access_token', access_token);
+    localStorage.setItem('refresh_token', newRefresh);
+    api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+    return true;
+  } catch {
+    clearTokens();
+    return false;
+  }
+}
+
+// --- Axios 401 interceptor for automatic token refresh ---
+
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(undefined, async (error) => {
+  const originalRequest = error.config;
+
+  // Only intercept 401s, not on refresh or registration endpoints
+  if (
+    error.response?.status !== 401 ||
+    originalRequest._retry ||
+    originalRequest.url?.includes('/oauth/refresh') ||
+    originalRequest.url?.includes('/auth/register')
+  ) {
+    return Promise.reject(error);
+  }
+
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    }).then((token) => {
+      originalRequest.headers.Authorization = `Bearer ${token}`;
+      return api(originalRequest);
+    });
+  }
+
+  originalRequest._retry = true;
+  isRefreshing = true;
+
+  try {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      const newToken = localStorage.getItem('access_token');
+      processQueue(null, newToken);
+      originalRequest.headers.Authorization = `Bearer ${newToken}`;
+      return api(originalRequest);
+    } else {
+      processQueue(new Error('Refresh failed'));
+      return Promise.reject(error);
+    }
+  } catch (refreshError) {
+    processQueue(refreshError);
+    return Promise.reject(refreshError);
+  } finally {
+    isRefreshing = false;
+  }
+});

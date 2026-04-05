@@ -209,7 +209,7 @@ export default function Settings() {
                 <Mail className="w-4 h-4" />
                 Email
                 <span className="text-xs text-zinc-600 bg-zinc-800 px-2 py-0.5 rounded">
-                  Managed by Supabase Auth
+                  Managed by GitHub
                 </span>
               </label>
               <Input

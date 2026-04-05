@@ -1,0 +1,3 @@
+-- Down migration is a no-op.
+-- The original Supabase UIDs are not stored elsewhere and cannot be restored.
+-- Users will need to re-authenticate after any rollback.

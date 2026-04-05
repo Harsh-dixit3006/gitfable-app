@@ -92,8 +92,6 @@ jobs:
           push: true
           build-args: |
             REACT_APP_BACKEND_URL=${{ secrets.PROD_REACT_APP_BACKEND_URL }}
-            REACT_APP_SUPABASE_URL=${{ secrets.PROD_REACT_APP_SUPABASE_URL }}
-            REACT_APP_SUPABASE_ANON_KEY=${{ secrets.PROD_REACT_APP_SUPABASE_ANON_KEY }}
           tags: |
             ${{ env.FRONTEND_IMAGE }}:${{ env.TAG }}
             ${{ env.FRONTEND_IMAGE }}:${{ env.SEMVER }}
@@ -181,8 +179,9 @@ jobs:
           POSTGRES_USER: ${{ secrets.PROD_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
           REDIS_PASSWORD: ${{ secrets.PROD_REDIS_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.PROD_GITHUB_OAUTH_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.PROD_GITHUB_OAUTH_CLIENT_SECRET }}
+          JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
           APP_GITHUB_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
           GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
         run: ./scripts/deploy.sh prod ${{ needs.build-and-push.outputs.image_tag }}
