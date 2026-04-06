@@ -11,6 +11,7 @@ import History from "@/pages/History";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
+import RequireAuth from "@/components/RequireAuth";
 
 
 function App() {
@@ -24,10 +25,10 @@ function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/discover" element={<Discover />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/history" element={<History />} />
+            <Route path="/discover" element={<RequireAuth><Discover /></RequireAuth>} />
+            <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+            <Route path="/leaderboard" element={<RequireAuth><Leaderboard /></RequireAuth>} />
+            <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
              <Route path="/u/:username" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>

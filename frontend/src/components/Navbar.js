@@ -66,7 +66,7 @@ export default function Navbar() {
             <span className="font-serif text-lg font-bold tracking-tight text-zinc-100">GitFable</span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-0.5">
+          <div className={`hidden ${user ? 'md:flex' : ''} items-center gap-0.5`}>
             {navLinks.map(({ path, label, icon: Icon }) => (
               <Link
                 key={path}
