@@ -1,6 +1,12 @@
-# GitFable
+<p align="center">
+  <img src="assets/gitfable-logo.png" alt="GitFable" width="200" />
+</p>
 
-Gamified web app that matches developers with open-source "good first issues" through a card-draw mechanic. Draw issues, bookmark them, submit PRs, and earn XP, badges, and leaderboard rankings.
+<h1 align="center">GitFable</h1>
+
+<p align="center">
+  Gamified web app that matches developers with open-source "good first issues" through a card-draw mechanic. Draw issues, bookmark them, submit PRs, and earn XP, badges, and leaderboard rankings.
+</p>
 
 ## 🚀 Production Features
 
