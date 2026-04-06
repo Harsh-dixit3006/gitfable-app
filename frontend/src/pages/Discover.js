@@ -574,7 +574,28 @@ export default function Discover() {
                 issue={drawnIssue}
                 onDraw={handleDraw}
                 onBookmark={handleBookmark}
-                onRedraw={() => { setDrawState('idle'); setDrawnIssue(null); setCurrentDrawId(null); setXpAwarded(null); }}
+                onRedraw={() => {
+                  const dismissedIssue = drawnIssue;
+                  const dismissedDrawId = currentDrawId;
+                  setDrawState('idle'); setDrawnIssue(null); setCurrentDrawId(null); setXpAwarded(null);
+                  if (dismissedIssue && dismissedDrawId) {
+                    toast('Issue dismissed', {
+                      description: dismissedIssue.title?.slice(0, 60) + (dismissedIssue.title?.length > 60 ? '...' : ''),
+                      action: {
+                        label: 'Bookmark',
+                        onClick: async () => {
+                          try {
+                            await api.put(`/draws/${dismissedDrawId}/status`, { status: 'bookmarked' });
+                            toast.success('Issue bookmarked! You have 7 days.');
+                            await refreshUser();
+                            await loadActiveBookmarks();
+                          } catch (err) { toast.error(err._message || 'Bookmark failed'); }
+                        },
+                      },
+                      duration: 8000,
+                    });
+                  }
+                }}
                 xpAwarded={xpAwarded || (drawnIssue ? (RARITY[drawnIssue.rarity || 'common']?.drawXP || 5) : 0)}
                 drawSource={drawnIssue?.draw_source || 'draw'}
                 redrawsRemaining={redrawsRemaining}
