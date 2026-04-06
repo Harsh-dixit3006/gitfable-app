@@ -163,9 +163,6 @@ func main() {
 		pool,
 		queries,
 		cfg.GitHubWebhookSecret,
-		xpService,
-		badgeService,
-		streakService,
 	)
 
 	// 12. Build Chi router.

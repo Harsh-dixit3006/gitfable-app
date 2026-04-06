@@ -33,17 +33,9 @@ const (
 	maxActiveBookmarks = 5
 )
 
-// Browse — choose is free, XP only on merge.
-var browseMergeXPByRarity = map[string]int{
-	"common": 25, "rare": 50, "epic": 100,
-}
-
-// Draw (3x) — random card draw with rarity surprise.
+// Draw XP awarded at draw time (not merge).
 var drawXPByRarity = map[string]int{
 	"common": 5, "rare": 15, "epic": 30, "legendary": 50,
-}
-var drawMergeXPByRarity = map[string]int{
-	"common": 75, "rare": 150, "epic": 300, "legendary": 500,
 }
 
 // Weighted draw probabilities (out of 100).
@@ -811,114 +803,21 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PR is merged — perform transactional updates.
-	issue, err := h.queries.GetIssueByID(ctx, draw.IssueID)
-	if err != nil {
-		slog.Error("get issue for merge", "error", err)
-		InternalError(w)
-		return
-	}
-
-	// Compute merge XP based on issue rarity and draw source.
-	// Drawn issues get 3x, browsed/chosen issues get 1x.
-	mergeXPMap := drawMergeXPByRarity
-	if draw.Source == "choose" {
-		mergeXPMap = browseMergeXPByRarity
-	}
-	mergeXP := mergeXPMap[issue.Rarity]
-	if mergeXP == 0 {
-		mergeXP = mergeXPMap["common"]
-	}
-
-	tx, err := h.pool.Begin(ctx)
-	if err != nil {
-		slog.Error("begin tx", "error", err)
-		InternalError(w)
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	qtx := h.queries.WithTx(tx)
-
-	// Merge the draw (status guard: only merges if still pr_submitted).
-	mergedDraw, err := qtx.MergeDraw(ctx, database.MergeDrawParams{
-		ID:             draw.ID,
-		MergeCommitSha: pgtype.Text{String: prStatus.MergeCommitSHA, Valid: prStatus.MergeCommitSHA != ""},
-		XpAwarded:      int32(mergeXP),
-		RewardSource:   pgtype.Text{String: "manual_verify", Valid: true},
+	// PR is merged — use shared merge service.
+	result, err := service.CompleteMerge(ctx, h.pool, h.queries, service.MergeParams{
+		DrawID:         draw.ID,
+		UserID:         user.ID,
+		IssueID:        draw.IssueID,
+		Source:         draw.Source,
+		MergeCommitSHA: prStatus.MergeCommitSHA,
+		RewardSource:   "manual_verify",
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, service.ErrAlreadyMerged) {
 			BadRequest(w, ErrCodeInvalidStatus, "Draw has already been merged or status changed")
 			return
 		}
-		slog.Error("merge draw", "error", err)
-		InternalError(w)
-		return
-	}
-
-	// Award XP within transaction using a tx-backed XP service.
-	txXP := service.NewXPService(qtx)
-	_, _, err = txXP.AwardXP(ctx, user.ID, mergeXP)
-	if err != nil {
-		slog.Error("award merge xp", "error", err)
-		InternalError(w)
-		return
-	}
-
-	// Increment contributions.
-	err = qtx.IncrementContributions(ctx, user.ID)
-	if err != nil {
-		slog.Error("increment contributions", "error", err)
-		InternalError(w)
-		return
-	}
-
-	// Update streak.
-	txStreaks := service.NewStreakService(qtx)
-	err = txStreaks.UpdateStreak(ctx, user.ID)
-	if err != nil {
-		slog.Error("update streak", "error", err)
-		InternalError(w)
-		return
-	}
-
-	// Get updated user for badge checks.
-	updatedUser, err := qtx.GetUserByID(ctx, user.ID)
-	if err != nil {
-		slog.Error("get updated user", "error", err)
-		InternalError(w)
-		return
-	}
-
-	// Check badges.
-	txBadges := service.NewBadgeService(qtx)
-	newBadges, err := txBadges.CheckBadges(ctx, user.ID, service.BadgeUser{
-		LongestStreak: updatedUser.LongestStreak,
-	})
-	if err != nil {
-		slog.Error("check badges", "error", err)
-		// Non-fatal: continue with the merge.
-		newBadges = []string{}
-	}
-
-	// Create activity.
-	_, err = qtx.CreateActivity(ctx, database.CreateActivityParams{
-		UserID:    user.ID,
-		DrawID:    pgtype.Int8{Int64: draw.ID, Valid: true},
-		Action:    database.ActivityActionMerged,
-		RepoOwner: pgtype.Text{String: issue.RepoOwner, Valid: true},
-		RepoName:  pgtype.Text{String: issue.RepoName, Valid: true},
-		Title:     pgtype.Text{String: issue.Title, Valid: true},
-	})
-	if err != nil {
-		slog.Error("create activity", "error", err)
-		InternalError(w)
-		return
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		slog.Error("commit tx", "error", err)
+		slog.Error("complete merge", "error", err)
 		InternalError(w)
 		return
 	}
@@ -927,8 +826,8 @@ func (h *DrawHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		"verified":   true,
 		"pr_state":   prStatus.State,
 		"pr_merged":  true,
-		"draw":       drawToResponse(mergedDraw),
-		"new_badges": newBadges,
+		"draw":       drawToResponse(result.Draw),
+		"new_badges": result.NewBadges,
 	})
 }
 
