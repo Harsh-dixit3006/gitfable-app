@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BookOpen, Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User, Settings } from 'lucide-react';
+import { Compass, LayoutDashboard, Trophy, Clock, LogOut, Github, User, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { colors, accent } from '@/lib/theme';
 
@@ -61,8 +61,8 @@ export default function Navbar() {
     <>
       <nav className="fixed top-0 left-0 right-0 z-40 border-b border-white/[0.04] bg-zinc-950/80 backdrop-blur-2xl" data-testid="navbar">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 group" data-testid="nav-logo">
-            <BookOpen className={`w-5 h-5 ${accent.textBright} group-hover:scale-110`} strokeWidth={1.5} style={{ transition: 'transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)' }} />
+          <Link to="/" className="flex items-center gap-2 group" data-testid="nav-logo">
+            <img src="/gitfable-logo.png" alt="GitFable" className="w-8 h-8 rounded group-hover:scale-110" style={{ transition: 'transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)' }} />
             <span className="font-serif text-lg font-bold tracking-tight text-zinc-100">GitFable</span>
           </Link>
 
