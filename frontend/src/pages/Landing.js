@@ -784,10 +784,13 @@ export default function Landing() {
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.02] to-transparent" />
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BookOpen className="w-4 h-4" strokeWidth={1.5} style={{ color: `rgba(${colors.accent.rgb},0.4)` }} />
+            <img src="/gitfable-icon.png" alt="GitFable" className="w-5 h-5 rounded opacity-40" />
             <span className="font-display text-lg text-zinc-500 tracking-tight">GitFable</span>
           </div>
-          <p className="font-mono text-[10px] text-zinc-600 tracking-wider">Every PR is a page in your legend.</p>
+          <div className="flex items-center gap-6">
+            <a href="https://github.com/nishantg96/gitfable-issues/issues" target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-zinc-600 hover:text-zinc-400 tracking-wider transition-colors">Feedback & Bugs</a>
+            <p className="font-mono text-[10px] text-zinc-600 tracking-wider">Every PR is a page in your legend.</p>
+          </div>
         </div>
       </footer>
     </div>

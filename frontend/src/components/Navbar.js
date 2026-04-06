@@ -112,6 +112,11 @@ export default function Navbar() {
                   <DropdownMenuItem onClick={() => navigate('/settings')} data-testid="menu-settings" className="font-mono text-xs text-zinc-300 focus:bg-white/5 focus:text-zinc-100">
                     <Settings className="w-3.5 h-3.5 mr-2" strokeWidth={1.5} />Settings
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="font-mono text-xs text-zinc-300 focus:bg-white/5 focus:text-zinc-100">
+                    <a href="https://github.com/nishantg96/gitfable-issues/issues" target="_blank" rel="noopener noreferrer">
+                      <Github className="w-3.5 h-3.5 mr-2" strokeWidth={1.5} />Feedback
+                    </a>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/5" />
                   <DropdownMenuItem onClick={logout} data-testid="menu-logout" className="font-mono text-xs text-zinc-500 focus:bg-red-500/5 focus:text-red-400">
                     <LogOut className="w-3.5 h-3.5 mr-2" strokeWidth={1.5} />Sign Out
