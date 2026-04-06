@@ -17,6 +17,11 @@ echo "Waiting for postgres..."
 docker compose -f "$ROOT_DIR/docker/docker-compose.yml" exec postgres sh -c \
   'until pg_isready -U gitfable -d gitfable -q; do sleep 1; done'
 
+# Kill anything on our ports
+echo "Freeing ports 8001 and 3000..."
+lsof -ti :8001 | xargs kill -9 2>/dev/null || true
+lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+
 # Kill existing session if any
 tmux kill-session -t "$SESSION" 2>/dev/null || true
 

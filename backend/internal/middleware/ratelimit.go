@@ -34,8 +34,9 @@ func NewRateLimiter(redisClient *goredis.Client) *RateLimiter {
 		done:  make(chan struct{}),
 		limits: map[string]rateConfig{
 			"auth":    {requests: 10, window: time.Minute},
-			"draws":   {requests: 5, window: time.Minute},
-			"default": {requests: 100, window: time.Minute},
+			"draws":   {requests: 10, window: time.Minute},
+			"read":    {requests: 300, window: time.Minute},
+			"default": {requests: 120, window: time.Minute},
 		},
 	}
 	// Periodic cleanup of stale in-memory rate limit entries.
@@ -80,7 +81,7 @@ func (rl *RateLimiter) cleanupLoop() {
 
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		category := rl.categorize(r.URL.Path)
+		category := Categorize(r.URL.Path, r.Method)
 		clientID := rl.clientID(r)
 		key := fmt.Sprintf("ratelimit:%s:%s", clientID, category)
 
@@ -100,12 +101,15 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (rl *RateLimiter) categorize(path string) string {
-	if strings.Contains(path, "/auth") {
+func Categorize(path string, method string) string {
+	if strings.Contains(path, "/oauth") || strings.Contains(path, "/auth") {
 		return "auth"
 	}
-	if strings.HasSuffix(path, "/draws") || (strings.Contains(path, "/draws") && !strings.Contains(path, "/draws/")) {
+	if method == http.MethodPost && strings.Contains(path, "/draws") {
 		return "draws"
+	}
+	if method == http.MethodGet {
+		return "read"
 	}
 	return "default"
 }
