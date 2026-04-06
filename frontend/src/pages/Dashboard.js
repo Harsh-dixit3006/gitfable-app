@@ -357,6 +357,7 @@ export default function Dashboard() {
         const draws = drawsRes._data || [];
         const usedToday = draws.filter((draw) => {
           if (!draw.created_at) return false;
+          if (draw.source && draw.source !== 'draw') return false;
           const createdAt = new Date(draw.created_at);
           return !Number.isNaN(createdAt.getTime()) && createdAt >= today;
         }).length;

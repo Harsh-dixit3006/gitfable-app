@@ -61,7 +61,7 @@ RETURNING *;
 
 -- name: CountDrawsToday :one
 SELECT COUNT(*) FROM draws
-WHERE user_id = $1 AND created_at >= CURRENT_DATE;
+WHERE user_id = $1 AND created_at >= CURRENT_DATE AND source = 'draw';
 
 -- name: GetActiveBookmark :one
 SELECT * FROM draws
