@@ -62,7 +62,7 @@ export default function Navbar() {
       <nav className="fixed top-0 left-0 right-0 z-40 border-b border-white/[0.04] bg-zinc-950/80 backdrop-blur-2xl" data-testid="navbar">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 group" data-testid="nav-logo">
-            <img src="/gitfable-logo.png" alt="GitFable" className="w-8 h-8 rounded group-hover:scale-110" style={{ transition: 'transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)' }} />
+            <img src="/gitfable-icon.png" alt="GitFable" className="w-8 h-8 rounded group-hover:scale-110" style={{ transition: 'transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)' }} />
             <span className="font-serif text-lg font-bold tracking-tight text-zinc-100">GitFable</span>
           </Link>
 
