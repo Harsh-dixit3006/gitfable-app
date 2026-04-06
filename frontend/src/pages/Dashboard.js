@@ -174,6 +174,48 @@ function ActiveBookmarkCard({ bookmark, onClick }) {
   );
 }
 
+function RecentDrawCard({ draw }) {
+  const timeAgo = useMemo(() => {
+    if (!draw.created_at) return '';
+    const diff = Date.now() - new Date(draw.created_at);
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 1) return 'just now';
+    if (hours === 1) return '1h ago';
+    return `${hours}h ago`;
+  }, [draw.created_at]);
+
+  return (
+    <motion.a
+      href={draw.issue?.url || draw.issue_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      whileHover={{ scale: 1.02 }}
+      className="relative rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-blue-500/20 p-4 cursor-pointer transition-all block"
+    >
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-lg bg-blue-500/10">
+          <Star className="w-4 h-4 text-blue-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-zinc-300 truncate">{draw.issue?.title || draw.issue_title}</p>
+          <p className="text-xs text-zinc-500 truncate mt-0.5">
+            {draw.issue?.repo_owner || draw.repo_owner}/{draw.issue?.repo_name || draw.repo_name}
+          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
+              Drawn
+            </span>
+            <span className="text-xs text-zinc-500 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {timeAgo}
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.a>
+  );
+}
+
 // XP Progress Bar
 function XPProgress({ currentXP, level }) {
   const xpInLevel = currentXP % 500;
@@ -253,6 +295,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [activeBookmarks, setActiveBookmarks] = useState([]);
   const [drawsRemaining, setDrawsRemaining] = useState(3);
+  const [recentDrawnItems, setRecentDrawnItems] = useState([]);
 
   useEffect(() => {
     if (!user) {
@@ -266,13 +309,14 @@ export default function Dashboard() {
         const dailyDrawLimit = user?.daily_draw_limit || DEFAULT_DAILY_DRAW_LIMIT;
         
         // Load dashboard data and draws history
-        const [dashboardRes, bookmarksRes, drawsRes] = await Promise.all([
+        const [dashboardRes, bookmarksRes, drawsRes, drawnRes] = await Promise.all([
           api.get('/users/dashboard'),
           Promise.all([
             api.get('/draws/history', { params: { status: 'bookmarked', limit: 5 } }),
             api.get('/draws/history', { params: { status: 'pr_submitted', limit: 5 } }),
           ]),
           api.get('/draws/history', { params: { limit: dailyDrawLimit } }),
+          api.get('/draws/history', { params: { status: 'drawn', limit: 5 } }),
         ]);
 
         const dashboardData = dashboardRes._data;
@@ -299,12 +343,21 @@ export default function Dashboard() {
         ];
         setActiveBookmarks(bookmarks);
 
+        // Recent un-bookmarked draws (last 24h)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const recentDrawn = (drawnRes._data || []).filter(d => {
+          const created = new Date(d.created_at);
+          return !Number.isNaN(created.getTime()) && created >= oneDayAgo;
+        });
+        setRecentDrawnItems(recentDrawn);
+
         // Calculate remaining draws
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const draws = drawsRes._data || [];
         const usedToday = draws.filter((draw) => {
           if (!draw.created_at) return false;
+          if (draw.source && draw.source !== 'draw') return false;
           const createdAt = new Date(draw.created_at);
           return !Number.isNaN(createdAt.getTime()) && createdAt >= today;
         }).length;
@@ -531,6 +584,35 @@ export default function Dashboard() {
                   </div>
                 )}
               </motion.div>
+
+              {/* Recent Draws (un-bookmarked, last 24h) */}
+              {recentDrawnItems.length > 0 && (
+                <motion.div variants={itemVariants} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-blue-500/10">
+                        <Clock className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-semibold text-zinc-100">Recent Draws</h2>
+                        <p className="text-sm text-zinc-500">Drawn in the last 24h — bookmark before they fade</p>
+                      </div>
+                    </div>
+                    <Link
+                      to="/history"
+                      className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    >
+                      View all
+                      <ChevronRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                  <div className="grid gap-3">
+                    {recentDrawnItems.map((draw) => (
+                      <RecentDrawCard key={draw.id} draw={draw} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
 
               {/* Recent Activity */}
               <motion.div variants={itemVariants} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">

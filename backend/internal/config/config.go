@@ -15,8 +15,12 @@ type Config struct {
 	DatabaseURL string
 	DBPoolSize  int
 
-	SupabaseURL            string
-	SupabaseServiceRoleKey string
+	GitHubOAuthClientID     string
+	GitHubOAuthClientSecret string
+	GitHubOAuthCallbackURL  string
+	JWTSecret               string
+	JWTAccessTTL            time.Duration
+	JWTRefreshTTL           time.Duration
 
 	RedisURL              string
 	RateLimitEnabled      bool
@@ -42,8 +46,12 @@ func Load() (*Config, error) {
 		DatabaseURL: getEnv("DATABASE_URL", "postgresql://gitfable:gitfable@localhost:5432/gitfable?sslmode=disable"),
 		DBPoolSize:  getEnvInt("DB_POOL_SIZE", 25),
 
-		SupabaseURL:            getEnv("SUPABASE_URL", ""),
-		SupabaseServiceRoleKey: strings.TrimSpace(getEnv("SUPABASE_SERVICE_ROLE_KEY", "")),
+		GitHubOAuthClientID:     getEnv("GITHUB_OAUTH_CLIENT_ID", ""),
+		GitHubOAuthClientSecret: getEnv("GITHUB_OAUTH_CLIENT_SECRET", ""),
+		GitHubOAuthCallbackURL:  getEnv("GITHUB_OAUTH_CALLBACK_URL", "http://localhost:8001/api/v1/oauth/github/callback"),
+		JWTSecret:               getEnv("JWT_SECRET", ""),
+		JWTAccessTTL:            getEnvDuration("JWT_ACCESS_TTL", 15*time.Minute),
+		JWTRefreshTTL:           getEnvDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
 
 		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379"),
 		RateLimitEnabled:      getEnvBool("RATE_LIMIT_ENABLED", true),
@@ -63,6 +71,13 @@ func Load() (*Config, error) {
 
 	if cfg.IsProduction() && len(cfg.CORSOrigins) == 0 {
 		return nil, fmt.Errorf("CORS_ORIGINS must be set in production")
+	}
+
+	if cfg.GitHubOAuthClientID == "" || cfg.GitHubOAuthClientSecret == "" {
+		return nil, fmt.Errorf("GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET must be set")
+	}
+	if cfg.JWTSecret == "" || len(cfg.JWTSecret) < 32 {
+		return nil, fmt.Errorf("JWT_SECRET must be set and at least 32 characters")
 	}
 
 	return cfg, nil

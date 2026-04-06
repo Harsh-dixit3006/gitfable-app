@@ -67,7 +67,7 @@ func (q *Queries) CountActiveWorkForUser(ctx context.Context, userID int64) (int
 
 const countDrawsToday = `-- name: CountDrawsToday :one
 SELECT COUNT(*) FROM draws
-WHERE user_id = $1 AND created_at >= CURRENT_DATE
+WHERE user_id = $1 AND created_at >= CURRENT_DATE AND source = 'draw'
 `
 
 func (q *Queries) CountDrawsToday(ctx context.Context, userID int64) (int64, error) {

@@ -16,7 +16,8 @@ set -euo pipefail
 #   GHCR_TOKEN, GHCR_USERNAME          — GHCR authentication
 #   POSTGRES_USER, POSTGRES_PASSWORD    — Database credentials
 #   REDIS_PASSWORD                      — Redis password
-#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — Supabase auth
+#   GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET — GitHub OAuth
+#   JWT_SECRET                          — JWT signing secret (min 32 chars)
 #   APP_GITHUB_TOKEN                    — GitHub API token for issue sync
 #   GITHUB_WEBHOOK_SECRET               — Webhook signature verification (optional)
 
@@ -33,8 +34,9 @@ fi
 : "${POSTGRES_USER:?ERROR: POSTGRES_USER environment variable is required}"
 : "${POSTGRES_PASSWORD:?ERROR: POSTGRES_PASSWORD environment variable is required}"
 : "${REDIS_PASSWORD:?ERROR: REDIS_PASSWORD environment variable is required}"
-: "${SUPABASE_URL:?ERROR: SUPABASE_URL environment variable is required}"
-: "${SUPABASE_SERVICE_ROLE_KEY:?ERROR: SUPABASE_SERVICE_ROLE_KEY environment variable is required}"
+: "${GITHUB_OAUTH_CLIENT_ID:?ERROR: GITHUB_OAUTH_CLIENT_ID environment variable is required}"
+: "${GITHUB_OAUTH_CLIENT_SECRET:?ERROR: GITHUB_OAUTH_CLIENT_SECRET environment variable is required}"
+: "${JWT_SECRET:?ERROR: JWT_SECRET environment variable is required}"
 : "${APP_GITHUB_TOKEN:?ERROR: APP_GITHUB_TOKEN environment variable is required}"
 
 # Repo files come from the checkout; VPS-specific files from the persistent directory
@@ -86,8 +88,10 @@ PORT=8001
 DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
 DB_POOL_SIZE=${DB_POOL_SIZE}
 REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
-SUPABASE_URL=${SUPABASE_URL}
-SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+GITHUB_OAUTH_CLIENT_ID=${GITHUB_OAUTH_CLIENT_ID}
+GITHUB_OAUTH_CLIENT_SECRET=${GITHUB_OAUTH_CLIENT_SECRET}
+GITHUB_OAUTH_CALLBACK_URL=${CORS_DOMAIN}/api/v1/oauth/github/callback
+JWT_SECRET=${JWT_SECRET}
 CORS_ORIGINS=${CORS_DOMAIN}
 FRONTEND_URL=${CORS_DOMAIN}
 GITHUB_TOKEN=${APP_GITHUB_TOKEN}

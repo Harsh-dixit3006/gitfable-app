@@ -5,19 +5,19 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/nishantg96/gitfable/internal/auth"
 	"github.com/nishantg96/gitfable/internal/ctxutil"
 	"github.com/nishantg96/gitfable/internal/database"
 	"github.com/nishantg96/gitfable/internal/handler"
-	"github.com/nishantg96/gitfable/internal/supabase"
 )
 
 type AuthMiddleware struct {
-	sb      *supabase.Client
+	jwt     *auth.JWTManager
 	queries *database.Queries
 }
 
-func NewAuthMiddleware(sb *supabase.Client, q *database.Queries) *AuthMiddleware {
-	return &AuthMiddleware{sb: sb, queries: q}
+func NewAuthMiddleware(jwt *auth.JWTManager, q *database.Queries) *AuthMiddleware {
+	return &AuthMiddleware{jwt: jwt, queries: q}
 }
 
 func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
@@ -29,14 +29,19 @@ func (a *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 		}
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		tokenInfo, err := a.sb.VerifyToken(r.Context(), token)
+		claims, err := a.jwt.Verify(token)
 		if err != nil {
 			handler.Unauthorized(w)
 			return
 		}
 
-		// Use new GetUserByAuthID query
-		user, err := a.queries.GetUserByAuthID(r.Context(), tokenInfo.UID)
+		// Only accept access tokens (reject registration/refresh tokens)
+		if claims.TokenType != auth.TokenTypeAccess {
+			handler.Unauthorized(w)
+			return
+		}
+
+		user, err := a.queries.GetUserByAuthID(r.Context(), claims.Sub)
 		if err != nil {
 			handler.Unauthorized(w)
 			return

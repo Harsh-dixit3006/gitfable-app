@@ -10,6 +10,7 @@ import Leaderboard from "@/pages/Leaderboard";
 import History from "@/pages/History";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
+import AuthCallback from "@/pages/AuthCallback";
 
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
           <Navbar />
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/discover" element={<Discover />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/leaderboard" element={<Leaderboard />} />

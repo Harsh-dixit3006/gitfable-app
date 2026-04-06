@@ -4,6 +4,12 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api/v1`;
 
 const api = axios.create({ baseURL: API });
 
+// Load token from localStorage on init
+const storedToken = localStorage.getItem('access_token');
+if (storedToken) {
+  api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
+}
+
 // Unwrap the Go backend envelope: { data, meta, error }
 api.interceptors.response.use(
   (res) => {

@@ -46,7 +46,7 @@ describe('Settings page functionality', () => {
 
   test('email is managed by auth provider', () => {
     expect(settingsSource).toContain('email');
-    expect(settingsSource).toContain('Managed by Supabase Auth');
+    expect(settingsSource).toContain('Managed by GitHub');
     expect(settingsSource).toContain('user.email');
   });
 

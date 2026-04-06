@@ -49,8 +49,10 @@ services:
       - DB_POOL_SIZE=${DB_POOL_SIZE:-25}
       - CORS_ORIGINS=http://localhost:3000,http://frontend:80
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - GITHUB_OAUTH_CLIENT_ID=${GITHUB_OAUTH_CLIENT_ID}
+      - GITHUB_OAUTH_CLIENT_SECRET=${GITHUB_OAUTH_CLIENT_SECRET}
+      - GITHUB_OAUTH_CALLBACK_URL=${GITHUB_OAUTH_CALLBACK_URL:-http://localhost:8001/api/v1/oauth/github/callback}
+      - JWT_SECRET=${JWT_SECRET}
       - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
@@ -69,8 +71,6 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL:-http://localhost:8001}
-        - REACT_APP_SUPABASE_URL=${REACT_APP_SUPABASE_URL}
-        - REACT_APP_SUPABASE_ANON_KEY=${REACT_APP_SUPABASE_ANON_KEY}
     container_name: gitfable-frontend
     restart: unless-stopped
     ports:

@@ -87,8 +87,6 @@ jobs:
           push: true
           build-args: |
             REACT_APP_BACKEND_URL=${{ secrets.DEV_REACT_APP_BACKEND_URL }}
-            REACT_APP_SUPABASE_URL=${{ secrets.DEV_REACT_APP_SUPABASE_URL }}
-            REACT_APP_SUPABASE_ANON_KEY=${{ secrets.DEV_REACT_APP_SUPABASE_ANON_KEY }}
           tags: |
             ${{ env.FRONTEND_IMAGE }}:${{ env.TAG }}
             ${{ env.FRONTEND_IMAGE }}:latest-dev
@@ -110,8 +108,9 @@ jobs:
           POSTGRES_USER: ${{ secrets.DEV_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
           REDIS_PASSWORD: ${{ secrets.DEV_REDIS_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.DEV_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DEV_SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.DEV_GITHUB_OAUTH_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.DEV_GITHUB_OAUTH_CLIENT_SECRET }}
+          JWT_SECRET: ${{ secrets.DEV_JWT_SECRET }}
           APP_GITHUB_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
           GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
         run: ./scripts/deploy.sh dev ${{ needs.build-and-push.outputs.image_tag }}
