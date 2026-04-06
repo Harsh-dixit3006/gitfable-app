@@ -213,11 +213,11 @@ export default function Navbar() {
                 </div>
                 <button
                   type="submit"
-                  disabled={loginLoading || !username.trim()}
+                  disabled={registerLoading || !username.trim()}
                   className="rune-btn w-full py-3.5 rounded-lg text-center text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   data-testid="register-submit-button"
                 >
-                  {loginLoading ? 'Creating Account...' : 'Create Account'}
+                  {registerLoading ? 'Creating Account...' : 'Create Account'}
                 </button>
               </form>
             )}
