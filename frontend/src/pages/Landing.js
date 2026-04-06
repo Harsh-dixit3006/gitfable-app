@@ -584,7 +584,7 @@ export default function Landing() {
       </section>
 
       {/* ═══ STATS ═══ */}
-      <section className="relative py-36 px-6 sm:px-8 lg:px-16" data-testid="stats-section">
+      {(stats.merged_draws > 0 || stats.active_users > 1) && <section className="relative py-36 px-6 sm:px-8 lg:px-16" data-testid="stats-section">
         <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, rgba(${colors.accent.rgb},0.08), transparent)` }} />
         <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 50%, rgba(${colors.accent.rgb},0.03), transparent 50%)` }} />
 
@@ -627,7 +627,7 @@ export default function Landing() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ═══ BENTO ═══ */}
       <section className="relative px-6 sm:px-8 lg:px-16 py-20" data-testid="signal-bento-section">
