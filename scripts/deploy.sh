@@ -148,5 +148,10 @@ docker run --rm \
 
 echo "Migrations complete!"
 
+# Reload Caddy so it picks up changes to Caddyfile.prod without downtime
+echo "Reloading Caddy configuration..."
+docker compose -f "$COMPOSE_FILE" exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+
+
 echo "=== Deploy complete ($ENV) ==="
 docker compose -f "$COMPOSE_FILE" ps
