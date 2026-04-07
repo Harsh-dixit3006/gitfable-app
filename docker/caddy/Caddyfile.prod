@@ -1,3 +1,7 @@
+www.gitfable.app {
+    redir https://gitfable.app{uri}
+}
+
 gitfable.app {
     handle /health {
         reverse_proxy backend:8001
