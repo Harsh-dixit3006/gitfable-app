@@ -17,9 +17,10 @@ This guide shows you how to run the entire GitFable application using Docker.
 make env
 
 # Edit docker/.env with your:
-# - Supabase credentials (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+# - GitHub OAuth credentials
+# - JWT secret
 # - GitHub token (GITHUB_TOKEN)
-# See docs/supabase-auth-setup.md for auth setup
+# See docs/github-oauth-setup.md for OAuth setup
 ```
 
 ### 2. Start Everything
@@ -29,7 +30,7 @@ make env
 make docker-up
 
 # Or manually:
-docker compose up -d
+docker compose -f docker/docker-compose.yml up -d
 ```
 
 This will start:
@@ -53,13 +54,13 @@ This will start:
 make docker-logs
 
 # Just backend
-docker compose logs backend -f
+docker compose -f docker/docker-compose.yml logs backend -f
 
 # Just frontend
-docker compose logs frontend -f
+docker compose -f docker/docker-compose.yml logs frontend -f
 
 # Just database
-docker compose logs postgres -f
+docker compose -f docker/docker-compose.yml logs postgres -f
 ```
 
 ### 5. Stop Everything
@@ -68,7 +69,7 @@ docker compose logs postgres -f
 make docker-down
 
 # Or:
-docker compose down
+docker compose -f docker/docker-compose.yml down
 ```
 
 ## Development Mode
@@ -87,7 +88,7 @@ The development setup includes:
 - No need to restart container
 
 **Frontend changes:**
-- For Docker: Edit files, then rebuild: `docker compose build frontend`
+- For Docker: Edit files, then rebuild: `docker compose -f docker/docker-compose.yml build frontend`
 - For hot reload: Use `make dev-frontend` separately
 
 **Database changes:**
@@ -103,16 +104,16 @@ The development setup includes:
 make docker-build
 
 # Rebuild specific service
-docker compose build backend
+docker compose -f docker/docker-compose.yml build backend
 
 # Run a command in the backend container
-docker compose exec backend sh
+docker compose -f docker/docker-compose.yml exec backend sh
 
 # Access PostgreSQL
-docker compose exec postgres psql -U gitfable -d gitfable
+docker compose -f docker/docker-compose.yml exec postgres psql -U gitfable -d gitfable
 
 # Access Redis
-docker compose exec redis redis-cli
+docker compose -f docker/docker-compose.yml exec redis redis-cli
 
 # Run database migrations
 make migrate-up
@@ -133,10 +134,9 @@ make docker-clean
 mkdir -p docker/secrets
 
 # Create secret files (do NOT commit these!)
-echo "your-db-password" > docker/secrets/db_password.txt
-echo "your-github-token" > docker/secrets/github_token.txt
-echo "your-webhook-secret" > docker/secrets/webhook_secret.txt
-# Set Supabase env vars in docker/.env/.env.prod instead of file secrets
+echo "gitfable" > docker/secrets/postgres_user.txt
+echo "your-db-password" > docker/secrets/postgres_password.txt
+echo "your-redis-password" > docker/secrets/redis_password.txt
 
 # Set permissions
 chmod 600 docker/secrets/*
@@ -145,17 +145,19 @@ chmod 600 docker/secrets/*
 ### Start Production
 
 ```bash
-# Copy production environment
-cp docker/.env.prod docker/.env
+# Copy the VPS production template
+cp docker/.env.vps-prod.example docker/.env.vps-prod
 
-# Edit docker/.env with production values:
-# - Set CORS_ORIGINS to your domain
-# - Set strong passwords
-# - Use production Supabase project
+# Edit docker/.env.vps-prod with production values:
+# - Set database and Redis credentials
+# - Set GitHub OAuth credentials
+# - Set a strong JWT secret
 
 # Start production stack
-docker compose -f docker/docker-compose.prod.yml up -d
+docker compose -f docker/docker-compose.vps-prod.yml up -d
 ```
+
+For the full production flow, including Caddy and GitHub Actions secrets, see `docs/ops/DEPLOYMENT_RUNBOOK.md` and `docs/ops/SECRETS_SETUP.md`.
 
 ### Production Architecture
 
@@ -164,7 +166,7 @@ Internet
     │
     ▼
 ┌─────────────┐
-│    Nginx    │ ← SSL termination, reverse proxy
+│    Caddy    │ ← SSL termination, reverse proxy
 │   (80/443)  │
 └──────┬──────┘
        │
@@ -195,24 +197,24 @@ cd backend && migrate -path sql/migrations -database "$DATABASE_URL" version
 
 ```bash
 # Backup PostgreSQL
-docker compose exec postgres pg_dump -U gitfable gitfable > backup.sql
+docker compose -f docker/docker-compose.yml exec postgres pg_dump -U gitfable gitfable > backup.sql
 
 # Restore PostgreSQL
-docker compose exec -T postgres psql -U gitfable gitfable < backup.sql
+docker compose -f docker/docker-compose.yml exec -T postgres psql -U gitfable gitfable < backup.sql
 
 # Backup with compression
-docker compose exec postgres pg_dump -U gitfable gitfable | gzip > backup.sql.gz
+docker compose -f docker/docker-compose.yml exec postgres pg_dump -U gitfable gitfable | gzip > backup.sql.gz
 
 # Restore from compressed backup
-gunzip < backup.sql.gz | docker compose exec -T postgres psql -U gitfable gitfable
+gunzip < backup.sql.gz | docker compose -f docker/docker-compose.yml exec -T postgres psql -U gitfable gitfable
 ```
 
 ### Reset Database (WARNING: Deletes all data!)
 
 ```bash
 # Remove volumes and start fresh
-docker compose down -v
-docker compose up -d
+docker compose -f docker/docker-compose.yml down -v
+docker compose -f docker/docker-compose.yml up -d
 
 # Run migrations
 make migrate-up
@@ -242,14 +244,14 @@ lsof -i :5432
 
 ```bash
 # Check PostgreSQL logs
-docker compose logs postgres -f
+docker compose -f docker/docker-compose.yml logs postgres -f
 
 # Check if PostgreSQL is ready
-docker compose exec postgres pg_isready -U gitfable
+docker compose -f docker/docker-compose.yml exec postgres pg_isready -U gitfable
 
 # Reset PostgreSQL (WARNING: deletes all data!)
-docker compose down -v
-docker compose up -d postgres
+docker compose -f docker/docker-compose.yml down -v
+docker compose -f docker/docker-compose.yml up -d postgres
 sleep 5
 make migrate-up
 ```
@@ -258,16 +260,16 @@ make migrate-up
 
 ```bash
 # Check logs
-docker compose logs backend -f
+docker compose -f docker/docker-compose.yml logs backend -f
 
 # Common issues:
-# 1. Missing Supabase credentials in docker/.env
+# 1. Missing GitHub OAuth or JWT credentials in docker/.env
 # 2. PostgreSQL not ready yet (wait 30 seconds)
 # 3. Invalid environment variables
 # 4. Port already in use
 
 # Check environment variables
-docker compose config
+docker compose -f docker/docker-compose.yml config
 ```
 
 ### Hot Reload Not Working
@@ -284,13 +286,13 @@ backend:
 
 ```bash
 # Check logs
-docker compose logs <service-name> -f
+docker compose -f docker/docker-compose.yml logs <service-name> -f
 
 # Check environment variables
-docker compose config
+docker compose -f docker/docker-compose.yml config
 
 # Check for syntax errors in docker-compose.yml
-docker compose config --quiet
+docker compose -f docker/docker-compose.yml config --quiet
 ```
 
 ### sqlc Generation Fails
@@ -315,8 +317,9 @@ Edit `docker/.env`:
 ```bash
 # Required
 DATABASE_URL=postgresql://gitfable:gitfable@postgres:5432/gitfable?sslmode=disable
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+GITHUB_OAUTH_CLIENT_ID=your_client_id
+GITHUB_OAUTH_CLIENT_SECRET=your_client_secret
+JWT_SECRET=replace_with_a_strong_random_secret
 GITHUB_TOKEN=your_github_token
 
 # Optional
@@ -328,12 +331,11 @@ DEFAULT_DAILY_DRAW_LIMIT=3
 
 ### Production
 
-See `docker/docker-compose.prod.yml` for production configuration.
+See `docker/docker-compose.vps-prod.yml` for production configuration.
 
 Key differences:
 - Uses Docker secrets instead of environment variables
 - Enables SSL/TLS
-- Uses production Supabase project
 - Restricts CORS to production domain
 - Increases database connection pool
 
@@ -365,10 +367,10 @@ To start fresh with empty databases:
 
 ```bash
 # Remove volumes (WARNING: deletes all data!)
-docker compose down -v
+docker compose -f docker/docker-compose.yml down -v
 
 # Start fresh
-docker compose up -d
+docker compose -f docker/docker-compose.yml up -d
 
 # Run migrations
 make migrate-up
@@ -388,10 +390,10 @@ docker buildx build --platform linux/amd64,linux/arm64 -t gitfable-backend:lates
 
 ```bash
 # Pull latest base images
-docker compose pull
+docker compose -f docker/docker-compose.yml pull
 
 # Rebuild with latest code
-docker compose up -d --build
+docker compose -f docker/docker-compose.yml up -d --build
 
 # Clean up old images
 docker image prune -f
@@ -415,9 +417,9 @@ curl http://localhost:8001/ready
 
 1. **Never commit `.env` files** - They are in `.gitignore` but double-check
 2. **Use Docker secrets** in production, not environment variables
-3. **Rotate credentials** regularly (Supabase keys, GitHub tokens)
+3. **Rotate credentials** regularly (OAuth secrets, JWT secrets, GitHub tokens)
 4. **Use strong passwords** for PostgreSQL in production
-5. **Enable SSL/TLS** in production (handled by nginx)
+5. **Enable SSL/TLS** in production (handled by Caddy)
 6. **Restrict CORS** to your production domain only
 
 ## Resources

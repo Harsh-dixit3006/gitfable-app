@@ -290,10 +290,12 @@ go test -v ./internal/handler -run TestFullWorkflow/MergePRAndVerifyRewards
 make env-test
 
 # Edit with your credentials
-# docker/.env.test:
+# docker/.env.test
 GITHUB_TOKEN=ghp_your_token
 TEST_GITHUB_USERNAME=your_username
 ```
+
+`docker/.env.test.example` is committed as the template. `docker/.env.test` stays local and should never be committed.
 
 ### Running in Docker
 
@@ -380,12 +382,9 @@ Check if `TEST_GITHUB_USERNAME` is set. Full Workflow test needs:
 - `TEST_GITHUB_USERNAME`
 - Write access to demo repo
 
-### "Permission denied" on creds
+### "docker/.env.test.example not found"
 
-Test container needs read access to local credential files:
-```bash
-chmod +r creds/*.json
-```
+Pull the latest repo changes. The committed template file should exist at `docker/.env.test.example`.
 
 ---
 

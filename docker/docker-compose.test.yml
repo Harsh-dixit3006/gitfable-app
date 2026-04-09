@@ -43,7 +43,6 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TEST_GITHUB_USERNAME=${TEST_GITHUB_USERNAME}
-      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-gitfable-app}
       - RATE_LIMIT_ENABLED=false
       - SYNC_ENABLED=false
     depends_on:
@@ -52,7 +51,6 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ../creds:/creds:ro
       - ../backend:/app:ro
     command: ["sh", "-c", "./run-tests.sh"]
 

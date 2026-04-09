@@ -1,4 +1,4 @@
-.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env generate migrate-up migrate-down migrate-version docker-build docker-up docker-down docker-logs vps-prod-up vps-prod-down vps-prod-logs vps-dev-up vps-dev-down vps-dev-logs vps-backup
+.PHONY: help install install-backend install-frontend dev dev-stop dev-backend dev-frontend build build-backend sync-issues build-sync test test-backend clean lint lint-backend env env-test generate migrate-up migrate-down migrate-version docker-build docker-up docker-down docker-logs vps-prod-up vps-prod-down vps-prod-logs vps-dev-up vps-dev-down vps-dev-logs vps-backup
 
 # Default target
 help: ## Show this help
@@ -64,6 +64,7 @@ test-full-workflow-local: ## Run full E2E workflow test locally (requires env va
 	cd backend && GITHUB_TOKEN=$(GITHUB_TOKEN) TEST_GITHUB_USERNAME=$(TEST_GITHUB_USERNAME) go test -v ./internal/handler -run TestFullWorkflow
 
 test-docker: ## Run all tests in Docker container
+	@test -f docker/.env.test || (echo "Error: docker/.env.test not found. Run 'make env-test' first." && exit 1)
 	@docker compose -f docker/docker-compose.test.yml --env-file docker/.env.test up --abort-on-container-exit
 
 test-docker-down: ## Stop test Docker containers
@@ -72,8 +73,6 @@ test-docker-down: ## Stop test Docker containers
 test-cleanup: ## Clean up test database and containers
 	@docker compose -f docker/docker-compose.test.yml down -v
 	@docker volume rm gitfable_postgres_test_data gitfable_redis_test_data 2>/dev/null || true
-	env-test: ## Create docker/.env.test from example
-	@test -f docker/.env.test || (cp docker/.env.test.example docker/.env.test && echo "Created docker/.env.test from example. Edit it to add your credentials.")
 
 # ─── Code Quality ────────────────────────────────────────────────────
 
@@ -116,7 +115,10 @@ clean: ## Remove build artifacts and caches
 
 env: ## Create docker/.env from example
 	@test -f docker/.env || (cp docker/.env.example docker/.env && echo "Created docker/.env from example")
-	@echo "Edit docker/.env with your local values (Supabase keys, GitHub token)"
+	@echo "Edit docker/.env with your local GitHub OAuth, JWT, and GitHub token values"
+
+env-test: ## Create docker/.env.test from example
+	@test -f docker/.env.test || (cp docker/.env.test.example docker/.env.test && echo "Created docker/.env.test from example. Edit it with your test credentials.")
 
 # ─── Docker ──────────────────────────────────────────────────────────
 

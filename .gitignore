@@ -20,6 +20,7 @@ dist/
 *.env
 *.env.*
 !*.env.example
+!*.env.test.example
 !*.env.vps-*.example
 
 # Secrets
@@ -55,6 +56,7 @@ venv/
 
 # Build caches
 .cache/
+.ruff_cache/
 
 # UV / Python
 *.egg-info/
@@ -73,6 +75,9 @@ coverage.out
 creds/
 .env
 .secrets/
+
+# Test artifacts
+frontend/test-results/
 
 # Git worktrees
 .worktrees/

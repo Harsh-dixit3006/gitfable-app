@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Usage:
-#   1) Create .secrets/all.env from the template in docs/ops/SECRETS_SETUP.md or below
+#   1) Create .secrets/all.env with GitHub Actions secret names as keys
 #   2) Fill values
 #   3) Run: ./scripts/bootstrap-github-secrets.sh .secrets/all.env
 
@@ -28,12 +28,29 @@ source "$ENV_FILE"
 set +a
 
 required_vars=(
-  SUPABASE_DEV_PROJECT_URL
-  SUPABASE_DEV_ANON_KEY
-  SUPABASE_PROD_PROJECT_URL
-  SUPABASE_PROD_ANON_KEY
-  DEV_BACKEND_URL
-  PROD_BACKEND_URL
+  DEV_REACT_APP_BACKEND_URL
+  DEV_BACKEND_HEALTH_URL
+  DEV_BACKEND_READY_URL
+  PROD_REACT_APP_BACKEND_URL
+  PROD_BACKEND_HEALTH_URL
+  PROD_BACKEND_READY_URL
+)
+
+optional_vars=(
+  DEV_POSTGRES_USER
+  DEV_POSTGRES_PASSWORD
+  DEV_REDIS_PASSWORD
+  DEV_GITHUB_OAUTH_CLIENT_ID
+  DEV_GITHUB_OAUTH_CLIENT_SECRET
+  DEV_JWT_SECRET
+  PROD_POSTGRES_USER
+  PROD_POSTGRES_PASSWORD
+  PROD_REDIS_PASSWORD
+  PROD_GITHUB_OAUTH_CLIENT_ID
+  PROD_GITHUB_OAUTH_CLIENT_SECRET
+  PROD_JWT_SECRET
+  APP_GITHUB_TOKEN
+  GITHUB_WEBHOOK_SECRET
   DISCORD_WEBHOOK_URL
 )
 
@@ -45,25 +62,21 @@ for v in "${required_vars[@]}"; do
 done
 
 echo "Setting dev secrets..."
-gh secret set DEV_REACT_APP_BACKEND_URL --body "$DEV_BACKEND_URL"
-gh secret set DEV_REACT_APP_SUPABASE_URL --body "$SUPABASE_DEV_PROJECT_URL"
-gh secret set DEV_REACT_APP_SUPABASE_ANON_KEY --body "$SUPABASE_DEV_ANON_KEY"
-gh secret set DEV_BACKEND_HEALTH_URL --body "${DEV_BACKEND_URL%/}/health"
-gh secret set DEV_BACKEND_READY_URL --body "${DEV_BACKEND_URL%/}/ready"
+gh secret set DEV_REACT_APP_BACKEND_URL --body "$DEV_REACT_APP_BACKEND_URL"
+gh secret set DEV_BACKEND_HEALTH_URL --body "$DEV_BACKEND_HEALTH_URL"
+gh secret set DEV_BACKEND_READY_URL --body "$DEV_BACKEND_READY_URL"
 
 echo "Setting prod secrets..."
-gh secret set PROD_REACT_APP_BACKEND_URL --body "$PROD_BACKEND_URL"
-gh secret set PROD_REACT_APP_SUPABASE_URL --body "$SUPABASE_PROD_PROJECT_URL"
-gh secret set PROD_REACT_APP_SUPABASE_ANON_KEY --body "$SUPABASE_PROD_ANON_KEY"
-gh secret set PROD_BACKEND_HEALTH_URL --body "${PROD_BACKEND_URL%/}/health"
-gh secret set PROD_BACKEND_READY_URL --body "${PROD_BACKEND_URL%/}/ready"
+gh secret set PROD_REACT_APP_BACKEND_URL --body "$PROD_REACT_APP_BACKEND_URL"
+gh secret set PROD_BACKEND_HEALTH_URL --body "$PROD_BACKEND_HEALTH_URL"
+gh secret set PROD_BACKEND_READY_URL --body "$PROD_BACKEND_READY_URL"
 
-echo "Setting shared secrets..."
-gh secret set DISCORD_WEBHOOK_URL --body "$DISCORD_WEBHOOK_URL"
-
-if [[ -n "${GITHUB_WEBHOOK_SECRET:-}" ]]; then
-  gh secret set GITHUB_WEBHOOK_SECRET --body "$GITHUB_WEBHOOK_SECRET"
-fi
+for v in "${optional_vars[@]}"; do
+  if [[ -n "${!v:-}" ]]; then
+    echo "Setting optional secret: $v"
+    gh secret set "$v" --body "${!v}"
+  fi
+done
 
 echo "Done. Current GitHub secrets:"
 gh secret list
