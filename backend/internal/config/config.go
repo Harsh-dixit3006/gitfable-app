@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -73,11 +75,22 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("CORS_ORIGINS must be set in production")
 	}
 
-	if cfg.GitHubOAuthClientID == "" || cfg.GitHubOAuthClientSecret == "" {
-		return nil, fmt.Errorf("GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET must be set")
-	}
-	if cfg.JWTSecret == "" || len(cfg.JWTSecret) < 32 {
-		return nil, fmt.Errorf("JWT_SECRET must be set and at least 32 characters")
+	if cfg.IsProduction() {
+		if cfg.GitHubOAuthClientID == "" || cfg.GitHubOAuthClientSecret == "" {
+			return nil, fmt.Errorf("GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET must be set")
+		}
+		if cfg.JWTSecret == "" || len(cfg.JWTSecret) < 32 {
+			return nil, fmt.Errorf("JWT_SECRET must be set and at least 32 characters")
+		}
+	} else {
+		// In development, auto-generate a JWT secret if not provided.
+		if cfg.JWTSecret == "" || len(cfg.JWTSecret) < 32 {
+			b := make([]byte, 32)
+			if _, err := rand.Read(b); err != nil {
+				return nil, fmt.Errorf("failed to generate dev JWT secret: %w", err)
+			}
+			cfg.JWTSecret = base64.StdEncoding.EncodeToString(b)
+		}
 	}
 
 	return cfg, nil
@@ -85,6 +98,10 @@ func Load() (*Config, error) {
 
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
+}
+
+func (c *Config) OAuthConfigured() bool {
+	return c.GitHubOAuthClientID != "" && c.GitHubOAuthClientSecret != ""
 }
 
 func getEnv(key, fallback string) string {

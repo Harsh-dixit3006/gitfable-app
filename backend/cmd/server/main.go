@@ -76,8 +76,14 @@ func main() {
 		slog.Error("failed to initialize JWT manager", "error", err)
 		os.Exit(1)
 	}
-	githubOAuth := auth.NewGitHubOAuth(cfg.GitHubOAuthClientID, cfg.GitHubOAuthClientSecret, cfg.GitHubOAuthCallbackURL)
-	slog.Info("auth initialized (GitHub OAuth + JWT)")
+
+	var githubOAuth *auth.GitHubOAuth
+	if cfg.OAuthConfigured() {
+		githubOAuth = auth.NewGitHubOAuth(cfg.GitHubOAuthClientID, cfg.GitHubOAuthClientSecret, cfg.GitHubOAuthCallbackURL)
+		slog.Info("auth initialized (GitHub OAuth + JWT)")
+	} else {
+		slog.Warn("GitHub OAuth not configured — auth endpoints disabled. Set GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET to enable.")
+	}
 
 	// 7. Initialize Redis client (can be nil).
 	redisClient := goredis.NewClient(ctx, cfg.RedisURL)
@@ -122,11 +128,14 @@ func main() {
 		Redis: redisClient,
 	}
 
-	oauthHandler := &handler.OAuthHandler{
-		JWT:         jwtManager,
-		GitHub:      githubOAuth,
-		Queries:     queries,
-		FrontendURL: cfg.FrontendURL,
+	var oauthHandler *handler.OAuthHandler
+	if githubOAuth != nil {
+		oauthHandler = &handler.OAuthHandler{
+			JWT:         jwtManager,
+			GitHub:      githubOAuth,
+			Queries:     queries,
+			FrontendURL: cfg.FrontendURL,
+		}
 	}
 
 	authHandler := &handler.AuthHandler{
@@ -192,7 +201,9 @@ func main() {
 
 	// API v1.
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Mount("/oauth", oauthHandler.Routes())
+		if oauthHandler != nil {
+			r.Mount("/oauth", oauthHandler.Routes())
+		}
 		r.Mount("/auth", authHandler.Routes())
 		r.Mount("/draws", drawHandler.Routes())
 		r.Mount("/users", usersHandler.Routes())
