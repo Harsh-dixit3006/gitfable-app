@@ -111,10 +111,12 @@ func main() {
 	}
 
 	// 9c. Start issue sync service.
-	if cfg.SyncEnabled {
+	if cfg.SyncEnabled && cfg.GitHubToken != "" {
 		syncService := isync.NewSyncService(queries, cfg.GitHubToken, cfg.SyncRepoAllowlist, cfg.SyncInterval, cfg.StaleInterval)
 		syncService.Start(ctx)
 		defer syncService.Stop()
+	} else if cfg.GitHubToken == "" {
+		slog.Warn("GITHUB_TOKEN not set — issue sync disabled")
 	}
 
 	// 10. Create middleware.
