@@ -125,59 +125,6 @@ make generate
 make docker-clean
 ```
 
-## Production Deployment
-
-### Setup Secrets
-
-```bash
-# Create secrets directory
-mkdir -p docker/secrets
-
-# Create secret files (do NOT commit these!)
-echo "gitfable" > docker/secrets/postgres_user.txt
-echo "your-db-password" > docker/secrets/postgres_password.txt
-echo "your-redis-password" > docker/secrets/redis_password.txt
-
-# Set permissions
-chmod 600 docker/secrets/*
-```
-
-### Start Production
-
-```bash
-# Copy the VPS production template
-cp docker/.env.vps-prod.example docker/.env.vps-prod
-
-# Edit docker/.env.vps-prod with production values:
-# - Set database and Redis credentials
-# - Set GitHub OAuth credentials
-# - Set a strong JWT secret
-
-# Start production stack
-docker compose -f docker/docker-compose.vps-prod.yml up -d
-```
-
-For the full production flow, including Caddy and GitHub Actions secrets, see `docs/ops/DEPLOYMENT_RUNBOOK.md` and `docs/ops/SECRETS_SETUP.md`.
-
-### Production Architecture
-
-```
-Internet
-    │
-    ▼
-┌─────────────┐
-│    Caddy    │ ← SSL termination, reverse proxy
-│   (80/443)  │
-└──────┬──────┘
-       │
-       ├──▶ Frontend (static files)
-       │
-       └──▶ Backend API (port 8001)
-              │
-              ├──▶ PostgreSQL (port 5432)
-              └──▶ Redis (port 6379)
-```
-
 ## Database Operations
 
 ### Migrations
@@ -329,16 +276,6 @@ ENVIRONMENT=development
 DEFAULT_DAILY_DRAW_LIMIT=3
 ```
 
-### Production
-
-See `docker/docker-compose.vps-prod.yml` for production configuration.
-
-Key differences:
-- Uses Docker secrets instead of environment variables
-- Enables SSL/TLS
-- Restricts CORS to production domain
-- Increases database connection pool
-
 ## Data Persistence
 
 ### Development
@@ -416,11 +353,8 @@ curl http://localhost:8001/ready
 ## Security Best Practices
 
 1. **Never commit `.env` files** - They are in `.gitignore` but double-check
-2. **Use Docker secrets** in production, not environment variables
-3. **Rotate credentials** regularly (OAuth secrets, JWT secrets, GitHub tokens)
-4. **Use strong passwords** for PostgreSQL in production
-5. **Enable SSL/TLS** in production (handled by Caddy)
-6. **Restrict CORS** to your production domain only
+2. **Rotate credentials** regularly (OAuth secrets, JWT secrets, GitHub tokens)
+3. **Use strong passwords** for PostgreSQL in any shared environment
 
 ## Resources
 

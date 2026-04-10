@@ -24,14 +24,6 @@ GITHUB_OAUTH_CALLBACK_URL=http://localhost:8001/api/v1/oauth/github/callback
 JWT_SECRET=replace_with_a_strong_random_secret
 ```
 
-## Production
-
-Use your deployed domain for the callback URL:
-
-```text
-https://gitfable.app/api/v1/oauth/github/callback
-```
-
 ## Related Settings
 
 - `FRONTEND_URL` should match the frontend origin.
