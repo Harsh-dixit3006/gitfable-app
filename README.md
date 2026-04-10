@@ -15,55 +15,87 @@
   <a href="https://github.com/nishantg96/gitfable-app/issues"><img src="https://img.shields.io/badge/feedback-welcome-blue?style=flat-square" alt="Feedback" /></a>
 </p>
 
----
+GitFable is a web app that helps developers discover open-source issues through a card-draw mechanic. It syncs GitHub issues, lets users bookmark work as active quests, verifies submitted pull requests, and awards XP, badges, and leaderboard progress for merged contributions.
 
-GitFable turns open-source contributions into a game. It syncs "good first issues" from popular GitHub repositories, wraps them in a card-draw mechanic with rarity tiers, and rewards you for shipping pull requests with XP, badges, and leaderboard rankings.
+## Stack
 
-## How It Works
-
-1. **Draw** — Each day you get random card draws. Issues are tiered by repo popularity: Common, Rare, Epic, or Legendary. You can also browse and pick directly.
-2. **Bookmark** — Save up to 5 issues at a time. Each bookmark lasts 7 days. Your dashboard tracks active work, streaks, and badge progress.
-3. **Submit** — Link a PR to a bookmarked issue. GitFable verifies authorship, repo match, and merge status against the GitHub API.
-4. **Earn** — Merged PRs grant rarity-based XP (25–500 per issue). 10 narrative badges mark milestones from your first merge to contributing across 10+ repos. XP drives your level and leaderboard rank.
-
-## Tech Stack
-
-- **Backend:** Go, Chi router, sqlc, PostgreSQL, Redis
-- **Frontend:** React 19, Tailwind CSS, Shadcn/Radix UI, Framer Motion
-- **Auth:** GitHub OAuth with self-issued JWT
-- **Infra:** Docker Compose, Caddy, GitHub Actions CI/CD
+- Backend: Go, Chi, sqlc, PostgreSQL, Redis
+- Frontend: React 19, Tailwind CSS, Radix UI, Framer Motion
+- Auth: GitHub OAuth with self-issued JWTs
 
 ## Quick Start
 
-```bash
-make install          # Install Go + Node dependencies
-make env              # Create docker/.env from template
-```
+### Prerequisites
 
-Fill in your GitHub OAuth credentials in `docker/.env` (see [docs/github-oauth-setup.md](docs/github-oauth-setup.md)), then:
+- Go
+- Node.js and npm
+- Docker and Docker Compose
+- tmux
 
-```bash
-make dev              # Starts Postgres, Redis, backend, and frontend in tmux
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Development
+### 1. Install dependencies
 
 ```bash
-make dev              # Start everything
-make dev-stop         # Stop all services
-make test             # Run backend tests
-make lint             # Lint backend + frontend
-make generate         # Regenerate sqlc code after SQL changes
-make migrate-up       # Apply database migrations
-make docker-up        # Run full stack in Docker
+make install
+make env
 ```
+
+### 2. Configure local auth
+
+Create a GitHub OAuth App at `https://github.com/settings/developers` with:
+
+```text
+Homepage URL: http://localhost:3000
+Authorization callback URL: http://localhost:8001/api/v1/oauth/github/callback
+```
+
+Then fill in `docker/.env` with local values for:
+
+- `GITHUB_OAUTH_CLIENT_ID`
+- `GITHUB_OAUTH_CLIENT_SECRET`
+- `GITHUB_OAUTH_CALLBACK_URL`
+- `JWT_SECRET`
+- `GITHUB_TOKEN`
+
+`FRONTEND_URL` should match the frontend origin, `CORS_ORIGINS` should include that origin, and `REACT_APP_BACKEND_URL` should point at the backend origin.
+
+### 3. Start the app
+
+```bash
+make dev
+```
+
+Open `http://localhost:3000`.
+
+## Common Commands
+
+```bash
+make dev
+make dev-stop
+make test
+make lint
+make generate
+make migrate-up
+make docker-up
+make docker-down
+```
+
+## Documentation
+
+- Local Docker workflow: `docs/docker-quickstart.md`
+- Testing guide: `docs/TESTING.md`
+- Contribution guide: `CONTRIBUTING.md`
+- Security policy: `SECURITY.md`
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities via [SECURITY.md](SECURITY.md), not public issues.
+Small, focused pull requests are preferred. Before opening a PR, run the checks that match your change and include verification notes.
+
+See `CONTRIBUTING.md` for contributor workflow details.
+
+## Security
+
+Do not report vulnerabilities in public issues. See `SECURITY.md`.
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the MIT License. See `LICENSE`.
