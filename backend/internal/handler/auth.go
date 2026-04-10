@@ -27,11 +27,15 @@ type AuthHandler struct {
 	RequireAuth           func(http.Handler) http.Handler
 	UserFromContext        func(context.Context) *database.User
 	DefaultDailyDrawLimit int
+	DevLoginEnabled       bool
 }
 
 func (h *AuthHandler) Routes() chi.Router {
 	r := chi.NewRouter()
 	r.Post("/register", h.Register)
+	if h.DevLoginEnabled {
+		r.Post("/dev-login", h.DevLogin)
+	}
 	r.Group(func(r chi.Router) {
 		r.Use(h.RequireAuth)
 		r.Get("/me", h.Me)
@@ -297,4 +301,44 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	OK(w, userToResponse(updated, h.DefaultDailyDrawLimit))
+}
+
+// DevLogin creates or finds a dev user and returns tokens. Only available in dev mode without OAuth.
+func (h *AuthHandler) DevLogin(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	const devAuthID = "dev-user-1"
+	const devEmail = "dev@localhost"
+
+	user, err := h.Queries.GetUserByAuthID(ctx, devAuthID)
+	if err != nil {
+		// Create dev user
+		user, err = h.Queries.CreateUserWithAuthID(ctx, database.CreateUserWithAuthIDParams{
+			AuthID:      devAuthID,
+			Username:    "dev",
+			Email:       devEmail,
+			DisplayName: "Dev User",
+			AvatarUrl:   "",
+		})
+		if err != nil {
+			InternalError(w)
+			return
+		}
+	}
+
+	accessToken, err := h.JWT.SignAccessToken(devAuthID, user.Email)
+	if err != nil {
+		InternalError(w)
+		return
+	}
+	refreshToken, err := h.JWT.SignRefreshToken(devAuthID)
+	if err != nil {
+		InternalError(w)
+		return
+	}
+
+	OK(w, map[string]any{
+		"user":          userToResponse(user, h.DefaultDailyDrawLimit),
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
 }

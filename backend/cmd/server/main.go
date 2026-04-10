@@ -126,8 +126,10 @@ func main() {
 
 	// 11. Create handlers.
 	healthHandler := &handler.HealthHandler{
-		Pool:  pool,
-		Redis: redisClient,
+		Pool:            pool,
+		Redis:           redisClient,
+		OAuthConfigured: cfg.OAuthConfigured(),
+		DevLoginEnabled: cfg.DevLoginEnabled,
 	}
 
 	var oauthHandler *handler.OAuthHandler
@@ -146,6 +148,7 @@ func main() {
 		RequireAuth:           authMiddleware.RequireAuth,
 		UserFromContext:       ctxutil.UserFromContext,
 		DefaultDailyDrawLimit: cfg.DefaultDailyDrawLimit,
+		DevLoginEnabled:       cfg.DevLoginEnabled,
 	}
 
 	drawHandler := handler.NewDrawHandler(
@@ -197,6 +200,7 @@ func main() {
 	// Health (no version prefix).
 	r.Get("/health", healthHandler.Health)
 	r.Get("/ready", healthHandler.Ready)
+	r.Get("/config", healthHandler.Config)
 
 	// Swagger documentation.
 	r.Get("/swagger/*", httpSwagger.WrapHandler)

@@ -38,6 +38,8 @@ type Config struct {
 	SyncInterval      time.Duration
 	StaleInterval     time.Duration
 	SyncEnabled       bool
+
+	DevLoginEnabled bool
 }
 
 func Load() (*Config, error) {
@@ -69,6 +71,7 @@ func Load() (*Config, error) {
 		SyncInterval:      getEnvDuration("SYNC_INTERVAL", 6*time.Hour),
 		StaleInterval:     getEnvDuration("STALE_INTERVAL", 12*time.Hour),
 		SyncEnabled:       getEnvBool("SYNC_ENABLED", true),
+		DevLoginEnabled:   getEnvBool("DEV_LOGIN_ENABLED", false),
 	}
 
 	if cfg.IsProduction() && len(cfg.CORSOrigins) == 0 {
@@ -91,6 +94,15 @@ func Load() (*Config, error) {
 			}
 			cfg.JWTSecret = base64.StdEncoding.EncodeToString(b)
 		}
+		// Auto-enable dev login when OAuth is not configured.
+		if !cfg.OAuthConfigured() {
+			cfg.DevLoginEnabled = true
+		}
+	}
+
+	// Never allow dev login in production.
+	if cfg.IsProduction() {
+		cfg.DevLoginEnabled = false
 	}
 
 	return cfg, nil

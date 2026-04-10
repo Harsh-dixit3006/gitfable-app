@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -18,24 +18,54 @@ const navLinks = [
 ];
 
 export default function Navbar() {
-  const { 
-    user, 
-    signInWithGithub, 
-    registerUser, 
-    logout, 
-    showLogin, 
-    setShowLogin, 
-    loading, 
+  const {
+    user,
+    signInWithGithub,
+    devLogin,
+    registerUser,
+    logout,
+    showLogin,
+    setShowLogin,
+    loading,
     isRegistering,
     authUser,
   } = useAuth();
   const [username, setUsername] = useState('');
   const [registerLoading, setRegisterLoading] = useState(false);
+  const [devLoginEnabled, setDevLoginEnabled] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
+  const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+
+  useEffect(() => {
+    fetch(`${API_URL}/config`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.data?.dev_login_enabled) {
+          setDevLoginEnabled(true);
+        }
+      })
+      .catch(() => {});
+  }, [API_URL]);
+
   const handleGithubLogin = () => {
     signInWithGithub();
+  };
+
+  const handleDevLogin = async () => {
+    setRegisterLoading(true);
+    try {
+      const result = await devLogin();
+      if (result.success) {
+        toast.success('Logged in as dev user');
+        navigate('/discover');
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setRegisterLoading(false);
+    }
   };
 
   const handleRegister = async (e) => {
@@ -169,16 +199,27 @@ export default function Navbar() {
           <div className="space-y-4 mt-4 relative">
             {!isRegistering ? (
               <>
-                <button
-                  onClick={handleGithubLogin}
-                  disabled={registerLoading}
-                  className="w-full py-3.5 px-4 rounded-lg bg-white text-zinc-950 font-medium flex items-center justify-center gap-3 hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  data-testid="github-signin-button"
-                >
-                  <Github className="w-5 h-5" />
-                  Continue with GitHub
-                </button>
-                
+                {devLoginEnabled ? (
+                  <button
+                    onClick={handleDevLogin}
+                    disabled={registerLoading}
+                    className={`w-full py-3.5 px-4 rounded-lg font-medium flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${accent.bg} text-white hover:opacity-90`}
+                    data-testid="dev-signin-button"
+                  >
+                    <User className="w-5 h-5" />
+                    Dev Login
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleGithubLogin}
+                    disabled={registerLoading}
+                    className="w-full py-3.5 px-4 rounded-lg bg-white text-zinc-950 font-medium flex items-center justify-center gap-3 hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-testid="github-signin-button"
+                  >
+                    <Github className="w-5 h-5" />
+                    Continue with GitHub
+                  </button>
+                )}
               </>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4">

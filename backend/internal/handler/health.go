@@ -19,8 +19,10 @@ type ReadinessCheck struct {
 }
 
 type HealthHandler struct {
-	Pool  *pgxpool.Pool
-	Redis *redis.Client
+	Pool            *pgxpool.Pool
+	Redis           *redis.Client
+	OAuthConfigured bool
+	DevLoginEnabled bool
 }
 
 func (h *HealthHandler) Routes() chi.Router {
@@ -67,4 +69,12 @@ func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	}
 
 	OK(w, map[string]string{"status": "ready"})
+}
+
+// Config returns client-facing feature flags (auth mode, etc.).
+func (h *HealthHandler) Config(w http.ResponseWriter, r *http.Request) {
+	OK(w, map[string]any{
+		"oauth_configured":  h.OAuthConfigured,
+		"dev_login_enabled": h.DevLoginEnabled,
+	})
 }

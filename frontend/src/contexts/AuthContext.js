@@ -51,6 +51,22 @@ export function AuthProvider({ children }) {
     window.location.href = `${API_URL}/api/v1/oauth/github`;
   }, []);
 
+  // Dev login — only available when OAuth is not configured
+  const devLogin = useCallback(async () => {
+    try {
+      const res = await api.post('/auth/dev-login');
+      const { user: devUser, access_token, refresh_token } = res._data;
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+      setUser(devUser);
+      setShowLogin(false);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err._message || 'Dev login failed' };
+    }
+  }, []);
+
   // Handle OAuth callback data (called from AuthCallback page)
   const handleOAuthCallback = useCallback((data) => {
     if (data.needsRegistration) {
@@ -141,6 +157,7 @@ export function AuthProvider({ children }) {
       user,
       loading,
       signInWithGithub,
+      devLogin,
       handleOAuthCallback,
       registerUser,
       logout,
