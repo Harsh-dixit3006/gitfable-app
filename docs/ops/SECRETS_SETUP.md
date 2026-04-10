@@ -10,20 +10,6 @@
 | `GITHUB_WEBHOOK_SECRET` | Shared webhook secret for `/api/v1/webhooks/github` |
 | `DISCORD_WEBHOOK_URL` | Optional Discord webhook for deployment notifications |
 
-### Dev environment
-
-| Secret | Description |
-|--------|-------------|
-| `DEV_REACT_APP_BACKEND_URL` | `https://dev.gitfable.app` |
-| `DEV_BACKEND_HEALTH_URL` | `https://dev.gitfable.app/health` |
-| `DEV_BACKEND_READY_URL` | `https://dev.gitfable.app/ready` |
-| `DEV_POSTGRES_USER` | PostgreSQL username written into the VPS Docker secret |
-| `DEV_POSTGRES_PASSWORD` | PostgreSQL password written into the VPS Docker secret |
-| `DEV_REDIS_PASSWORD` | Redis password written into the VPS Docker secret |
-| `DEV_GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth app client ID for dev |
-| `DEV_GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth app client secret for dev |
-| `DEV_JWT_SECRET` | JWT signing secret for dev |
-
 ### Prod environment
 
 | Secret | Description |
@@ -44,7 +30,7 @@
 2. Enable required reviewers for production deploys
 3. Optionally add a wait timer before production deployment
 
-## VPS Secrets (on each server)
+## VPS Secrets
 
 ### Docker secrets (in `/home/deploy/gitfable/docker/secrets/`)
 
@@ -64,11 +50,6 @@ Copy and fill in the template (from `/home/deploy/gitfable/docker/`):
 ```bash
 cd /home/deploy/gitfable/docker
 
-# Dev VPS
-cp .env.vps-dev.example .env.vps-dev
-# Edit with actual values
-
-# Prod VPS
 cp .env.vps-prod.example .env.vps-prod
 # Edit with actual values
 ```
@@ -77,9 +58,8 @@ cp .env.vps-prod.example .env.vps-prod
 
 ## GitHub OAuth App Configuration
 
-Create separate GitHub OAuth apps for dev and prod, or one app with both callback URLs.
+Create a GitHub OAuth app with the production callback URL:
 
-- Dev callback: `https://dev.gitfable.app/api/v1/oauth/github/callback`
 - Prod callback: `https://gitfable.app/api/v1/oauth/github/callback`
 
 ## GHCR Access

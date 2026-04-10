@@ -2,11 +2,10 @@
 
 ## Architecture
 
-GitFable runs on two Hetzner VPS instances, each running the full stack in Docker Compose:
+GitFable runs on a production Hetzner VPS instance with the full stack in Docker Compose:
 
 | Environment | Domain | Branch | Deploy Trigger |
 |-------------|--------|--------|----------------|
-| Dev | dev.gitfable.app | devel | Auto on push |
 | Prod | gitfable.app | main | Manual approval |
 
 Each VPS runs: Caddy (auto-SSL) → Frontend (Nginx) + Backend (Go) + PostgreSQL + Redis
@@ -21,12 +20,6 @@ Redis (:6379) — internal only
 ```
 
 ## Deploy Flow
-
-### Dev (automatic)
-
-1. Push to `devel` branch
-2. GitHub Actions: test → build images → push to GHCR → deploy on the dev self-hosted runner → smoke test
-3. No manual steps required
 
 ### Prod (manual approval)
 
@@ -48,7 +41,6 @@ The `scripts/deploy.sh` script:
 
 ## Image Tags
 
-- Dev: `ghcr.io/nishantg96/gitfable-backend:dev-<sha>` + `latest-dev`
 - Prod: `ghcr.io/nishantg96/gitfable-backend:prod-<sha>` + `latest-prod`
 - Same pattern for frontend images
 
@@ -66,7 +58,7 @@ The `scripts/deploy.sh` script:
 
 Prefer the GitHub Actions rollback workflow because it already supplies the full secret set expected by `scripts/deploy.sh`.
 
-If you need to roll back manually on the VPS, export the same environment variables used by the deploy workflow before invoking `./scripts/deploy.sh prod <image_tag>`.
+If you need to roll back manually on the VPS, export the same environment variables used by the deploy workflow before invoking `./scripts/deploy.sh <image_tag>`.
 
 ### Database Rollback
 
@@ -106,8 +98,7 @@ gunzip -c backups/daily/gitfable_prod_20260311.sql.gz | \
 ## Server Access
 
 ```bash
-ssh deploy@<dev-ip>    # Dev VPS
-ssh deploy@<prod-ip>   # Prod VPS
+ssh deploy@<prod-ip>
 ```
 
 App directory: `/home/deploy/gitfable/`

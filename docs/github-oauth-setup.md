@@ -32,12 +32,6 @@ Use your deployed domain for the callback URL:
 https://gitfable.app/api/v1/oauth/github/callback
 ```
 
-For a separate dev environment, use:
-
-```text
-https://dev.gitfable.app/api/v1/oauth/github/callback
-```
-
 ## Related Settings
 
 - `FRONTEND_URL` should match the frontend origin.

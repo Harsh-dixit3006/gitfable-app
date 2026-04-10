@@ -68,7 +68,7 @@ jobs:
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
           APP_GITHUB_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
           GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
-        run: ./scripts/deploy.sh prod ${{ inputs.image_tag }}
+        run: ./scripts/deploy.sh ${{ inputs.image_tag }}
 
   smoke-test:
     name: Smoke Test After Rollback
