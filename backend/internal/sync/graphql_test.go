@@ -660,13 +660,13 @@ func TestFilterIssue(t *testing.T) {
 			want:            true,
 		},
 		{
-			name:            "allowlisted demo repo bypasses star filter",
-			repoFullName:    "nishantg96/git-demo-issues",
+			name:            "allowlisted repo bypasses star filter",
+			repoFullName:    "example/demo-repo",
 			repoStars:       0,
 			repoPushedAt:    now.AddDate(0, 0, -10),
 			minStars:        50,
 			maxInactiveDays: 90,
-			allowlist:       []string{"nishantg96/git-demo-issues"},
+			allowlist:       []string{"example/demo-repo"},
 			want:            true,
 		},
 	}

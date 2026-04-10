@@ -27,6 +27,9 @@ type liveTestSuite struct {
 	queries     *database.Queries
 	handler     *DrawHandler
 	githubToken string
+	repo        githubTestRepo
+	issueNums   []int
+	prNumber    int
 	testUser    database.User
 	testIssues  []database.Issue
 }
@@ -40,6 +43,21 @@ func setupLive(t *testing.T) *liveTestSuite {
 	if githubToken == "" {
 		t.Skip("GITHUB_TOKEN not set - skipping live integration tests. " +
 			"Set GITHUB_TOKEN to run tests against real GitHub API.")
+	}
+
+	repo, err := parseGitHubTestRepo(os.Getenv("LIVE_TEST_REPO"))
+	if err != nil {
+		t.Skip("LIVE_TEST_REPO not set - skipping live integration tests. Set to owner/repo for a maintainer-controlled demo repository.")
+	}
+
+	issueNums, err := parseGitHubIssueNumbers(os.Getenv("LIVE_TEST_ISSUE_NUMBERS"))
+	if err != nil {
+		t.Skip("LIVE_TEST_ISSUE_NUMBERS not set - skipping live integration tests. Set to a comma-separated list of issue numbers in LIVE_TEST_REPO.")
+	}
+
+	prNumber, err := parseGitHubPRNumber(os.Getenv("LIVE_TEST_PR_NUMBER"))
+	if err != nil {
+		t.Skip("LIVE_TEST_PR_NUMBER not set - skipping live integration tests. Set to a pull request number in LIVE_TEST_REPO.")
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -76,6 +94,9 @@ func setupLive(t *testing.T) *liveTestSuite {
 		queries:     queries,
 		handler:     handler,
 		githubToken: githubToken,
+		repo:        repo,
+		issueNums:   issueNums,
+		prNumber:    prNumber,
 	}
 }
 
@@ -121,10 +142,10 @@ func (s *liveTestSuite) loadDemoIssues() []database.Issue {
 		s.t.Fatalf("Failed to list issues: %v", err)
 	}
 
-	// Filter for demo repo issues
+	// Filter for configured maintainer repo issues
 	var demoIssues []database.Issue
 	for _, issue := range issues {
-		if issue.RepoOwner == "nishantg96" && issue.RepoName == "git-demo-issues" {
+		if issue.RepoOwner == s.repo.Owner && issue.RepoName == s.repo.Name {
 			demoIssues = append(demoIssues, issue)
 		}
 	}
@@ -134,7 +155,7 @@ func (s *liveTestSuite) loadDemoIssues() []database.Issue {
 		s.t.Log("No demo repo issues found in database. Creating them manually...")
 		demoIssues = s.createDemoIssues()
 	} else {
-		s.t.Logf("Found %d issues from nishantg96/git-demo-issues in database", len(demoIssues))
+		s.t.Logf("Found %d issues from %s/%s in database", len(demoIssues), s.repo.Owner, s.repo.Name)
 	}
 
 	for _, iss := range demoIssues {
@@ -144,84 +165,33 @@ func (s *liveTestSuite) loadDemoIssues() []database.Issue {
 	return s.testIssues
 }
 
-// createDemoIssues creates the demo repo issues manually with real GitHub data
+// createDemoIssues creates placeholder DB rows for the configured maintainer repo issues.
 func (s *liveTestSuite) createDemoIssues() []database.Issue {
-	// Real issues from nishantg96/git-demo-issues (as of 2026-03-09)
-	// These use the actual GitHub IDs from the real repo
-	demoIssues := []struct {
-		githubID     int64
-		githubNumber int32
-		title        string
-		url          string
-		language     string
-		difficulty   string
-		labels       []string
-	}{
-		{
-			githubID:     4042667884,
-			githubNumber: 2,
-			title:        "Improve welcome message wording",
-			url:          "https://github.com/nishantg96/git-demo-issues/issues/2",
-			language:     "javascript",
-			difficulty:   "easy",
-			labels:       []string{"enhancement", "good first issue"},
-		},
-		{
-			githubID:     4042667920,
-			githubNumber: 3,
-			title:        "Fix checklist owner value for demo data",
-			url:          "https://github.com/nishantg96/git-demo-issues/issues/3",
-			language:     "json",
-			difficulty:   "easy",
-			labels:       []string{"bug", "good first issue"},
-		},
-		{
-			githubID:     4042667958,
-			githubNumber: 4,
-			title:        "Refactor status formatter for readability",
-			url:          "https://github.com/nishantg96/git-demo-issues/issues/4",
-			language:     "javascript",
-			difficulty:   "medium",
-			labels:       []string{"refactor", "good first issue"},
-		},
-		{
-			githubID:     4042668138,
-			githubNumber: 5,
-			title:        "Correct footer copy punctuation",
-			url:          "https://github.com/nishantg96/git-demo-issues/issues/5",
-			language:     "javascript",
-			difficulty:   "easy",
-			labels:       []string{"bug", "good first issue"},
-		},
-	}
-
-	repoOwner := "nishantg96"
-	repoName := "git-demo-issues"
 	var createdIssues []database.Issue
 
-	for _, iss := range demoIssues {
-		// Create the issue with real GitHub IDs
+	for _, issueNumber := range s.issueNums {
+		githubID := int64(issueNumber)
 		issue, err := s.queries.UpsertIssue(s.ctx, database.UpsertIssueParams{
-			GithubID:        iss.githubID,
-			GithubNumber:    iss.githubNumber,
-			RepoOwner:       repoOwner,
-			RepoName:        repoName,
-			Title:           iss.title,
-			Url:             iss.url,
-			Language:        pgtype.Text{String: iss.language, Valid: true},
-			Difficulty:      pgtype.Text{String: iss.difficulty, Valid: true},
+			GithubID:        githubID,
+			GithubNumber:    int32(issueNumber),
+			RepoOwner:       s.repo.Owner,
+			RepoName:        s.repo.Name,
+			Title:           fmt.Sprintf("Maintainer live test issue #%d", issueNumber),
+			Url:             fmt.Sprintf("https://github.com/%s/%s/issues/%d", s.repo.Owner, s.repo.Name, issueNumber),
+			Language:        pgtype.Text{String: "unknown", Valid: true},
+			Difficulty:      pgtype.Text{String: "easy", Valid: true},
 			Rarity:          "common",
 			RepoStars:       0,
 			RepoPushedAt:    pgtype.Timestamptz{},
 			GithubCreatedAt: pgtype.Timestamptz{},
-			Labels:          iss.labels,
+			Labels:          []string{"good first issue"},
 			State:           database.IssueStateOpen,
 		})
 		if err != nil {
-			s.t.Fatalf("Failed to create demo issue %d: %v", iss.githubNumber, err)
+			s.t.Fatalf("Failed to create demo issue %d: %v", issueNumber, err)
 		}
 		createdIssues = append(createdIssues, issue)
-		s.t.Logf("Created demo issue #%d: %s", iss.githubNumber, iss.title)
+		s.t.Logf("Created demo issue #%d in %s/%s", issueNumber, s.repo.Owner, s.repo.Name)
 	}
 
 	s.t.Logf("Successfully created %d demo issues", len(createdIssues))
@@ -285,24 +255,30 @@ func TestLiveWorkflow(t *testing.T) {
 
 		githubClient := service.NewGitHubClient(suite.githubToken)
 
-		// Check for PR #7 which we know exists in the demo repo
-		prStatus, err := githubClient.GetPRStatus(suite.ctx, "nishantg96", "git-demo-issues", 7)
+		prStatus, err := githubClient.GetPRStatus(suite.ctx, suite.repo.Owner, suite.repo.Name, suite.prNumber)
 		if err != nil {
-			t.Logf("Note: Could not fetch PR #7: %v", err)
-			t.Skip("Skipping PR verification test - PR #7 not accessible")
+			t.Logf("Note: Could not fetch PR #%d: %v", suite.prNumber, err)
+			t.Skip("Skipping PR verification test - configured PR not accessible")
 		}
 
-		t.Logf("✓ Found real PR #7 on GitHub:")
+		t.Logf("✓ Found real PR #%d on GitHub:", suite.prNumber)
 		t.Logf("  Title: %s", prStatus.Title)
 		t.Logf("  State: %s", prStatus.State)
 		t.Logf("  Merged: %v", prStatus.Merged)
 		t.Logf("  Author: %s", prStatus.UserLogin)
 
 		// Verify PR references an issue
-		if !service.PRReferencesIssue(*prStatus, 2) && !service.PRReferencesIssue(*prStatus, 4) && !service.PRReferencesIssue(*prStatus, 5) {
-			t.Logf("Warning: PR #7 doesn't reference expected issues")
+		matchesKnownIssue := false
+		for _, issueNumber := range suite.issueNums {
+			if service.PRReferencesIssue(*prStatus, int32(issueNumber)) {
+				matchesKnownIssue = true
+				break
+			}
+		}
+		if !matchesKnownIssue {
+			t.Logf("Warning: PR #%d doesn't reference the configured issue numbers", suite.prNumber)
 		} else {
-			t.Logf("✓ PR #7 references an issue from our demo repo")
+			t.Logf("✓ PR #%d references an issue from the configured maintainer repo", suite.prNumber)
 		}
 	})
 
@@ -325,9 +301,7 @@ func TestLiveWorkflow(t *testing.T) {
 			t.Skip("No bookmarked issues found - skipping PR submission test")
 		}
 
-		// For this test, we'll try to submit PR #7 which we know exists
-		// In a real scenario, the user would create a new PR
-		prURL := "https://github.com/nishantg96/git-demo-issues/pull/7"
+		prURL := fmt.Sprintf("https://github.com/%s/%s/pull/%d", suite.repo.Owner, suite.repo.Name, suite.prNumber)
 
 		body, _ := json.Marshal(map[string]string{
 			"pr_url": prURL,
@@ -354,27 +328,27 @@ func TestLiveWorkflow(t *testing.T) {
 	})
 
 	t.Run("VerifyRealMergeStatus", func(t *testing.T) {
-		// Check if PR #7 is actually merged on GitHub
+		// Check if the configured PR is actually merged on GitHub
 		githubClient := service.NewGitHubClient(suite.githubToken)
 
-		prStatus, err := githubClient.GetPRStatus(suite.ctx, "nishantg96", "git-demo-issues", 7)
+		prStatus, err := githubClient.GetPRStatus(suite.ctx, suite.repo.Owner, suite.repo.Name, suite.prNumber)
 		if err != nil {
 			t.Skipf("Cannot fetch PR status: %v", err)
 		}
 
 		if prStatus.Merged {
-			t.Logf("✓ PR #7 is MERGED on GitHub!")
+			t.Logf("✓ PR #%d is MERGED on GitHub!", suite.prNumber)
 			t.Logf("  Merged at: %s", prStatus.MergedAt)
 			t.Logf("  Merge commit: %s", prStatus.MergeCommitSHA)
 		} else {
-			t.Logf("PR #7 is not merged yet (state: %s)", prStatus.State)
+			t.Logf("PR #%d is not merged yet (state: %s)", suite.prNumber, prStatus.State)
 			t.Logf("This is expected - PRs need to be merged manually on GitHub")
 		}
 	})
 
 	t.Log("\n=== Live Integration Test Complete ===")
 	t.Log("Tests validated against REAL GitHub API:")
-	t.Log("  ✓ Can bookmark real issues from demo repo")
+	t.Log("  ✓ Can bookmark real issues from configured maintainer repo")
 	t.Log("  ✓ PR verification works with real GitHub data")
 	t.Log("  ✓ Merge status check works with real GitHub")
 }
@@ -382,7 +356,7 @@ func TestLiveWorkflow(t *testing.T) {
 // TestLivePRSubmissionWithTestAccount demonstrates creating a real PR
 // This requires a test GitHub account with write access to the demo repo
 func TestLivePRSubmissionWithTestAccount(t *testing.T) {
-	t.Skip("Skipped: Requires test GitHub account with write access to nishantg96/git-demo-issues")
+	t.Skip("Skipped: Requires test GitHub account with write access to LIVE_TEST_REPO")
 
 	// This test would:
 	// 1. Fork the demo repo

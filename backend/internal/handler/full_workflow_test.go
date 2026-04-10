@@ -32,6 +32,7 @@ type fullWorkflowTestSuite struct {
 	httpClient  *http.Client
 	githubToken string
 	githubUser  string
+	repo        githubTestRepo
 	testUser    database.User
 	testIssues  []database.Issue
 }
@@ -45,11 +46,16 @@ func setupFullWorkflow(t *testing.T) *fullWorkflowTestSuite {
 		t.Skip("GITHUB_TOKEN not set - skipping full workflow test")
 	}
 
-	// Check for test GitHub username (must have write access to demo repo)
+	// Check for test GitHub username (must have write access to configured repo)
 	githubUser := os.Getenv("TEST_GITHUB_USERNAME")
 	if githubUser == "" {
 		t.Skip("TEST_GITHUB_USERNAME not set - required for creating PRs. " +
-			"Set to a GitHub user with write access to nishantg96/git-demo-issues")
+			"Set to a GitHub user with write access to FULL_WORKFLOW_TEST_REPO")
+	}
+
+	repo, err := parseGitHubTestRepo(os.Getenv("FULL_WORKFLOW_TEST_REPO"))
+	if err != nil {
+		t.Skip("FULL_WORKFLOW_TEST_REPO not set - required for full workflow tests. Set to owner/repo for a maintainer-controlled repository.")
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -86,6 +92,7 @@ func setupFullWorkflow(t *testing.T) *fullWorkflowTestSuite {
 		httpClient:  &http.Client{Timeout: 30 * time.Second},
 		githubToken: githubToken,
 		githubUser:  githubUser,
+		repo:        repo,
 	}
 }
 
@@ -137,7 +144,7 @@ func (s *fullWorkflowTestSuite) getOrCreateDemoIssues() []database.Issue {
 	}
 
 	for _, issue := range issues {
-		if issue.RepoOwner == "nishantg96" && issue.RepoName == "git-demo-issues" {
+		if issue.RepoOwner == s.repo.Owner && issue.RepoName == s.repo.Name {
 			s.testIssues = append(s.testIssues, issue)
 		}
 	}
@@ -234,7 +241,7 @@ func TestFullWorkflow(t *testing.T) {
 	t.Run("CreateRealPR", func(t *testing.T) {
 		// Get default branch
 		resp, err := suite.makeGitHubRequest("GET",
-			"https://api.github.com/repos/nishantg96/git-demo-issues", nil)
+			fmt.Sprintf("https://api.github.com/repos/%s/%s", suite.repo.Owner, suite.repo.Name), nil)
 		if err != nil {
 			t.Fatalf("Failed to get repo: %v", err)
 		}
@@ -249,7 +256,7 @@ func TestFullWorkflow(t *testing.T) {
 
 		// Get reference to default branch
 		resp, err = suite.makeGitHubRequest("GET",
-			fmt.Sprintf("https://api.github.com/repos/nishantg96/git-demo-issues/git/refs/heads/%s", repo.DefaultBranch), nil)
+			fmt.Sprintf("https://api.github.com/repos/%s/%s/git/refs/heads/%s", suite.repo.Owner, suite.repo.Name, repo.DefaultBranch), nil)
 		if err != nil {
 			t.Fatalf("Failed to get ref: %v", err)
 		}
@@ -272,7 +279,7 @@ func TestFullWorkflow(t *testing.T) {
 		})
 
 		resp, err = suite.makeGitHubRequest("POST",
-			"https://api.github.com/repos/nishantg96/git-demo-issues/git/refs", createRefBody)
+			fmt.Sprintf("https://api.github.com/repos/%s/%s/git/refs", suite.repo.Owner, suite.repo.Name), createRefBody)
 		if err != nil {
 			t.Fatalf("Failed to create branch: %v", err)
 		}
@@ -297,7 +304,7 @@ func TestFullWorkflow(t *testing.T) {
 		})
 
 		resp, err = suite.makeGitHubRequest("PUT",
-			fmt.Sprintf("https://api.github.com/repos/nishantg96/git-demo-issues/contents/%s", filePath),
+			fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", suite.repo.Owner, suite.repo.Name, filePath),
 			createFileBody)
 		if err != nil {
 			t.Fatalf("Failed to create file request: %v", err)
@@ -320,7 +327,7 @@ func TestFullWorkflow(t *testing.T) {
 		})
 
 		resp, err = suite.makeGitHubRequest("POST",
-			"https://api.github.com/repos/nishantg96/git-demo-issues/pulls", prBody)
+			fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls", suite.repo.Owner, suite.repo.Name), prBody)
 		if err != nil {
 			t.Fatalf("Failed to create PR: %v", err)
 		}
@@ -348,7 +355,7 @@ func TestFullWorkflow(t *testing.T) {
 			t.Fatal("No PR created")
 		}
 
-		prURL := fmt.Sprintf("https://github.com/nishantg96/git-demo-issues/pull/%d", prNumber)
+		prURL := fmt.Sprintf("https://github.com/%s/%s/pull/%d", suite.repo.Owner, suite.repo.Name, prNumber)
 
 		body, _ := json.Marshal(map[string]string{
 			"pr_url": prURL,
@@ -387,7 +394,7 @@ func TestFullWorkflow(t *testing.T) {
 
 		// Get PR details to obtain HEAD SHA for merge
 		prResp, prErr := suite.makeGitHubRequest("GET",
-			fmt.Sprintf("https://api.github.com/repos/nishantg96/git-demo-issues/pulls/%d", prNumber), nil)
+			fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d", suite.repo.Owner, suite.repo.Name, prNumber), nil)
 		if prErr != nil {
 			t.Fatalf("Failed to get PR details: %v", prErr)
 		}
@@ -410,7 +417,7 @@ func TestFullWorkflow(t *testing.T) {
 		})
 
 		resp, err := suite.makeGitHubRequest("PUT",
-			fmt.Sprintf("https://api.github.com/repos/nishantg96/git-demo-issues/pulls/%d/merge", prNumber),
+			fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d/merge", suite.repo.Owner, suite.repo.Name, prNumber),
 			mergeBody)
 		if err != nil {
 			t.Fatalf("Failed to merge PR: %v", err)

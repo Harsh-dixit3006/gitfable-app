@@ -28,6 +28,7 @@ type e2eTestSuite struct {
 	queries    *database.Queries
 	handler    *DrawHandler
 	mockGithub *mockGitHubClient
+	repo       githubTestRepo
 	testUser   database.User
 	testIssues []database.Issue
 }
@@ -69,6 +70,11 @@ func setupE2E(t *testing.T) *e2eTestSuite {
 	streakSvc := service.NewStreakService(queries)
 	issueChecker := service.NewIssueChecker(nil) // nil redis = no caching
 
+	repo, err := parseGitHubTestRepo(os.Getenv("E2E_TEST_REPO"))
+	if err != nil {
+		repo = githubTestRepo{Owner: "example", Name: "gitfable-e2e"}
+	}
+
 	// Mock GitHub client for deterministic PR testing
 	mockGithub := newMockGitHubClient()
 
@@ -88,6 +94,7 @@ func setupE2E(t *testing.T) *e2eTestSuite {
 		queries:    queries,
 		handler:    handler,
 		mockGithub: mockGithub,
+		repo:       repo,
 	}
 }
 
@@ -113,11 +120,8 @@ func (s *e2eTestSuite) createTestUser() database.User {
 	return user
 }
 
-// createDemoIssues creates test issues from the real demo repo
-// Uses actual GitHub issues from nishantg96/git-demo-issues so IssueChecker validates them
+// createDemoIssues creates test issues for a configurable maintainer repo.
 func (s *e2eTestSuite) createDemoIssues() []database.Issue {
-	// Real issues from nishantg96/git-demo-issues (fetched 2026-03-09)
-	// These must exist and be open on GitHub for IssueChecker to work
 	demoIssues := []struct {
 		githubID     int64
 		githubNumber int32
@@ -132,8 +136,8 @@ func (s *e2eTestSuite) createDemoIssues() []database.Issue {
 		{4042668138, 5, "Correct footer copy punctuation", "javascript", "easy", []string{"bug", "good first issue"}},
 	}
 
-	repoOwner := "nishantg96"
-	repoName := "git-demo-issues"
+	repoOwner := s.repo.Owner
+	repoName := s.repo.Name
 
 	for _, iss := range demoIssues {
 		// Use UpsertIssue to handle existing issues gracefully
@@ -229,7 +233,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		t.Logf("✓ Bookmarked issue: %s", resp.Data.Issue.Title)
 	})
 
-	// Step 3: Fill active work queue to 4 items (max available from demo repo)
+	// Step 3: Fill active work queue to 4 items (max available from seeded issues)
 	t.Run("FillActiveWorkQueue", func(t *testing.T) {
 		// Already have 1 from previous test, need 3 more
 		for i := 1; i <= 3; i++ {
@@ -373,7 +377,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		// Configure the mock GitHub client with the correct PR response
 		// The PR must reference the issue number and match the user's GitHub username
 		prNumber := 100 + int(issue.ID) // Use a unique PR number
-		prURL := fmt.Sprintf("https://github.com/nishantg96/git-demo-issues/pull/%d", prNumber)
+		prURL := fmt.Sprintf("https://github.com/%s/%s/pull/%d", suite.repo.Owner, suite.repo.Name, prNumber)
 
 		// Get the user's GitHub username
 		testUser, _ := suite.queries.GetUserByID(suite.ctx, user.ID)
@@ -383,7 +387,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		}
 
 		// Set up the mock PR response with proper issue reference
-		suite.mockGithub.SetPRStatus("nishantg96", "git-demo-issues", prNumber, &service.PRStatus{
+		suite.mockGithub.SetPRStatus(suite.repo.Owner, suite.repo.Name, prNumber, &service.PRStatus{
 			State:          "open",
 			Merged:         false,
 			MergedAt:       "",
@@ -559,8 +563,8 @@ func (m *mockGitHubClient) GetPRStatus(ctx context.Context, owner, repo string, 
 		return resp, nil
 	}
 
-	// Default response for demo repo PR #7 (the one that exists in git-demo-issues)
-	if owner == "nishantg96" && repo == "git-demo-issues" && number == 7 {
+	// Default response for the configured test repo PR #7.
+	if number == 7 {
 		return &service.PRStatus{
 			State:          "open",
 			Merged:         false,
@@ -569,7 +573,7 @@ func (m *mockGitHubClient) GetPRStatus(ctx context.Context, owner, repo string, 
 			UserLogin:      "testuser_placeholder", // Will be set via SetPRStatus
 			Title:          "Fix footer punctuation - Fixes #5",
 			Body:           "This PR fixes #5 by correcting the footer copy punctuation.",
-			HTMLURL:        "https://github.com/nishantg96/git-demo-issues/pull/7",
+			HTMLURL:        fmt.Sprintf("https://github.com/%s/%s/pull/7", owner, repo),
 		}, nil
 	}
 

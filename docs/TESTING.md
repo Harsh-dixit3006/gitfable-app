@@ -86,6 +86,14 @@ cd frontend && CI=true npm run build
 The repository also includes tests that use real GitHub resources.
 
 - Live GitHub API tests use real GitHub data.
-- Full workflow tests create real branches, pull requests, merges, and commits in a demo repository.
+- Full workflow tests create real branches, pull requests, merges, and commits in a maintainer-controlled repository.
+
+They are opt-in and require explicit environment variables such as:
+
+- `LIVE_TEST_REPO`
+- `LIVE_TEST_ISSUE_NUMBERS`
+- `LIVE_TEST_PR_NUMBER`
+- `FULL_WORKFLOW_TEST_REPO`
+- `TEST_GITHUB_USERNAME`
 
 Only run those flows if you intentionally have the required access and understand the side effects.
