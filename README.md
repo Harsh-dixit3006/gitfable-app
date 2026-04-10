@@ -11,7 +11,8 @@
 
 <p align="center">
   <a href="https://gitfable.app"><img src="https://img.shields.io/badge/live-gitfable.app-amber?style=flat-square" alt="Live" /></a>
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
+  <a href="https://github.com/nishantg96/gitfable-app/actions/workflows/deploy-prod.yml"><img src="https://github.com/nishantg96/gitfable-app/actions/workflows/deploy-prod.yml/badge.svg?branch=main" alt="Deploy Prod" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square" alt="License" /></a>
   <a href="https://github.com/nishantg96/gitfable-app/issues"><img src="https://img.shields.io/badge/feedback-welcome-blue?style=flat-square" alt="Feedback" /></a>
 </p>
 
@@ -94,8 +95,8 @@ See `CONTRIBUTING.md` for contributor workflow details.
 
 ## Security
 
-Do not report vulnerabilities in public issues. See `SECURITY.md`.
+Security reports are welcome through public GitHub issues. See `SECURITY.md`.
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE`.
+This project is licensed under the Apache License 2.0. See `LICENSE`.
